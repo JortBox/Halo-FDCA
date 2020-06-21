@@ -1,6 +1,4 @@
 #Data to use for MCMC.
 #Col1: object, Col2: /path/to/data/file.fits, Col3: /path/to/DS9_regfile.reg
 #
-#Abell1033,/Users/jortboxelaar/Downloads/a1033_halo-2/lr_taper10-MFS-image.fits,/Users/jortboxelaar/Downloads/a1033_halo-2/mask.reg 
-Abell1033,/net/bach2/data2/boxelaar/BRP_git/Data/a1033_halo/lr_taper10-MFS-image.fits,/net/bach2/data2/boxelaar/BRP_git/Data/a1033_halo/mask_adjustedreg
-
+Abell1033,/path/to/file/lr_taper10-MFS-image.fits,/path/to/regfile/adjusted_mask.reg
