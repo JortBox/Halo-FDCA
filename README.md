@@ -14,23 +14,23 @@ Also available on the arXiv: t.b.a.
 
 ## Requisites
 
-This software is written in the Python programming language and is meant for application in astronomical research. Key software requirements to run the pipeline include:
+This software is written in the `Python` programming language and is meant for application in astronomical research. Key software requirements to run the pipeline include:
 
-'Astropy' v4.0 and up<br>
+`Astropy` v4.0 and up<br>
 https://www.astropy.org
 
-'Scipy' v1.5 and up<br>
-'Numpy' v1.19 and up<br>
-'Matplotlib' <br>
+`Scipy` v1.5 and up<br>
+`Numpy` v1.19 and up<br>
+`Matplotlib` <br>
 https://www.scipy.org/docs.html
 
-'emcee' v3.0 and up<br>
+`emcee` v3.0 and up<br>
 https://emcee.readthedocs.io/en/stable/ 
 
-'corner'<br>
+`corner`<br>
 https://corner.readthedocs.io/en/latest/index.html 
 
-This software will run a multithreaded process by default using the 'multiprocessing' module. This requires significant computing power and it is advised to use a dedicated external computing mashine. Multithreading can be turned off but this will increase the run time up to a factor 10 (depending on the settings).  
+This software will run a multithreaded process by default using the `multiprocessing` module. This requires significant computing power and it is advised to use a dedicated external computing mashine. Multithreading can be turned off but this will increase the run time up to a factor 10 (depending on the settings).  
 
 
 
