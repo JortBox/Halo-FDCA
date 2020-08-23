@@ -33,7 +33,7 @@ https://corner.readthedocs.io/en/latest/index.html
 This software will run a multithreaded process by default using the `multiprocessing` module. This requires significant computing power and it is advised to use a dedicated external computing mashine. Multithreading can be turned off but this will increase the run time up to a factor 10 (depending on the settings).  
 
 ## Algorithm Overview
-[![Flowchart](flowchart.pdf "flowchart")]
+![Flowchart](flowchart.pdf "flowchart")
 
 
 
