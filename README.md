@@ -16,18 +16,18 @@ Also available on the arXiv: t.b.a.
 
 This software is written in the Python programming language and is meant for application in astronomical research. Key software requirements to run the pipeline include:
 
-Astropy v4.0 and up
+Astropy v4.0 and up<br>
 https://www.astropy.org
 
-Scipy v1.5 and up
-Numpy v1.19 and up
-Matplotlib 
+Scipy v1.5 and up<br>
+Numpy v1.19 and up<br>
+Matplotlib <br>
 https://www.scipy.org/docs.html
 
-Emcee v3.0 and up
+Emcee v3.0 and up<br>
 https://emcee.readthedocs.io/en/stable/ 
 
-Corner
+Corner<br>
 https://corner.readthedocs.io/en/latest/index.html 
 
 
