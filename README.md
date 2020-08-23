@@ -1,4 +1,4 @@
-# Halo-FDCA
+# Halo-FDCa (Flux Density Calculator)
 
 ## Introduction
 This software pipile is created to automate flux density (and power) estimations of radio halos in galaxy clusters. The text below provides a step-by-step example and walk trough of the algorithm as well as a summary of installation and machine requirements.
