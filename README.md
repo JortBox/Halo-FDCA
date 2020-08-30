@@ -36,11 +36,17 @@ This software will run a multithreaded process by default using the `multiproces
 ### Overview
 ![Flowchart!](flowchart-1.png "Flowchart")
 
+This flowchart gives a general overview of the pipeline. On code level, the pipeline works roughly like this:<br>
+First, a `Radio_Halo` object must be initiated. When initiating the object, all relevant properties are processed. This class is documented in `__HaloObject__.py`.
+This class also handles the very first fits such that the image coordinates can be related to sky coordinates without using the header.  
+
 ### Input
 The input required to successfully run the algorithm is a standardised astronomical FITS file containing a data image with acompanying header that must include keys standard for radio astronomy (e.g. Observing frequency, sythesised beam information and pixel/sky scale). An optional extra file that can be used as input is a DS9 region file (.reg format) where image subsets can be masked. these regions will be ignored during flux density estimation. Objects and their files can be injected into the puipeline using the 'database.dat' file in /Data/. To run an object, a line in database.dat should look like this:
 
 `cluster_name,/path/to/fits/file.fits,/path/to/region/file.reg`
 
 An arbitraty amound of clusters can be put in this file.
+
+Currently, cluster characteristics such as location, redshift and M500 mass (R500 radius if availible) can be retrieved from catalogues on VIZIER. This automatic retrieval of cluster information is availible for MCXC, PSZ2, Abell and WHL clusters. A catalogue search is not always succesful, it is adviced to give the essential cluster information, redshift and sky location, as input. 
 
 
