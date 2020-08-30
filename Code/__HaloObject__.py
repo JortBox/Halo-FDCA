@@ -3,7 +3,7 @@
 
 '''
 Author: J.M. Boxelaar
-Version: 21 June 2020
+Version: 08 June 2020
 '''
 # Built in module imports
 import sys
@@ -30,8 +30,8 @@ import plotting_fits as plot
 import markov_chain_monte_carlo
 import utils
 
-plt.rc('text',usetex=True)
-plt.rc('font', family='serif')
+#plt.rc('text',usetex=True)
+#plt.rc('font', family='serif')
 np.seterr(divide='ignore', invalid='ignore')
 
 rad2deg    = 180./np.pi
@@ -59,10 +59,10 @@ class Radio_Halo(object):
                   self.exponentialFit().
     logger: Configured logging object to log info to a .log file. If not given,
             a new file will be created.
-    loc (SkyCoord object): M500 (float): Manually inserted cluster location.
-                          If None: location is gathered from a Vizier query.
-                          Otherwise: provide Astropy SkyCoord object with approximate
-                          centre of radio halo.
+    loc (SkyCoord object): Manually inserted cluster location as an astropy.SkyCoord
+                        object. If None: location is gathered from a Vizier query.
+                        Otherwise: provide Astropy SkyCoord object with approximate
+                        centre of radio halo.
     M500 (float): Manually inserted mass. If None: mass is gathered from a Vizier query
                   If not None: must be value given in 1e14 SolMass
     R500 (float): Manually inserted R500 radius. If None: radius is gathered from
@@ -70,9 +70,13 @@ class Radio_Halo(object):
                   in Mega Parsec.
     z (float): Manually inserted redshift. If None: redshift is gathered from
                a Vizier query
+    spectr_index (float): Manually inserted halo spectral index (S_v = v^(spectr_index)).
+                          Value is used when extrapolating flux density and calculating
+                          power values. Default is -1.2 (No conclusions can be drawn
+                          from using this default value in calculations).
     '''
     def __init__(self, object, path, convolved=False, decreased_fov=False,
-                logger=logging, loc=None, M500=None, R500=None, z=None):
+                logger=logging, loc=None, M500=None, R500=None, z=None, spectr_index=-1.2):
 
         self.user_radius = R500
         self.user_loc    = loc
@@ -91,6 +95,7 @@ class Radio_Halo(object):
 
         self.target = str(object)
         self.path   = path
+        self.alpha  = spectr_index
         self.name   = self.target.replace('MCXC','MCXC ')
         self.name   = self.target.replace('PSZ2','PSZ2 ')
         self.name   = self.target.replace('Abell','Abell ')
@@ -121,16 +126,18 @@ class Radio_Halo(object):
         self.set_image_characteristics(decreased_fov)
 
     def initiatePaths(self):
-        path      = os.getcwd()
-        basedir   = '/'.join(path.split('/')[:-1])+'/'
-        data_file = basedir+'Data/database.dat'
+        path = os.getcwd()
         for i in reversed(range(len(path))):
-            if path[i-21:i] == 'FluxDensityCalculator':
+            if path[i-24:i] == 'RadioHalo_FluxCalculator':
                 self.basedir = path[:i]+'/'
 
         txt           = self.path.split('/')
         self.file     = txt[-1]
         self.dataPath = '/'+'/'.join(txt[:-1])+'/'
+
+        if not os.path.isdir(self.basedir+'Output/'):
+            self.log.log(logging.INFO,'Creating modelling directory')
+            os.makedirs(self.basedir+'Output/')
 
         self.plotPath  = self.basedir+'Output/Plots/'
         self.modelPath = self.basedir+'Output/Samples/'
@@ -235,14 +242,14 @@ class Radio_Halo(object):
         if M500 is not None:
             self.M500 = float(M500)*1.e14*u.Msun
             self.M500_std = 0.*u.Msun
-            self.log.log(logging.INFO,'Custom M500 mass set to: '+str(M500))
+            self.log.log(logging.INFO,'Custom M500 mass set')
         if R500 is not None:
             self.R500 = float(R500)*u.Mpc
-            self.log.log(logging.INFO,'Custom R500 radius set to: '+str(R500))
+            self.log.log(logging.INFO,'Custom R500 radius set')
             self.user_radius=self.R500
         if z is not None:
             self.z = float(z)
-            self.log.log(logging.INFO,'Custom redshift set to: '+str(z))
+            self.log.log(logging.INFO,'Custom redshift set')
 
         self.factor      = self.cosmology.kpc_proper_per_arcmin(self.z).to(u.Mpc/u.deg)
         self.radius_real = self.R500/self.factor
@@ -263,28 +270,53 @@ class Radio_Halo(object):
         self.pix2kpc    = self.pix_size*self.factor.to(u.kpc/u.deg)
 
     def get_beam_area(self):
-        self.bmaj      = self.header['BMIN']*u.deg
-        self.bmin      = self.header['BMAJ']*u.deg
-        self.bpa       = self.header['BPA']*u.deg
-        self.pix_size  = abs(self.header['CDELT2'])*u.deg
+        try:
+            self.bmaj      = self.header['BMIN']*u.deg
+            self.bmin      = self.header['BMAJ']*u.deg
+            self.bpa       = self.header['BPA']*u.deg
+        except KeyError:
+            string    = str(self.header['HISTORY'])
+            self.bmaj = self.findstring(string, 'BMAJ')*u.deg
+            self.bmin = self.findstring(string, 'BMIN')*u.deg
+            self.bpa  = self.findstring(string, 'BPA')*u.deg
 
-        beammaj = self.bmaj/(2.*(2.*np.log(2.))**0.5) # Convert to sigma
-        beammin = self.bmin/(2.*(2.*np.log(2.))**0.5) # Convert to sigma
+        self.pix_size  = abs(self.header['CDELT2'])*u.deg
+        beammaj        = self.bmaj/(2.*(2.*np.log(2.))**0.5) # Convert to sigma
+        beammin        = self.bmin/(2.*(2.*np.log(2.))**0.5) # Convert to sigma
         self.pix_area  = abs(self.header['CDELT1']*self.header['CDELT2'])*u.deg*u.deg
         self.beam_area = 2.*np.pi*1.0*beammaj*beammin
         self.beam2pix  = self.beam_area/self.pix_area
 
     def unpack_File(self):
         self.hdul = fits.open(self.path)
-        data = self.hdul[0].data[0,0,:,:]
+        try:
+            data = self.hdul[0].data[0,0,:,:]
+        except:
+            data = self.hdul[0].data
         self.header = self.hdul[0].header
+        data[np.isnan(data)]=0
         return data
+
+    def findstring(self, string, key):
+        string = string.split('\n')
+        for i in range(len(string)):
+            if string[i].find(key) != -1 and string[i].find('CLEAN') != -1:
+                line = string[i]
+        the_key = line.find(key)
+        start = line[the_key:].find('=')+the_key+1
+        while line[start]==' ':
+            start+=1
+
+        if line[start:].find(' ') == -1:
+            return float(line[start:])
+        end = line[start:].find(' ')+start
+        return float(line[start:end])
+
 
     def get_noise(self, data, ampnoise=0.2):
         #rmsnoise   = utils.findrms(np.ndarray.flatten(data.value))*data.unit
         rmsnoise   = utils.get_rms(self.path)
-        imagenoise = 0. #np.sqrt((ampnoise*data)**2+(rmsnoise*np.sqrt(1./self.beam2pix))**2)
-        #imagenoise isn't used anywhere
+        imagenoise = 0.#np.sqrt((ampnoise*data)**2+(rmsnoise*np.sqrt(1./self.beam2pix))**2)
         return rmsnoise, imagenoise
 
     def decrease_fov(self, data, width=2):
@@ -326,7 +358,8 @@ class Radio_Halo(object):
                          self.fov_info[2]:self.fov_info[3]]
         self.ra   =  self.ra[self.fov_info[2]:self.fov_info[3]]
         self.dec  = self.dec[self.fov_info[0]:self.fov_info[1]]
-
+        #plt.imshow(self.data.value)
+        #plt.show()
 
     def pix_to_world(self):
         w = wcs.WCS(self.header)
@@ -355,7 +388,7 @@ class Radio_Halo(object):
     def exponentialFit(self, image, first=False):
         max_flux   = np.max(image)
         centre_pix = self.find_halo_centre(image, first)
-        size = 30.
+        size = image.shape[1]/5.
         bounds  = ([0.,0.,0.,0.,],
                   [np.inf,image.shape[0],
                           image.shape[1],
@@ -366,8 +399,18 @@ class Radio_Halo(object):
                                 image.ravel(), p0=(max_flux,centre_pix[0],
                                 centre_pix[1],size), bounds=bounds)
 
-        popt_before = np.copy(popt)
+        #popt_before = np.copy(popt)
 
+        #plt.imshow(image)
+        #plt.contour(self.circle_model((self.x_pix,self.y_pix),*popt).reshape(image.shape))
+        #plt.show()
+        #print(popt, centre_pix, size)
+        #if abs(popt[1]-centre_pix[0])>40 and self.user_loc!=False:
+        #    popt[1]=centre_pix[0]
+        #    print('x_loc overwrite')
+        #if abs(popt[2]-centre_pix[1])>40 and self.user_loc!=False:
+        #    popt[2]=centre_pix[1]
+        #    print('y_loc overwrite')
         if (self.user_radius != False and self.radius_real<(3.5*popt[3]*self.pix_size)):# or popt[3]>0.5*image.shape[0]:
             popt[3]=size
             print('size overwrite')
@@ -375,6 +418,12 @@ class Radio_Halo(object):
         if first:
             self.radius = 4*popt[3]*self.pix_size
         self.centre_pix = np.array([popt[1],popt[2]], dtype=np.int64)
+
+        #print(popt, centre_pix, size)
+        #plt.imshow(image)
+        #plt.contour(self.circle_model((self.x_pix,self.y_pix),*popt).reshape(image.shape))
+        #plt.contour(self.circle_model((self.x_pix,self.y_pix),*popt_before).reshape(image.shape), colors='black')
+        #plt.show()
 
 
     def regridding(self, data, decrease_fov=False):

@@ -3,7 +3,7 @@
 
 '''
 Author: J.M. Boxelaar
-Version: 21 June 2020
+Version: 08 June 2020
 '''
 
 from __future__ import division
@@ -13,9 +13,11 @@ import logging
 from multiprocessing import Pool
 
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 import scipy.stats as stats
 from scipy import ndimage
+from scipy.special import gammainc, gamma
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 from skimage.measure import block_reduce
@@ -33,8 +35,8 @@ import corner
 import utils
 import plotting_fits as plot
 
-plt.rc('text',usetex=True)
-plt.rc('font', family='serif')
+#plt.rc('text',usetex=True)
+#plt.rc('font', family='serif')
 #np.seterr(divide='ignore', invalid='ignore')
 
 rad2deg    = 180./np.pi
@@ -67,7 +69,6 @@ class fitting(object):
             nothing happens.
     rebin (bool): default is True. regridding data to beamsize to fit to indipendent
                   datapoints. Default is True.
-                  Do not set to False otherwise results are not statistically valid.
     Forward (bool): Depricated.
     Mask (bool): applying mask to image. If true: a DS9 .reg  has to be present in the
                  Radio_halo.maskPath direcory Default is False.
@@ -76,8 +77,10 @@ class fitting(object):
                     directory will be searched.
     '''
     def __init__(self, _parent_, data, dim, p0, bounds, walkers, steps,
-                            save=False, burntime=0, logger=logging,
-                            rebin=True, forward=False, mask=False, maskpath='--'):
+                            save=False, burntime=0, logger=logging, rebin=True,
+                            forward=False, mask=False, maskpath='--', max_radius=None,
+                            k_exponent=False, offset=False):
+        p0 = list(p0)
         self.orig_shape = _parent_.data.shape
         self.rebin = rebin
         self.log   = logger
@@ -89,43 +92,57 @@ class fitting(object):
         self.steps = int(steps)
         self.save  = save
         self.mask_treshold = 0.4
+        self.k_exponent = k_exponent
+        self.offset = offset
 
-        self.check_settings(dim, walkers, mask, burntime, maskpath)
+        self.p0 = p0
+        self.bounds = bounds
+
+        '''
+        if k_exponent:
+            bounds[0].append(0.)
+            bounds[1].append(np.inf)
+            p0.append(1.)
+        if offset:
+            bounds[0].append(-np.inf)
+            bounds[1].append(np.inf)
+            p0.append(0.)
+        '''
+
+        self.check_settings(dim, walkers, mask, burntime, maskpath, max_radius)
+        x = np.arange(0,_parent_.data.shape[1],1)
+        y = np.arange(0,_parent_.data.shape[0],1)
+        self.x_pix, self.y_pix = np.meshgrid(x,y)
+
+        self.dof = len(data.value.flat) - self.dim
+        #self.data2use = self.set_data_to_use(self.data)
+
+
+    def __preFit__(self):
         try:
-            x = np.arange(0,_parent_.data.shape[1],1)
-            y = np.arange(0,_parent_.data.shape[0],1)
-            self.x_pix, self.y_pix = np.meshgrid(x,y)
-
-            self.pre_mcmc_fit(_parent_.data, p0=p0, bounds=bounds)
+            self.pre_mcmc_fit(self.halo.data, p0=np.array(self.p0), bounds=np.array(self.bounds))
         except:
-            self.log.log(logging.CRITICAL,'MCMC Failed to execute pre-fit. Continueing with initial p0')
-            self.popt = np.array(p0)
-            self.perr = 1.e-2*self.popt
-
-        self.dof = len(data.value.flat) - self.ndim
-        self.data2use = self.set_data_to_use(self.data)
-
-        dati =np.copy(self.halo.data.value)
-        dati[self.image_mask==1]=0
+            self.log.log(logging.CRITICAL,'MCMC Failed to execute pre-fit.')
+            sys.exit()
 
     def __run__(self):
-        data = self.data2use
+        data = self.set_data_to_use(self.data)
         x = np.arange(0, self.data.shape[1])
         y = np.arange(0, self.data.shape[0])
         coord = np.meshgrid(x,y)
-        theta_guess = np.array(self.popt)
-        pos = [theta_guess*(1.+1.e-3*np.random.randn(self.ndim)) for i in range(self.walkers)]
+        theta_guess = self.popt[self.params]
+        pos = [theta_guess*(1.+1.e-3*np.random.randn(self.dim)) for i in range(self.walkers)]
 
         # set_dictionary is called to create a dictionary with necessary atributes
         # because 'Pool' cannot pickle the fitting object.
         halo_info = set_dictionary(self)
         with Pool() as pool:
-            sampler = emcee.EnsembleSampler(self.walkers, self.ndim, lnprob, pool=pool,
+            sampler = emcee.EnsembleSampler(self.walkers, self.dim, lnprob, pool=pool,
                                             args=[data,coord,halo_info])
             sampler.run_mcmc(pos, self.steps, progress=True)
 
         self.sampler_chain = sampler.chain
-        self.samples = self.sampler_chain[:,int(self.burntime):,:].reshape((-1,self.ndim))
+        self.samples = self.sampler_chain[:,int(self.burntime):,:].reshape((-1,self.dim))
 
         if self.save:
             self.__save__()
@@ -142,32 +159,41 @@ class fitting(object):
         self.set_sampler_header()
         self.hdu.writeto(path, overwrite=True)
 
-    def check_settings(self, dim, walkers, mask, burntime, maskpath):
+    def check_settings(self, dim, walkers, mask, burntime, maskpath, max_radius):
+        self.modelName  = dim
+        self.paramNames = ['I0','x0','y0','r1','r2','r3','r4','ang','k_exp','off']
         if dim=='circle':
-            self.ndim=4
             self._func_ = utils.circle_model
             self._func_mcmc = circle_model
+            self.AppliedParameters = [True,True,True,True,False,False,False,False,False,False]
         elif  dim == 'ellipse':
-            self.ndim=5
             self._func_ = utils.ellipse_model
             self._func_mcmc = ellipse_model
+            self.AppliedParameters = [True,True,True,True,True,False,False,False,False,False]
         elif dim == 'rotated_ellipse':
-            self.ndim=6
             self._func_ = utils.rotated_ellipse_model
             self._func_mcmc = rotated_ellipse_model
+            self.AppliedParameters = [True,True,True,True,True,False,False,True,False,False]
         elif dim == 'skewed':
-            self.ndim=8
             self._func_ = utils.skewed_model
             self._func_mcmc = skewed_model
+            self.AppliedParameters = [True,True,True,True,True,True,True,True,False,False]
         else:
             self.log.log(logging.CRITICAL,'CRITICAL: invalid model name')
             print('CRITICAL: invalid model name')
             sys.exit()
 
-        if walkers >= 2*self.ndim:
+        if self.k_exponent: self.AppliedParameters[-2] = True
+        if self.offset: self.AppliedParameters[-1]     = True
+
+        self.params = pd.DataFrame.from_dict({'params':self.AppliedParameters},
+                                orient='index',columns=self.paramNames).loc['params']
+        self.dim    = len(self.params[self.params==True])
+
+        if walkers >= 2*self.dim:
             self.walkers = int(walkers)
         else:
-            self.walkers = int(2*self.ndim+4)
+            self.walkers = int(2*self.dim+4)
             self.log.log(logging.WARNING,'MCMC Too few walkers, nwalkers = {}'.format(self.walkers))
 
         if mask:
@@ -193,9 +219,16 @@ class fitting(object):
         else:
             self.burntime = int(burntime)
 
-        filename_append = '_{}'.format(self.ndim)
-        if self.mask:  filename_append+='_mask'
-        if self.rebin: filename_append+='_rebin'
+        if max_radius == None:
+            self.max_radius = self.data.shape[0]/2.
+        else:
+            self.max_radius = max_radius
+
+        filename_append = '_%s' % (self.modelName)
+        if self.mask: filename_append += '_mask'
+        #if self.rebin: filename_append += '_rebin'
+        if self.k_exponent: filename_append += '_exp'
+        if self.offset: filename_append += '_offset'
         self.filename_append = filename_append
 
     def find_mask(self):
@@ -218,13 +251,11 @@ class fitting(object):
                                 self.halo.fov_info[0]:self.halo.fov_info[1],
                                 self.halo.fov_info[2]:self.halo.fov_info[3]]
 
-
     def set_data_to_use(self,data):
         if self.rebin:
             binned_data = self.halo.regridding(data, decrease_fov=True)
             if not self.mask:
                 self.image_mask = np.zeros(self.halo.data.shape)
-
             self.binned_image_mask = self.halo.regridding(self.image_mask*u.Jy).value
             return binned_data.value.ravel()[self.binned_image_mask.ravel() <=\
                                     self.mask_treshold*self.binned_image_mask.max()]
@@ -233,71 +264,73 @@ class fitting(object):
                 return self.data.value.ravel()[self.image_mask.ravel() <= 0.5]
             else: return self.data.value.ravel()
 
-    def pre_mcmc_func(self, *theta):
-        model = self._func_(*theta)
-        if self.mask:
-            return model[self.image_mask.ravel() == 0]
+    def pre_mcmc_func(self, obj, *theta):
+        theta = utils.add_parameter_labels(obj, theta)
+        model = self._func_(obj, theta)
+        if obj.mask:
+            return model[obj.image_mask.ravel() == 0]
         else: return model
 
     def pre_mcmc_fit(self, image, p0, bounds):
         data = image.ravel()
-        p0 = list(p0)
         p0[1]-=self.halo.margin[2]
         p0[2]-=self.halo.margin[0]
         if self.mask:
             data = data[self.image_mask.ravel() == 0]
-        #print(p0)
 
-        popt, pcov = curve_fit(self.pre_mcmc_func,(self),data,p0=tuple(p0), bounds=bounds)
+        bounds = (list(bounds[0,self.params]), list(bounds[1,self.params]))
+        popt, pcov = curve_fit(self.pre_mcmc_func,self,data,
+                                p0=tuple(p0[self.params]),
+                                bounds=bounds)
         perr = np.sqrt(np.diag(pcov))
 
-        #img = image.value.copy()
-        #img[self.image_mask==1]=0
         #plt.imshow(image.value)
         #plt.contour(self._func_(self,*popt).reshape(image.shape))
         #plt.show()
 
         popt[1]+= self.halo.margin[2]
         popt[2]+= self.halo.margin[0]
-        self.popt, self.perr = popt, perr
+        self.popt = utils.add_parameter_labels(self, popt)
+        self.perr = perr
 
+        if not self.k_exponent: self.popt['k_exp'] = 0.5
+        if not self.offset:     self.popt['off']   = 0.0
 
-        if len(self.popt) == 8:
+        if self.modelName == 'skewed':
             '''longest dimension of elliptical shape should always be the x-axis.
                This routine switches x and y if necessary to accomplish this.'''
-            if (self.popt[3]+self.popt[4]) <= (self.popt[5]+self.popt[6]):
-                self.popt[3], self.popt[5] = self.popt[5], self.popt[3]
-                self.popt[4], self.popt[6] = self.popt[6], self.popt[4]
-                self.popt[-1] += np.pi/2.
+            if (self.popt['r1']+self.popt['r2']) <= (self.popt['r3']+self.popt['r4']):
+                self.popt['r1'], self.popt['r3'] = self.popt['r3'], self.popt['r1']
+                self.popt['r2'], self.popt['r4'] = self.popt['r4'], self.popt['r3']
+                self.popt['ang'] += np.pi/2.
 
-        if len(self.popt) in [5,6]:
-            if self.popt[3]<=self.popt[4]:
-                self.popt[3],self.popt[4] = self.popt[4],self.popt[3]
-                if len(self.popt) == 6:
-                    self.popt[-1] += np.pi/2.
+        if self.modelName in ['ellipse','rotated_ellipse']:
+            if self.popt['r1']<=self.popt['r2']:
+                self.popt['r1'],self.popt['r2'] = self.popt['r2'],self.popt['r1']
+                self.popt['ang'] += np.pi/2.
 
-        if len(self.popt) >= 6:
+        if self.modelName in ['rotated_ellipse', 'skewed']:
             '''Angle of ellipse from positive x should be between 0 and pi.'''
-            self.popt[-1] = self.popt[-1]%(2*np.pi)
-            if self.popt[-1]>=np.pi:
-                self.popt[-1] -= np.pi
+            self.popt['ang'] = self.popt['ang']%(2*np.pi)
+            if self.popt['ang']>=np.pi:
+                self.popt['ang'] -= np.pi
 
-        self.centre_pix = np.array([self.popt[1],self.popt[2]], dtype=np.int64)
+        self.centre_pix = np.array([self.popt['x0'],self.popt['y0']], dtype=np.int64)
         self.log.log(logging.INFO,'MCMC initial guess: {} \n with error: {}'\
-                                    .format(self.popt,self.perr))
+                                    .format(self.popt[self.params],self.perr))
 
         x = np.arange(0,self.data.shape[1],1)
         y = np.arange(0,self.data.shape[0],1)
         self.x_pix, self.y_pix = np.meshgrid(x,y)
 
     def plotSampler(self):
-        fig, axes = plt.subplots(ncols=1, nrows=self.ndim, sharex=True)
+        fig, axes = plt.subplots(ncols=1, nrows=self.dim, sharex=True)
         axes[0].set_title('Number of walkers: '+str(self.walkers))
         for axi in axes.flat:
             axi.yaxis.set_major_locator(plt.MaxNLocator(3))
             fig.set_size_inches(2*10,15)
 
-        for i in range(self.ndim):
+        for i in range(self.dim):
             axes[i].plot(self.sampler_chain[:, int(self.burntime):, i].transpose(),
                                             color='black', alpha=0.3)
             axes[i].set_ylabel('param '+str(i+1), fontsize=15)
@@ -309,11 +342,12 @@ class fitting(object):
         plt.close(fig)
 
         labels = list()
-        for i in range(self.ndim):
+        for i in range(self.dim):
             labels.append('Param '+str(i+1))
 
-        fig = corner.corner(self.samples,labels=labels,truths=self.popt,
-                        quantiles=[0.160, 0.5, 0.840],show_titles=True, title_fmt='.5f')
+        fig = corner.corner(self.samples,labels=labels, quantiles=[0.160, 0.5, 0.840],
+                            truths=np.asarray(self.popt[self.params]),
+                            show_titles=True, title_fmt='.5f')
 
         plt.savefig('%s%s_cornerplot%s.png' % (self.halo.plotPath,
                                         self.halo.target,self.filename_append),dpi=300)
@@ -323,7 +357,7 @@ class fitting(object):
     def set_sampler_header(self):
         self.hdu.header['nwalkers'] = (self.walkers)
         self.hdu.header['steps']    = (self.steps)
-        self.hdu.header['dim']      = (self.ndim)
+        self.hdu.header['dim']      = (self.dim)
         self.hdu.header['burntime'] = (self.burntime)
         self.hdu.header['OBJECT']   = (self.halo.name,'Object which was fitted')
         self.hdu.header['IMAGE']    = (self.halo.file)
@@ -332,18 +366,209 @@ class fitting(object):
         self.hdu.header['UNIT_2'] = ('PIX','unit of fit parameter')
         self.hdu.header['UNIT_3'] = ('PIX','unit of fit parameter')
 
-        if self.ndim>=5:
+        if self.dim>=5:
             self.hdu.header['UNIT_4'] = ('PIX','unit of fit parameter')
-        if self.ndim == 8:
+        if self.dim == 8:
             self.hdu.header['UNIT_5'] = ('PIX','unit of fit parameter')
             self.hdu.header['UNIT_6'] = ('PIX','unit of fit parameter')
-        if self.ndim >= 6:
+        if self.dim >= 6:
             self.hdu.header['UNIT_7'] = ('RAD','unit of fit parameter')
+        if self.dim == 7:
+            self.hdu.header['UNIT_P'] = ('NONE','unit of fit parameter')
 
-        for i in range(len(self.popt)):
-            self.hdu.header['INIT_'+str(i)] = (self.popt[i], 'MCMC initial guess')
+        for i in range(len(self.popt[self.params])):
+            self.hdu.header['INIT_'+str(i)] = (self.popt[self.params][i], 'MCMC initial guess')
 
         self.hdu.header['MASK'] = (self.mask,'was the data masked during fitting')
+
+
+def set_dictionary(obj):
+    halo_info = {
+        "modelName":         obj.modelName,
+        "bmaj":              obj.halo.bmaj,
+        "bmin":              obj.halo.bmin,
+        "bpa":               obj.halo.bpa,
+        "pix_size":          obj.halo.pix_size,
+        "beam_area":         obj.halo.beam_area,
+        "beam2pix":          obj.halo.beam2pix,
+        "pix2kpc":           obj.halo.pix2kpc,
+        "mask":              obj.mask,
+        "sigma":             obj.sigma,
+        "margin":            obj.halo.margin,
+        "_func_":            obj._func_mcmc,
+        "image_mask":        obj.image_mask,
+        "binned_image_mask": obj.binned_image_mask,
+        "mask_treshold":     obj.mask_treshold,
+        "max_radius":        obj.max_radius,
+        "params":            obj.params,
+        "paramNames":        obj.paramNames
+        }
+    return halo_info
+
+def set_model_to_use(info,data):
+    binned_data = regrid_to_beamsize(info, data.value)
+    return binned_data.ravel()[info['binned_image_mask'].ravel() <=\
+                               info['mask_treshold']*info['binned_image_mask'].max()]
+
+def rotate_image(info,img, decrease_fov=False):
+    margin = info['margin']
+    img_rot = ndimage.rotate(img, -info['bpa'].value, reshape=False)
+    f = img_rot[margin[0]:margin[1], margin[2]:margin[3]]
+    #plt.imshow(f)
+    #plt.show()
+    return f
+
+def regrid_to_beamsize(info, img, accuracy=100.):
+    y_scale = np.sqrt(info['beam_area']*info['bmin']/info['bmaj']).value
+    x_scale = (info['beam_area']/y_scale).value
+    new_pix_size = np.array((y_scale,x_scale))
+    accuracy = int(1./accuracy*100)
+
+    scale = np.round(accuracy*new_pix_size/info['pix_size']).astype(np.int64).value
+    pseudo_size = (accuracy*np.array(img.shape) ).astype(np.int64)
+    pseudo_array = np.zeros((pseudo_size))
+
+    orig_scale = (np.array(pseudo_array.shape)/np.array(img.shape)).astype(np.int64)
+    elements   = np.prod(np.array(orig_scale,dtype='float64'))
+
+    if accuracy is 1:
+        pseudo_array = np.copy(img)
+    else:
+        for j in range(img.shape[0]):
+            for i in range(img.shape[1]):
+                pseudo_array[orig_scale[1]*i:orig_scale[1]*(i+1),
+                             orig_scale[0]*j:orig_scale[0]*(j+1)] = img[i,j]/elements
+
+    f= block_reduce(pseudo_array, block_size=tuple(scale), func=np.sum, cval=0)
+    f=np.delete(f, -1, axis=0)
+    f=np.delete(f, -1, axis=1)
+    #plt.imshow(f)
+    #plt.show()
+    #print(pseudo_array.shape, scale, f.shape)
+    return f
+
+def convolve_with_gaussian(info,data,rotate):
+    if rotate:
+        data = rotate_image(info,data,decrease_fov=True)
+
+    sigma1 = (info['bmaj']/info['pix_size'])/np.sqrt(8*np.log(2.))
+    sigma2 = (info['bmin']/info['pix_size'])/np.sqrt(8*np.log(2.))
+    kernel = Gaussian2DKernel(sigma1, sigma2, info['bpa'])
+    astropy_conv = convolve(data,kernel,boundary='extend',normalize_kernel=True)
+    return astropy_conv
+
+def circle_model(info, coords, theta, rotate=False):
+    x,y = coords
+    G   = ((x-theta['x0'])**2+(y-theta['y0'])**2)/theta['r1']**2
+    Ir  = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_with_gaussian(info, Ir, rotate)
+
+def ellipse_model(info, coord , theta, rotate=False):
+    x,y = coord
+    G  = ((x-theta['x0'])/theta['r1'])**2+((y-theta['y0'])/theta['r2'])**2
+    Ir = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_with_gaussian(info, Ir, rotate)
+
+def rotated_ellipse_model(info, coord, theta, rotate=False):
+    x,y = coord
+    x_rot =  (x-theta['x0'])*np.cos(theta['ang']) + (y-theta['y0'])*np.sin(theta['ang'])
+    y_rot = -(x-theta['x0'])*np.sin(theta['ang']) + (y-theta['y0'])*np.cos(theta['ang'])
+    G  = (x_rot/theta['r1'])**2.+(y_rot/theta['r2'])**2.
+    Ir = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_with_gaussian(info, Ir, rotate)
+
+def skewed_model(info, coord, theta, rotate=False):
+    x,y=coord
+    G_pp = G(x, y, theta['I0'],theta['x0'],theta['y0'],theta['r1'],theta['r3'],theta['ang'],  1.,  1.)
+    G_mm = G(x, y, theta['I0'],theta['x0'],theta['y0'],theta['r2'],theta['r4'],theta['ang'], -1., -1.)
+    G_pm = G(x, y, theta['I0'],theta['x0'],theta['y0'],theta['r1'],theta['r4'],theta['ang'],  1., -1.)
+    G_mp = G(x, y, theta['I0'],theta['x0'],theta['y0'],theta['r2'],theta['r3'],theta['ang'], -1.,  1.)
+    Ir   = (theta['I0']*(G_pp+G_pm+G_mm+G_mp))
+    return convolve_with_gaussian(info, Ir, rotate)
+
+def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
+    x_rot =  (x-x0)*np.cos(ang)+(y-y0)*np.sin(ang)
+    y_rot = -(x-x0)*np.sin(ang)+(y-y0)*np.cos(ang)
+    func  = (np.sqrt(sign_x * x_rot)**4.)/(re_x**2.) +\
+            (np.sqrt(sign_y * y_rot)**4.)/(re_y**2.)
+
+    exponent = np.exp(-np.sqrt(func))
+    exponent[np.where(np.isnan(exponent))]=0.
+    return exponent
+
+'''
+def k_exponent_model(info, coord, I0, x0, y0, re_x, re_y, ang, P, rotate=False):
+    x,y = coord
+    x_rot =  (x-x0)*np.cos(ang)+(y-y0)*np.sin(ang)
+    y_rot = -(x-x0)*np.sin(ang)+(y-y0)*np.cos(ang)
+    G  = (x_rot/re_x)**2.+(y_rot/re_y)**2.
+    Ir = I0*(np.exp(-G**P))
+    if rotate:
+        Ir = rotate_image(info,Ir,decrease_fov=True)
+    return convolve_with_gaussian(info, Ir)
+'''
+
+def lnL(theta, data, coord, info):
+    kwargs = {"rotate" : True}
+    raw_model = info['_func_'](info,coord,theta,**kwargs)*u.Jy
+    model = set_model_to_use(info, raw_model)
+    return -np.sum( ((data-model)**2.)/(2*info['sigma']**2.)\
+                        + np.log(np.sqrt(2*np.pi)*info['sigma']) )
+
+def lnprior(theta, shape, info):
+    prior = -np.inf
+    if (theta['I0'] > 0) and (-0.4 < theta['k_exp'] < 19):
+        if (0 <= theta['x0'] < shape[1]) and (0 <= theta['y0'] < shape[0]):
+            if 0 < theta['r1'] < info['max_radius']:
+                if -np.pi/4. < theta['ang'] < 5*np.pi/4.:
+                    prior = 0.0
+                if not (0 <= theta['r2'] <= theta['r1']):
+                    prior = -np.inf
+
+    if prior != -np.inf:
+        #guess = 200./info['pix2kpc'] #average based on known sample of halos.
+        #prior = -np.sum(1./2*((theta['r1'])**2 + (theta['r2'])**2)/((info['max_radius']/4.)**2))
+        if info['modelName'] == 'circle':
+            radii = np.array([theta['r1']])
+        else:
+            radii = np.array([theta['r1'],theta['r2']])
+        prior = np.sum(np.log(utils.gamma_dist(radii, 2.6, 120./info['pix2kpc'].value)))
+    return prior
+
+def lnprior8(theta, shape, info):
+    prior = -np.inf
+    if theta['I0']>0 and (0 < theta['x0'] < shape[1]) and (0 < theta['y0'] < shape[0]):
+        if theta['r1'] > 0. and theta['r2'] > 0. and theta['r3'] > 0. and theta['r4'] > 0.:
+            if (0. < (theta['r3']+theta['r4']) <= (theta['r1']+theta['r2'])) and ((theta['r1']+theta['r2']) < info['max_radius']*2.):
+                if -np.pi/4. < theta['ang'] < 5*np.pi/4.:
+                    prior =  0.0
+
+    if prior != -np.inf:
+        #guess = 225./info['pix2kpc'] #average based on known sample of halos.
+        #prior = -np.sum(1./2*((theta['r1'])**2 + (theta['r2'])**2)/((info['max_radius']/4.)**2))
+        radii = np.array([theta['r1'],theta['r2'],theta['r3'],theta['r4']])
+        prior = np.sum(np.log(utils.gamma_dist(radii, 2.6, 120./info['pix2kpc'].value)))
+    return prior
+
+def lnprob(theta, data, coord, info):
+    theta = add_parameter_labels(info['params'], info['paramNames'], theta)
+    if info['modelName'] == 'skewed':
+        lp = lnprior8(theta, coord[0].shape, info)
+    else:
+        lp = lnprior(theta, coord[0].shape, info)
+    if not np.isfinite(lp):
+        return -np.inf
+    return lnL(theta, data, coord, info) + lp
+
+def add_parameter_labels(params, paramNames, array):
+    full_array = np.zeros(params.shape)
+    full_array[params==True] = array
+    parameterised_array = pd.DataFrame.from_dict({'params': full_array},
+                            orient='index',columns=paramNames).loc['params']
+    return parameterised_array
+
+
+
 
 
 
@@ -364,7 +589,7 @@ class processing(object):
     burntime (int): burn-in time for MCMC walkers. See emcee documentation for info.
     logger: Configured logging object to log info to a .log file. If not given,
             nothing happens.
-    rebin (bool): regridding data to beamsize to fit to indipendent
+    rebin (bool): default is True. regridding data to beamsize to fit to indipendent
                   datapoints. Default is True.
     Forward (bool): Depricated.
     Mask (bool): applying mask to image. If true: a DS9 .reg  has to be present in the
@@ -372,11 +597,10 @@ class processing(object):
     maskpath (str): Custom path to DS9 region file, read from database.dat.
                     If '--' is given, and mas=True, the standard
                     directory will be searched.
-    spectr_index (scalar): assumed spectral index of radio halo.
-                           Default is -1.2 (S \propto nu^{spectr_index})
     '''
-    def __init__(self, _parent_, data, dim, logger, save=True, mask=False, rebin=True,
-                        forward=False, spectr_index=-1.2, maskpath='--'):
+    def __init__(self, _parent_, data, dim, logger, save=True, mask=False,
+                    rebin=False, forward=False, maskpath='--',
+                    k_exponent=False, offset=False):
         x = np.arange(0,data.shape[1],1)
         y = np.arange(0,data.shape[0],1)
         self.x_pix, self.y_pix = np.meshgrid(x,y)
@@ -388,7 +612,9 @@ class processing(object):
         self.data  = data
         self.save  = save
         self.halo  = _parent_
-        self.alpha = spectr_index # spectral index guess
+        self.alpha = _parent_.alpha # spectral index guess
+        self.k_exponent = k_exponent
+        self.offset = offset
 
         self.check_settings(dim, mask, maskpath)
         self.extract_chain_file(rebin, forward)
@@ -402,38 +628,32 @@ class processing(object):
         self.plotSampler()
         self.cornerplot()
 
-    def extract_chain_file(self, rebin, forward):
-        filename_append = '_{}'.format(self.dim)
-        if self.mask:
-            filename_append+='_mask'
-        if rebin:
-            filename_append+='_rebin'
-
-        self.filename_append = filename_append
-        self.rebin = rebin
-        sampler_chain = fits.open(self.halo.modelPath+self.halo.file.replace('.fits','')+\
-                                        '_mcmc_samples'+self.filename_append+'.fits')
-
-        self.sampler = (sampler_chain[0].data)
-        self.info = sampler_chain[0].header
-
     def check_settings(self, dim, mask, maskpath):
+        self.modelName  = dim
+        self.paramNames = ['I0','x0','y0','r1','r2','r3','r4','ang','k_exp','off']
         if dim=='circle':
-            self.dim=4
             self._func_ = utils.circle_model
-        elif dim == 'ellipse':
-            self.dim=5
+            self.AppliedParameters = [True,True,True,True,False,False,False,False,False,False]
+        elif  dim == 'ellipse':
             self._func_ = utils.ellipse_model
+            self.AppliedParameters = [True,True,True,True,True,False,False,False,False,False]
         elif dim == 'rotated_ellipse':
-            self.dim=6
             self._func_ = utils.rotated_ellipse_model
+            self.AppliedParameters = [True,True,True,True,True,False,False,True,False,False]
         elif dim == 'skewed':
-            self.dim=8
             self._func_ = utils.skewed_model
+            self.AppliedParameters = [True,True,True,True,True,True,True,True,False,False]
         else:
             self.log.log(logging.CRITICAL,'CRITICAL: invalid model name')
             print('CRITICAL: invalid model name')
             sys.exit()
+
+        if self.k_exponent: self.AppliedParameters[-2] = True
+        if self.offset: self.AppliedParameters[-1]     = True
+
+        self.params = pd.DataFrame.from_dict({'params':self.AppliedParameters},
+                                orient='index',columns=self.paramNames).loc['params']
+        self.dim    = len(self.params[self.params])
 
         if mask:
             if maskpath == '--':
@@ -449,12 +669,30 @@ class processing(object):
             self.log.log(logging.INFO,'MCMC No mask set')
             self.mask=False
 
+    def extract_chain_file(self, rebin, forward):
+        filename_append = '_{}'.format(self.modelName)
+        if self.mask: filename_append += '_mask'
+        #if rebin: filename_append += '_rebin'
+        if self.k_exponent: filename_append += '_exp'
+        if self.offset: filename_append += '_offset'
+        self.filename_append = filename_append
+
+        self.rebin = rebin
+        sampler_chain = fits.open(self.halo.modelPath+self.halo.file.replace('.fits','')+\
+                                        '_mcmc_samples'+self.filename_append+'.fits')
+
+        self.sampler = (sampler_chain[0].data)
+        self.info = sampler_chain[0].header
+
+    def at(self, parameter):
+        par = np.array(self.paramNames)[self.params]
+        return np.where(par==parameter)[0][0]
+
     def retreive_mcmc_params(self):
         self.walkers  = self.info['nwalkers']
         self.steps    = self.info['steps']
         self.burntime = int(self.info['burntime'])
-        self.popt     = np.zeros(self.dim)
-
+        self.popt     = utils.add_parameter_labels(self, np.zeros(self.dim))
         try:
             self.noise_mu    = self.halo.header['N_MU']
             self.noise_amp   = self.halo.header['N_AMP']
@@ -467,15 +705,16 @@ class processing(object):
         samples = self.sampler[:, self.burntime:, :].reshape((-1, self.dim))
 
         #translate saples for location to right Fov.
-        samples[:,1] -= self.halo.margin[2]
-        samples[:,2] -= self.halo.margin[0]
+        samples[:,self.at('x0')] -= self.halo.margin[2]
+        samples[:,self.at('y0')] -= self.halo.margin[0]
 
         self.percentiles = self.get_percentiles(samples)
-        self.params      = self.percentiles[:,1].reshape(self.dim)
-        self.centre_pix  = np.array([self.params[1],self.params[2]], dtype=np.int64)
+        self.parameters  = utils.add_parameter_labels(self, self.percentiles[:,1].reshape(self.dim))
+        self.centre_pix  = np.array([self.parameters['x0'],self.parameters['y0']], dtype=np.int64)
 
-        self.model = self._func_(self, *self.params)\
+        self.model = self._func_(self, self.parameters)\
                         .reshape(self.x_pix.shape)*u.Jy
+
         self.samples = samples
 
 
@@ -484,9 +723,9 @@ class processing(object):
         for i in range(samples.shape[1]):
             percentiles[i,:] = np.percentile(samples[:, i], [16, 50, 84])
 
-        if self.dim >= 6:
-            cosine = np.percentile(np.cos(samples[:,-1]), [16, 50, 84])
-            sine   = np.percentile(np.sin(samples[:,-1]), [16, 50, 84])
+        if self.modelName in ['rotated_ellipse', 'skewed']:
+            cosine = np.percentile(np.cos(samples[:,self.at('ang')]), [16, 50, 84])
+            sine   = np.percentile(np.sin(samples[:,self.at('ang')]), [16, 50, 84])
             arccosine = np.arccos(cosine)
             arcsine   = np.arcsin(sine)
 
@@ -501,9 +740,9 @@ class processing(object):
                     ang = arccosine.copy()
             else:
                 self.log.log(logging.ERROR,'Angle matching failed in processing.get_percentiles. continueing with default.')
-                ang = np.percentile(samples[:,-1], [16, 50, 84])
+                ang = np.percentile(samples[:,self.at('ang')], [16, 50, 84])
 
-            percentiles[-1,:] = ang
+            percentiles[self.at('ang'),:] = ang
         return percentiles
 
     def cornerplot(self):
@@ -543,14 +782,14 @@ class processing(object):
             plt.show()
 
     def set_labels_and_units(self):
-        self.samples_units = np.copy(self.samples)
-        samples_units = np.copy(self.samples)
+        self.samples_units = self.samples.copy()
+        samples_units = self.samples.copy()
         samples_list  = list()
-
 
         x0   = np.percentile(self.samples.real[:, 1], [16, 50, 84])[1]-abs(self.halo.margin[1])
         y0   = np.percentile(self.samples.real[:, 2], [16, 50, 84])[1]-abs(self.halo.margin[0])
         self.centre_pix = np.array([x0,y0], dtype=np.int64)
+        #print(self.centre_pix, self.halo.dec.shape, self.halo.ra.shape)
         self.centre_wcs = np.array((self.halo.ra.value[self.centre_pix[1]],
                                     self.halo.dec.value[self.centre_pix[0]]))*u.deg
 
@@ -571,14 +810,14 @@ class processing(object):
         params[1] = (params[1]-self.centre_pix[0])*self.halo.pix_size.value+self.centre_wcs[0].value
         params[2] = (params[2]-self.centre_pix[1])*self.halo.pix_size.value+self.centre_wcs[1].value
         params[3] = ((params[3]*self.halo.pix2kpc).to(u.kpc)).value
-        if self.dim >= 5:
+        if self.modelName in ['ellipse', 'rotated_ellipse', 'skewed']:
             params[4] = ((params[4]*self.halo.pix2kpc).to(u.kpc)).value
 
-        if self.dim == 8:
+        if self.modelName == 'skewed':
             params[5] = ((params[5]*self.halo.pix2kpc).to(u.kpc)).value
             params[6] = ((params[6]*self.halo.pix2kpc).to(u.kpc)).value
-        if self.dim >= 6:
-            params[-1] = params[-1]
+        if self.modelName in ['rotated_ellipse', 'skewed']:
+            params[self.at('ang')] = params[self.at('ang')]
         return params
 
     def get_units(self):
@@ -586,21 +825,29 @@ class processing(object):
         units  = ['$\\mu$Jy arcsec$^{-2}$','deg','deg']
         fmt    = ['.2f','.4f','.4f']
 
-        if self.dim == 8:
+        if self.modelName == 'skewed':
             labels.extend(('$r_{x^+}$','$r_{x^-}$','$r_{y^+}$','$r_{y^-}$'))
             units.extend(('kpc','kpc','kpc','kpc'))
             fmt.extend(('.0f','.0f','.0f','.0f'))
-        elif self.dim == 5 or self.dim == 6:
+        elif self.modelName in ['ellipse', 'rotated_ellipse']:
             labels.extend(('$r_{x}$','$r_{y}$'))
             units.extend(('kpc','kpc'))
             fmt.extend(('.1f','.1f'))
-        elif self.dim == 4:
+        elif self.modelName == 'circle':
             labels.append('$r_{e}$')
             units.append('kpc')
             fmt.append('.1f')
-        if self.dim >= 6:
+        if self.modelName in ['rotated_ellipse', 'skewed']:
             labels.append('$\\phi_e$')
             units.append('Rad')
+            fmt.append('.3f')
+        if self.k_exponent:
+            labels.append('$k$')
+            units.append(' ')
+            fmt.append('.3f')
+        if self.offset:
+            labels.append('$C$')
+            units.append(' ')
             fmt.append('.3f')
 
         self.labels = np.array(labels,dtype='<U30')
@@ -625,18 +872,19 @@ class processing(object):
             conf_up  = self.params_units+z_alpha*se
             for i in range(self.dim):
                 self.log.log(logging.INFO,'{}% Confidence interval of {}: ({:.5f}, {:.5f}) {}'\
-                            .format(gamma*100,self.labels[i],conf_low[i],
+                            .format(percentage*100,self.labels[i],conf_low[i],
                                     conf_up[i],self.units[i]))
             self.log.log(logging.INFO,'')
         else:
             for i in range(self.dim):
                 se[i] = np.sqrt( np.mean(self.samples[:, i]**2.)\
                                 -np.mean(self.samples[:, i])**2. )
-            conf_low = self.params-z_alpha*se
-            conf_up  = self.params+z_alpha*se
+            conf_low = self.parameters-z_alpha*se
+            conf_up  = self.parameters+z_alpha*se
             for i in range(self.dim):
                 self.log.log(logging.INFO,'{}% Confidence interval of {}: ({:.5f}, {:.5f})'\
-                            .format(gamma*100,self.labels[i],conf_low[i], conf_up[i]))
+                            .format(percentage*100,self.labels[i],conf_low[i],
+                                    conf_up[i]))
             self.log.log(logging.INFO,'')
 
         return [conf_low, conf_up]
@@ -648,12 +896,12 @@ class processing(object):
         y = np.arange(0,self.halo.data_mcmc.shape[0],1)
         self.x_pix, self.y_pix = np.meshgrid(x,y)
 
-        params     = self.params.copy()
+        params     = self.parameters.copy()
         params[1] += self.halo.margin[2]
         params[2] += self.halo.margin[0]
 
         binned_data  = fitting.set_data_to_use(self, self.halo.data_mcmc)
-        model        = self._func_(self, *params, rotate=True).reshape(self.halo.data.shape)*u.Jy
+        model        = self._func_(self, params, rotate=True).reshape(self.halo.data.shape)*u.Jy
         binned_model = utils.regrid_to_beamsize(self.halo, model)
 
         if not self.mask:
@@ -675,11 +923,13 @@ class processing(object):
         ln = np.sum( ((self.halo.data-model)**2.)/(2*(self.rms)**2.)+ np.log(np.sqrt(2*np.pi)*(self.rms.value)))
         self.AICc_whole = 2*(self.dim-ln) + 2*(self.dim**2.+self.dim)/(len(self.halo.data)-self.dim-1)
 
+
         self.log.log(logging.INFO,'chi^2_red: {}'.format(self.chi2_red))
         self.log.log(logging.INFO,'AIC: {}'.format(self.AIC))
         self.log.log(logging.INFO,'AICc: {}'.format(self.AICc))
         self.log.log(logging.INFO,'AIC whole: {}'.format(self.AICc_whole))
         self.log.log(logging.INFO,'BIC: {}'.format(self.BIC))
+
 
         x = np.arange(0,self.data.shape[1],1)
         y = np.arange(0,self.data.shape[0],1)
@@ -688,41 +938,43 @@ class processing(object):
     def get_flux(self, int_max=np.inf, freq=None):
         if freq is None:
             freq = self.halo.freq
-        if np.isposinf(int_max):
-            int_max = 1.
-        else:
-            int_max = 1-(float(int_max)+1)*np.exp(-float(int_max))
 
         a = self.samples[:,3]*self.halo.pix_size
-        if self.dim == 8:
+        if self.modelName=='skewed':
             b = self.samples[:,5]*self.halo.pix_size
             c = self.samples[:,4]*self.halo.pix_size
             d = self.samples[:,6]*self.halo.pix_size
-            factor = a*b*int_max+c*d*int_max+a*d*int_max+b*c*int_max
+            factor = (a*b+c*d+a*d+b*c)
 
-        elif self.dim in [5,6]:
+        elif self.modelName in ['ellipse','rotated_ellipse']:
             b = self.samples[:,4]*self.halo.pix_size
-            factor = 4*a*b*int_max
+            factor = 4*a*b
         else:
-            factor = 4*a**2*int_max
+            factor = 4*a**2
+        if self.k_exponent: m = self.samples[:,self.at('k_exp')]+0.5
+        else: m=0.5
 
         I0   = u.Jy*self.samples[:,0]/self.halo.pix_area
-        flux = (np.pi/2.*I0*factor*(freq/self.halo.freq)**self.alpha).to(u.mJy)
+        flux = (gamma(1./m)*np.pi*I0/(4*m) * factor * gammainc(1./m, int_max**(2*m))\
+
+                    *(freq/self.halo.freq)**self.alpha).to(u.mJy)
+        print(gamma)
 
         self.flux      = np.copy(flux)
         self.flux_freq = freq
-        self.flux_val  = np.percentile(flux,[50])[0]
+        self.flux_val  = np.percentile(flux, 50)
+        self.flux_err  = ((np.percentile(flux, 84)-np.percentile(flux, 16))/2.)
 
-        cal = 0.1
-        sub = 0.1 # Osinga et al. 2020
-        flux_err  = ((np.percentile(flux, [84])[0]-np.percentile(flux, [16])[0])/2.).value
-        self.flux_std = np.sqrt((cal*self.flux_val.value)**2+sub**2+flux_err**2)*u.mJy
-        self.flux_err = np.sqrt((cal*self.flux.value)**2+sub**2+flux_err**2)*u.mJy
-        self.log.log(logging.INFO,'Flux at {:.1f} {}: {:.2f} +/- {:.2f} {}'\
+        #cal = 0.1
+        #sub = 0.1 # Osinga et al. 2020
+
+        #self.flux_std = np.sqrt((cal*self.flux_val.value)**2+sub**2+flux_err**2)*u.mJy
+        #self.flux_err = np.sqrt((cal*self.flux.value)**2+sub**2+flux_err**2)*u.mJy
+        self.log.log(logging.INFO,'MCMC Flux at {:.1f} {}: {:.2f} +/- {:.2f} {}'\
                                     .format(freq.value, freq.unit, self.flux_val.value,
-                                    self.flux_std.value,flux.unit))
+                                    self.flux_err.value,flux.unit))
         self.log.log(logging.INFO,'S/N based on flux {:.2f}'\
-                                    .format(self.flux_val.value/self.flux_std.value))
+                                    .format(self.flux_val.value/self.flux_err.value))
 
     def get_power(self, freq=None):
         if freq is None:
@@ -748,152 +1000,42 @@ class processing(object):
                                         np.percentile(power, [16])[0]).value/2.,
                                         power.unit))
 
+    def tableprint(self):
+        cal=0.1
+        sub=0.1
+        file = self.halo.file.replace('.fits','')+'_mcmc_model_ALL.pdf'
+        rms = ((self.rms/self.halo.pix_area).to(uJyarcsec2)).value
+        power = np.copy(self.power.value)/1.e25
+        power16 = np.sqrt((cal*self.power_val.value)**2+sub**2+(self.power_val.value-np.percentile(self.power.value, 16))**2)/1.e25
+        power84 = np.sqrt((cal*self.power_val.value)**2+sub**2+(np.percentile(self.power.value, 84)-self.power_val.value)**2)/1.e25
+        flux16 = np.sqrt((cal*self.flux_val.value)**2+sub**2+(self.flux_val.value-np.percentile(self.flux.value, 16))**2)
+        flux84 = np.sqrt((cal*self.flux_val.value)**2+sub**2+(np.percentile(self.flux.value, 84)-self.flux_val.value)**2)
+
+        if self.dim == 4:
+            print('%s & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f & \\ref{fig:%s} \\vspace{0.05cm}\\\\' % (self.halo.name,
+            self.flux_val.value, flux84,flux16, np.percentile(power,50), power84, power16,
+            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            rms, self.AICc, self.flux_val/self.flux_std, self.halo.target))
+        elif self.dim==6:
+            print(' & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f& \\vspace{0.05cm}\\\\' % (self.flux_val.value,
+            flux84,flux16, np.percentile(power,50), power84, power16,
+            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            rms, self.AICc, self.flux_val/self.flux_std))
+        elif self.dim==8:
+            print(' & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f& \\vspace{0.1cm}\\\\' % (self.flux_val.value,
+            flux84,flux16, np.percentile(power,50), power84, power16,
+            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            rms, self.AICc, self.flux_val/self.flux_std))
 
 
-def set_dictionary(obj):
-    '''necessary to initiate a dictionary for object modules 
-       to make functions Picklable'''
-    halo_info = {
-        "bmaj":              obj.halo.bmaj,
-        "bmin":              obj.halo.bmin,
-        "bpa":               obj.halo.bpa,
-        "pix_size":          obj.halo.pix_size,
-        "beam_area":         obj.halo.beam_area,
-        "beam2pix":          obj.halo.beam2pix,
-        "mask":              obj.mask,
-        "sigma":             obj.sigma,
-        "margin":            obj.halo.margin,
-        "_func_":            obj._func_mcmc,
-        "image_mask":        obj.image_mask,
-        "binned_image_mask": obj.binned_image_mask,
-        "mask_treshold":     obj.mask_treshold
-        }
-    return halo_info
-
-def set_model_to_use(info,data):
-    binned_data = regrid_to_beamsize(info, data.value)
-    return binned_data.ravel()[info['binned_image_mask'].ravel() <=\
-                               info['mask_treshold']*info['binned_image_mask'].max()]
-
-def rotate_image(info,img, decrease_fov=False):
-    margin = info['margin']
-    img_rot = ndimage.rotate(img, -info['bpa'].value, reshape=False)
-    f = img_rot[margin[0]:margin[1], margin[2]:margin[3]]
-    return f
-
-def regrid_to_beamsize(info, img, accuracy=100.):
-    y_scale = np.sqrt(info['beam_area']*info['bmin']/info['bmaj']).value
-    x_scale = (info['beam_area']/y_scale).value
-    new_pix_size = np.array((y_scale,x_scale))
-    accuracy = int(1./accuracy*100)
-
-    scale = np.round(accuracy*new_pix_size/info['pix_size']).astype(np.int64).value
-    pseudo_size = (accuracy*np.array(img.shape) ).astype(np.int64)
-    pseudo_array = np.zeros((pseudo_size))
-
-    orig_scale = (np.array(pseudo_array.shape)/np.array(img.shape)).astype(np.int64)
-    elements   = np.prod(np.array(orig_scale,dtype='float64'))
-
-    if accuracy is 1:
-        pseudo_array = np.copy(img)
-    else:
-        for j in range(img.shape[0]):
-            for i in range(img.shape[1]):
-                pseudo_array[orig_scale[1]*i:orig_scale[1]*(i+1),
-                             orig_scale[0]*j:orig_scale[0]*(j+1)] = img[i,j]/elements
-    f= block_reduce(pseudo_array, block_size=tuple(scale), func=np.sum, cval=0)
-    f=np.delete(f, -1, axis=0)
-    f=np.delete(f, -1, axis=1)
-    return f
-
-def convolve_with_gaussian(info,data):
-    sigma1 = (info['bmaj']/info['pix_size'])/np.sqrt(8*np.log(2.))
-    sigma2 = (info['bmin']/info['pix_size'])/np.sqrt(8*np.log(2.))
-    kernel = Gaussian2DKernel(sigma1, sigma2, info['bpa'])
-    astropy_conv = convolve(data,kernel,boundary='extend',normalize_kernel=True)
-    return astropy_conv
-
-def circle_model(info, coords, I0, x0, y0, re, rotate=False):
-    x,y = coords
-    r   = np.sqrt((x-x0)**2+(y-y0)**2)
-    Ir  =  I0 * np.exp(-(r/re))
-    if rotate:
-        Ir = rotate_image(info,Ir,decrease_fov=True)
-    return convolve_with_gaussian(info, Ir)
-
-def ellipse_model(info, coord , I0, x0, y0, re_x, re_y, rotate=False):
-    x,y = coord
-    r  = np.sqrt(((x-x0)/re_x)**2+((y-y0)/re_y)**2)
-    Ir =  (I0 * np.exp(-r))
-    if rotate:
-        Ir = rotate_image(info,Ir,decrease_fov=True)
-    return convolve_with_gaussian(info, Ir)
-
-def rotated_ellipse_model(info, coord, I0, x0, y0, re_x, re_y, ang, rotate=False):
-    x,y = coord
-    x_rot =  (x-x0)*np.cos(ang)+(y-y0)*np.sin(ang)
-    y_rot = -(x-x0)*np.sin(ang)+(y-y0)*np.cos(ang)
-    G  = (x_rot/re_x)**2.+(y_rot/re_y)**2.
-    Ir = (I0*(np.exp(-G**0.5)))
-    if rotate:
-        Ir = rotate_image(info,Ir,decrease_fov=True)
-    return convolve_with_gaussian(info, Ir)
-
-def skewed_model(info, coord, I0,x0,y0,re_xp,re_xm,re_yp,re_ym,ang, rotate=False):
-    x,y=coord
-    G_pp = G(x, y, I0, x0, y0, re_xp, re_yp, ang,  1.,  1.)
-    G_mm = G(x, y, I0, x0, y0, re_xm, re_ym, ang, -1., -1.)
-    G_pm = G(x, y, I0, x0, y0, re_xp, re_ym, ang,  1., -1.)
-    G_mp = G(x, y, I0, x0, y0, re_xm, re_yp, ang, -1.,  1.)
-    Ir   = (I0*(G_pp+G_pm+G_mm+G_mp))
-    if rotate:
-        Ir = rotate_image(info,Ir,decrease_fov=True)
-    return convolve_with_gaussian(info, Ir)
-
-def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
-    x_rot =  (x-x0)*np.cos(ang)+(y-y0)*np.sin(ang)
-    y_rot = -(x-x0)*np.sin(ang)+(y-y0)*np.cos(ang)
-    func  = (np.sqrt(sign_x * x_rot)**4.)/(re_x**2.) +\
-            (np.sqrt(sign_y * y_rot)**4.)/(re_y**2.)
-
-    exponent = np.exp(-np.sqrt(func))
-    exponent[np.where(np.isnan(exponent))]=0.
-    return exponent
-
-def lnL(theta, data, coord, info):
-    kwargs = {"rotate" : True}
-    raw_model = info['_func_'](info, coord,*theta,**kwargs)*u.Jy
-    model = set_model_to_use(info, raw_model)
-    return -np.sum( ((data-model)**2.)/(2*info['sigma']**2.)\
-                        + np.log(np.sqrt(2*np.pi)*info['sigma']) )
-
-def lnprior(theta, shape):
-    if theta[0] > 0:
-        if (0 < theta[1] < shape[1]) and (0 < theta[2] < shape[0]):
-            if 0 < theta[3] < shape[0]/2.:
-                if len(theta)>=5:
-                    if not (0 < theta[4] < theta[3]):
-                        return -np.inf
-                if len(theta)>=6:
-                    if -np.pi/4. < theta[-1] < 5*np.pi/4.:
-                        return 0.0
-                else: return 0.0
-    return -np.inf
-
-def lnprior8(theta, shape):
-    I0,x0,y0,rxp,rxm,ryp,rym,ang = theta
-    if I0>0 and (0 < x0 < shape[1]) and (0 < y0 < shape[0]):
-        if rxp > 0. and rxm > 0. and ryp > 0. and rym > 0.:
-            if (0. < (ryp+rym) <= (rxp+rxm)) and ((rxp+rxm) < shape[0]):
-                if -np.pi/4. < theta[-1] < 5*np.pi/4.:
-                    return 0.0
-    return -np.inf
-
-def lnprob(theta, data, coord, info):
-    if len(theta) == 8:
-        lp = lnprior8(theta, coord[0].shape)
-    elif len(theta) in [4,5,6]:
-        lp = lnprior(theta, coord[0].shape)
-    if not np.isfinite(lp):
-        return -np.inf
-    return lnL(theta, data, coord, info) + lp
+#        print('''
+#\\begin{figure}[h]
+#  \\begin{center}
+#	\\vspace{-1.0cm}
+#	\\includegraphics[width=1.\\linewidth]{%s}
+ # 	\\captionsetup{ margin=0.5cm,labelfont={footnotesize,bf},font=footnotesize}
+  #	\\vspace{-0.6cm}
+	#	\caption{\\footnotesize \\emph{%s} image with three model overlay's.}
+#	\\label{fig:%s}
+#\\end{center}
+#\\end{figure}''' % (file, self.halo.name, self.halo.target))

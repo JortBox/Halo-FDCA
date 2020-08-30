@@ -3,7 +3,7 @@
 
 '''
 Author: J.M. Boxelaar
-Version: 21 June 2020
+Version: 08 June 2020
 '''
 import logging
 import sys, os
@@ -20,14 +20,18 @@ import __HaloObject__ as HaloObject
 import plotting_fits as plot
 import utils
 import markov_chain_monte_carlo as mcmc
+import make_all_info_file as make_all_info_file
 
 Jydeg2     = u.Jy/(u.deg*u.deg)
 mJyarcsec2 = u.mJy/(u.arcsec*u.arcsec)
 uJyarcsec2 = 1.e-3*u.mJy/(u.arcsec*u.arcsec)
 
 def FindTargets():
+    targets  = list()
     path     = os.getcwd()
-    basedir  = '/'.join(path.split('/')[:-1])+'/'
+    for i in reversed(range(len(path))):
+        if path[i-24:i] == 'RadioHalo_FluxCalculator':
+            basedir = path[:i]+'/'
 
     data_file = basedir+'Data/database.dat'
     targets = np.genfromtxt(data_file, delimiter=',', dtype='U160')
@@ -38,66 +42,76 @@ def FindTargets():
 def MCMC_run(halo, maskpath, logger, dim='rotated_ellipse'):
     r_guess = halo.radius/(3.5*halo.pix_size)
     r_bound = halo.data.shape[0]/2.
-    if halo.mini:
-        r_guess /= 9.
-        r_bound = r_guess*4.
     if r_guess >= halo.data.shape[1]/2.:
         r_guess = halo.data.shape[1]/4.
-    diff    = np.abs(halo.margin)
 
-    if dim == 'skewed':
-        p0     = (np.max(halo.data.value), halo.centre_pix[0]+diff[0],
-                    halo.centre_pix[1]+diff[2], r_guess,r_guess,r_guess,r_guess,0.)
-        bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf],
+    diff   = np.abs(halo.margin)
+    p0     = (np.max(halo.data.value), halo.centre_pix[0]+diff[0],
+                halo.centre_pix[1]+diff[2], r_guess,r_guess,r_guess,r_guess,0.,0.,0.)
+    bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf, 0., -np.inf],
               [np.inf,halo.data.shape[0],halo.data.shape[1],
-                    r_bound,r_bound,r_bound,r_bound,np.inf])
+                    r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
 
-    elif dim == 'rotated_ellipse':
-        p0     = (np.max(halo.data.value), halo.centre_pix[0]+diff[0],
-                    halo.centre_pix[1]+diff[2], r_guess,r_guess,0.)
-        bounds = ([0.,0.,0.,0.,0.,-np.inf],
-                  [np.inf,halo.data.shape[0],halo.data.shape[1],r_bound,r_bound,np.inf])
-    elif dim == 'ellipse':
-        p0     = (np.max(halo.data.value), halo.centre_pix[0]+diff[0],
-                    halo.centre_pix[1]+diff[2], r_guess,r_guess)
-        bounds = ([0.,0.,0.,0.,0.],
-                  [np.inf,halo.data.shape[0],halo.data.shape[1],r_bound,r_bound])
-    elif dim == 'circle':
-        p0     = (np.max(halo.data.value), halo.centre_pix[0]+diff[0],
-                    halo.centre_pix[1]+diff[2], r_guess)
-        bounds = ([0.,0.,0.,0.,],
-                  [np.inf,halo.data.shape[0],halo.data.shape[1],r_bound])
-    else:
+    if dim not in ['circle','ellipse', 'rotated_ellipse', 'skewed']:
         print('Provide valid function kind')
         sys.exit()
 
     fit = mcmc.fitting(halo, halo.data_mcmc, dim, p0, bounds,
-                            walkers=200, steps=1000, save=True, mask=True,
-                            burntime=300, logger=halo.log, rebin=True, maskpath=maskpath)
+                        walkers=200, steps=1200, save=True, mask=True, burntime=250,
+                        logger=halo.log, rebin=True, maskpath=maskpath, max_radius=None, k_exponent=False)
+    fit.__preFit__()
     fit.__run__()
 
 def MCMC_retreival(halo, maskpath, logger, dim='circle'):
     processing = mcmc.processing(halo, halo.data, dim=dim,logger=logger,
-                                    mask=True,rebin=True, maskpath=maskpath)
+                                    mask=True,rebin=True, maskpath=maskpath, k_exponent=False)
     processing.plot_results()
-    processing.get_flux(freq=144*u.MHz)
+    processing.get_flux()
     processing.get_power(freq=150*u.MHz)
+    #processing.get_confidence_interval(percentage=90)
+    #processing.get_confidence_interval(percentage=95)
     processing.get_chi2_value()
+    #processing.tableprint()
+    #print(processing.power_val.value)
+    #print(processing.params_units[3])
     return processing
 
 def worker_process(object, path, maskpath, logger):
-    model = 'circle' #can be circle, rotated_ellipse or skewed
-    if object=='Abell1033':
+    # Model to use for fitting
+    if object == 'PSZ2G048.10+57.16':
+        loc = SkyCoord(230.316086, 30.627828, unit=u.deg)
+        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, M500=3.589891, z=0.0783,loc=loc)
+    elif object == 'PSZ2G189.31+59.24':
+        loc = SkyCoord(157.954447, 35.040602, unit=u.deg)
+        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, M500=3.241592, z=0.122,loc=loc)
+    elif object == 'PSZ2G084.69-58.60':
+        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, R500=0.8644)
+    elif object == 'Abell1033':
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, z=0.122)
+    elif object == 'Abell2744':
+        loc = SkyCoord('00 14 20.03 -30 23 17.8', unit=(u.hourangle, u.deg), frame='icrs')
+        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, z=0.308, loc=loc)
+    elif object == 'RXCJ1825.3+3026':
+        loc = SkyCoord('18 25 20.0 +30 26 11.2', unit=(u.hourangle, u.deg))
+        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, z=0.065, loc=loc)
+    else:
+        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True)
 
-    MCMC_run(halo, maskpath, logger, dim=model)
-    try:
-        halo.result = MCMC_retreival(halo, maskpath, logger, dim=model)
-    except Exception as e:
-        print(e)
-        print('MCMC retrieval Failed')
-        pass
+    #MCMC_run(halo, maskpath, logger, dim='circle')
+    #MCMC_run(halo, maskpath, logger, dim='rotated_ellipse')
+    #MCMC_run(halo, maskpath, logger, dim='skewed')
 
+    #try:
+    halo.result4 = MCMC_retreival(halo, maskpath, logger, dim='circle')
+    halo.result = MCMC_retreival(halo, maskpath, logger, dim='rotated_ellipse')
+    halo.result = MCMC_retreival(halo, maskpath, logger, dim='skewed')
+    #except:
+    #    pass
+
+    #plot.model_comparisson(halo, mask=halo.result4.mask)
+    #objectlist = [halo.result4, halo.result6, halo.result8]
+    #best_model_num = np.argmin([halo.result4.AICc, halo.result6.AICc, halo.result8.AICc])
+    #make_all_info_file.main(halo, objectlist[best_model_num])
     halo.Close()
     return halo
 
@@ -132,16 +146,17 @@ if __name__ == '__main__':
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     logging.config.dictConfig(d)
-    mass = list()
-    power  = list()
+    halos = list()
 
     for target in targets:
         logger = logging.getLogger(str(target[0])[4:])
         logger.log(logging.INFO, 'Start Process for: '+ target[1])
-        try:
-            halo = worker_process(target[0], target[1], target[2], logger)
-        except Exception as e:
-            logger.log(logging.CRITICAL, 'process for '+target[0]+\
-                                'failed with error message: See terminal')
-            print(e)
-            pass
+        #try:
+        halo = worker_process(target[0], target[1], target[2], logger)
+        halos.append(halo)
+        #except Exception as e:
+        #    logger.log(logging.CRITICAL, 'process for '+target[0]+\
+        #                        'failed with error message')
+        #    print(e)
+
+    #utils.HaloStatistics(halos)

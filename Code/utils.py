@@ -13,6 +13,7 @@ import logging
 import pyregion
 
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 from scipy import ndimage
 from skimage.measure import block_reduce
@@ -30,8 +31,8 @@ import plotting_fits as plot
 import markov_chain_monte_carlo
 
 #plt.style.use('classic')
-plt.rc('text',usetex=True)
-plt.rc('font', family='serif')
+#plt.rc('text',usetex=True)
+#plt.rc('font', family='serif')
 np.seterr(divide='ignore', invalid='ignore')
 
 
@@ -39,6 +40,18 @@ rad2deg=180./np.pi
 deg2rad=np.pi/180.
 Jydeg2     = u.Jy/(u.deg*u.deg)
 mJyarcsec2 = u.mJy/(u.arcsec*u.arcsec)
+
+def add_parameter_labels(obj, array):
+    full_array = np.zeros(obj.params.shape)
+    full_array[obj.params] = np.array(array)
+    parameterised_array = pd.DataFrame.from_dict({'params': full_array},
+                            orient='index',columns=obj.paramNames).loc['params']
+    return parameterised_array
+
+def convolve_model(halo, Ir, rotate):
+    if rotate:
+        Ir = rotate_image(halo,Ir,decrease_fov=True)
+    return convolve_with_gaussian(halo, Ir).ravel()
 
 def gauss(x,mu,sigma,A):
     return A*np.exp(-1./2*((x-mu)/sigma)**2.)
@@ -53,40 +66,31 @@ def convolve_with_gaussian(obj, data):
         astropy_conv = convolve(data,kernel,boundary='extend',normalize_kernel=True)
     return astropy_conv
 
-def circle_model(obj, I0, x0, y0, re, rotate=False):
-    r   = np.sqrt((obj.x_pix-x0)**2+(obj.y_pix-y0)**2)
-    Ir  =  I0 * np.exp(-(r/re))
-    if rotate:
-        Ir = rotate_image(obj.halo,Ir,decrease_fov=True)
-    return convolve_with_gaussian(obj.halo, Ir).ravel()
+def circle_model(obj, theta, rotate=False):
+    G   = ((obj.x_pix-theta['x0'])**2+(obj.y_pix-theta['y0'])**2)/theta['r1']**2
+    Ir  = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_model(obj.halo, Ir, rotate).ravel()
 
-def ellipse_model(obj, I0, x0, y0, re_x, re_y, rotate=False):
-    r  = np.sqrt(((obj.x_pix-x0)/re_x)**2+((obj.y_pix-y0)/re_y)**2)
-    Ir =  (I0 * np.exp(-r)).reshape(len(obj.x_pix), len(obj.y_pix))*u.Jy
-    if rotate:
-        Ir = rotate_image(obj.halo,Ir,decrease_fov=True)
-    return convolve_with_gaussian(obj.halo, Ir).ravel()
+def ellipse_model(obj, theta, rotate=False):
+    G  = ((obj.x_pix-theta['x0'])/theta['r1'])**2+((obj.y_pix-theta['y0'])/theta['r2'])**2
+    Ir = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_model(obj.halo, Ir, rotate).ravel()
 
-def rotated_ellipse_model(obj, I0, x0, y0, re_x, re_y, ang, rotate=False):
-    x = (obj.x_pix-x0)*np.cos(ang) + (obj.y_pix-y0)*np.sin(ang)
-    y = -(obj.x_pix-x0)*np.sin(ang) + (obj.y_pix-y0)*np.cos(ang)
-    G = (x/re_x)**2.+(y/re_y)**2.
+def rotated_ellipse_model(obj, theta, rotate=False):
+    x  = (obj.x_pix-theta['x0'])*np.cos(theta['ang']) + (obj.y_pix-theta['y0'])*np.sin(theta['ang'])
+    y  = -(obj.x_pix-theta['x0'])*np.sin(theta['ang']) + (obj.y_pix-theta['y0'])*np.cos(theta['ang'])
+    G  = (x/theta['r1'])**2.+(y/theta['r2'])**2.
+    Ir = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_model(obj.halo, Ir, rotate).ravel()
 
-    Ir  = I0*(np.exp(-G**0.5)).reshape(len(x), len(y))*u.Jy
-    if rotate:
-        Ir = rotate_image(obj.halo,Ir,decrease_fov=True)
-    return convolve_with_gaussian(obj.halo, Ir).ravel()
+def skewed_model(obj, theta, rotate=False):
+    G_pp = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r1'],theta['r3'],theta['ang'],  1.,  1.)
+    G_mm = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r2'],theta['r4'],theta['ang'], -1., -1.)
+    G_pm = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r1'],theta['r4'],theta['ang'],  1., -1.)
+    G_mp = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r2'],theta['r3'],theta['ang'], -1.,  1.)
 
-def skewed_model(obj, I0, x0, y0, re_xp, re_xm, re_yp, re_ym, ang, rotate=False):
-    G_pp = G(obj.x_pix, obj.y_pix, I0, x0, y0, re_xp, re_yp, ang,  1.,  1.)
-    G_mm = G(obj.x_pix, obj.y_pix, I0, x0, y0, re_xm, re_ym, ang, -1., -1.)
-    G_pm = G(obj.x_pix, obj.y_pix, I0, x0, y0, re_xp, re_ym, ang,  1., -1.)
-    G_mp = G(obj.x_pix, obj.y_pix, I0, x0, y0, re_xm, re_yp, ang, -1.,  1.)
-
-    Ir = I0*(G_pp+G_pm+G_mm+G_mp)
-    if rotate:
-        Ir = rotate_image(obj.halo,Ir,decrease_fov=True)
-    return convolve_with_gaussian(obj.halo, Ir).ravel()
+    Ir = theta['I0']*(G_pp+G_pm+G_mm+G_mp)
+    return convolve_model(obj.halo, Ir, rotate).ravel()
 
 def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
     x_rot =  (x-x0)*np.cos(ang)+(y-y0)*np.sin(ang)
@@ -97,7 +101,17 @@ def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
     exponent = np.exp(-np.sqrt(func))
     exponent[np.where(np.isnan(exponent))]=0.
     return exponent
+'''
+def k_exponent_model(obj, I0, x0, y0, re_x, re_y, ang, P, rotate=False):
+    x = (obj.x_pix-x0)*np.cos(ang) + (obj.y_pix-y0)*np.sin(ang)
+    y = -(obj.x_pix-x0)*np.sin(ang) + (obj.y_pix-y0)*np.cos(ang)
+    G = (x/re_x)**2.+(y/re_y)**2.
 
+    Ir  = I0*(np.exp(-G**P)).reshape(len(x), len(y))*u.Jy
+    if rotate:
+        Ir = rotate_image(obj.halo,Ir,decrease_fov=True)
+    return convolve_with_gaussian(obj.halo, Ir).ravel()
+'''
 def forward_modelling(obj, *theta):
     noise = advanced_noise_modeling(obj).value
     Ixy   = grand_exponential(obj, *theta)
@@ -135,6 +149,11 @@ def advanced_noise_modeling(obj,seed=False):
     #plot.quick_imshow(obj.halo, noise_conv*u.Jy, noise=False)
     return noise_conv*u.Jy
 
+def create_artificial_halo(obj, model, seed):
+    theory_noise = advanced_noise_modeling(obj, seed).value
+    #plot.quick_imshow(obj.halo, (model+theory_noise)*u.Jy, noise=False)
+    return model+theory_noise
+
 def export_fits(data, path, header=None):
     try:
         hdu = fits.PrimaryHDU(data.value, header=header)
@@ -154,6 +173,7 @@ def mask_region(infilename,ds9region,outfilename):
     hdu[0].data[0][0][np.where(manualmask == False)] = 0.0
     hdu[0].data[0][0][np.where(manualmask == True)] = 1.0
     hdu.writeto(outfilename,overwrite=True)
+
     return outfilename
 
 def flatten(f):
@@ -245,6 +265,8 @@ def findrms(self, data, niter=100, maskSup=1e-7):
     return rms
 
 def rotate_image(obj,img, decrease_fov=False):
+    #plt.imshow(img)
+    #plt.show()
     if not decrease_fov:
         if np.array(img.shape)[0]%2 is 0:
             img = np.delete(img, 0, 0)
@@ -256,14 +278,17 @@ def rotate_image(obj,img, decrease_fov=False):
         padY  = [int(img.shape[0]) - pivot[1], pivot[1]]
         img_pad  = np.pad(img, [padY, padX], 'constant')
         img_rot  = ndimage.rotate(img_pad, -obj.bpa.value, reshape=False)
+        #plt.imshow(img_rot[padY[0]:-padY[1], padX[0]:-padX[1]])
+        #plt.show()
         return img_rot[padY[0]:-padY[1], padX[0]:-padX[1]]
     else:
         img_rot = ndimage.rotate(img, -obj.bpa.value, reshape=False)
         f= img_rot[obj.margin[0]:obj.margin[1], obj.margin[2]:obj.margin[3]]
+        #plt.imshow(f)
+        #plt.show()
         return f
 
 def regrid_to_beamsize(obj, img, accuracy=100.):
-    #start = time.clock()
     y_scale = np.sqrt(obj.beam_area*obj.bmin/obj.bmaj).value
     x_scale = (obj.beam_area/y_scale).value
     new_pix_size = np.array((y_scale,x_scale))
@@ -282,9 +307,62 @@ def regrid_to_beamsize(obj, img, accuracy=100.):
         for j in range(img.shape[0]):
             for i in range(img.shape[1]):
                 pseudo_array[orig_scale[1]*i:orig_scale[1]*(i+1),
-                         orig_scale[0]*j:orig_scale[0]*(j+1)] = img[i,j]/elements
+                             orig_scale[0]*j:orig_scale[0]*(j+1)] = img[i,j]/elements
 
     f= block_reduce(pseudo_array, block_size=tuple(scale), func=np.sum, cval=0)
     f=np.delete(f, -1, axis=0)
     f=np.delete(f, -1, axis=1)
+    #plt.imshow(f)
+    #plt.show()
+    #print(pseudo_array.shape, scale, f.shape)
     return f
+
+def HaloStatistics(halos):
+    power = list()
+    flux = list()
+    mass = list()
+    radius = list()
+    k_exp = list()
+
+
+
+    for halo in halos:
+        power.append([halo.result4.power_val.value, halo.result4.power_std])
+        flux.append([halo.result4.flux_val.value, halo.result4.flux_std.value])
+        mass.append([halo.M500.value, halo.M500_std.value])
+        radius_std = (halo.result4.percentiles_units[3,1]\
+                     -halo.result4.percentiles_units[3,0]\
+                     +halo.result4.percentiles_units[3,2]\
+                     -halo.result4.percentiles_units[3,1])/2.
+        radius.append([halo.result4.params_units[3], radius_std])
+        k_exp.append([halo.result4.parameters['k_exp'],0])
+
+    power  = np.array(power).reshape((len(halos),2))
+    flux   = np.array(flux).reshape((len(halos),2))
+    mass   = np.array(mass).reshape((len(halos),2))
+    radius = np.array(radius).reshape((len(halos),2))
+    k_exp  = np.array(k_exp).reshape((len(halos),2))
+
+    plt.errorbar(flux[:,0], k_exp[:,0], xerr=flux[:,1], lw=1,
+                    markersize=1., capsize=4, mew=1. ,fmt='.', alpha=0.8,
+                    color='black', marker='.')
+    plt.xlabel('$S_{\\nu}$')
+    plt.ylabel('k')
+    #plt.yscale('log')
+    #plt.savefig('mass-radius.pdf')
+    plt.minorticks_on()
+    plt.show()
+
+    plt.errorbar(k_exp[:,0], power[:,0], yerr=power[:,1], lw=1,
+                    markersize=1., capsize=4, mew=1. ,fmt='.', alpha=0.8,
+                    color='black', marker='.')
+    plt.ylabel('$P_{\\mathrm{150 MHz}}$ [W/Hz]')
+    plt.xlabel('k')
+    plt.xscale('log')
+    plt.minorticks_on()
+    #plt.savefig('power-radius.pdf')
+    plt.show()
+
+def gamma_dist(x, shape, scale):
+    from scipy.special import gamma
+    return (x**(shape-1.)*np.exp(-x/scale))/(gamma(shape)*(scale**shape))
