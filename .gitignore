@@ -2,8 +2,6 @@
 *.pyc
 __pycache__/
 
-*.png
-
 # Mac junk
 *.DS_Store
 *.AppleDouble
