@@ -38,7 +38,11 @@ This software will run a multithreaded process by default using the `multiproces
 
 This flowchart gives a general overview of the pipeline. On code level, the pipeline works roughly like this:<br>
 First, a `Radio_Halo` object must be initiated. When initiating the object, all relevant properties are processed. This class is documented in `__HaloObject__.py`.
-This class also handles the very first fits such that the image coordinates can be related to sky coordinates without using the header. The `Radio_Halo` class handles teps up to 'Second preliminary fit'. 'Rotating and regridding' is not performed by the class.
+This class also handles the very first fits such that the image coordinates can be related to sky coordinates without using the header. The `Radio_Halo` class handles steps up to 'Second preliminary fit'. 'Rotating and regridding' is not performed by the class.
+
+The Markov Chain Monte Carlo (MCMC) algorithm is performed in the blue part of the flowchart. This takes place in the `fitting` class in `markov_chain_monte_carlo.py` (see calss documentation there and below). This class takes a Radio Halo object as input and from there starts the profile fitting based on the extra settings given as input. 'Chains' that are the result of MCMC are saved in new FITS files (`./Results/Samples/`), settings of the speciffic run are saved in the header. 
+
+The `processing` class in `markov_chain_monte_carlo.py` takes a halo object as input and processes the MCMC results by generating figures, statistical analysis and final flux density and parameter estimations. these results are found in the log files: `./Code/.log/`.
 
 ### Input
 The input required to successfully run the algorithm is a standardised astronomical FITS file containing a data image with acompanying header that must include keys standard for radio astronomy (e.g. Observing frequency, sythesised beam information and pixel/sky scale). An optional extra file that can be used as input is a DS9 region file (.reg format) where image subsets can be masked. these regions will be ignored during flux density estimation. Objects and their files can be injected into the puipeline using the 'database.dat' file in /Data/. To run an object, a line in database.dat should look like this:
@@ -48,5 +52,13 @@ The input required to successfully run the algorithm is a standardised astronomi
 An arbitraty amound of clusters can be put in this file.
 
 Currently, cluster characteristics such as location, redshift and M500 mass (R500 radius if availible) can be retrieved from catalogues on VIZIER. This automatic retrieval of cluster information is availible for MCXC, PSZ2, Abell and WHL clusters. A catalogue search is not always succesful, it is adviced to give the essential cluster information, redshift and sky location, as input. 
+
+### Detailed pipeline description
+
+## Example (RXCJ1825.3+3026)
+We will now show an exapmle to showcase the code using RXCJ1825.3+3026. See: https://www.aanda.org/articles/aa/abs/2019/10/aa36022-19/aa36022-19.html by A.Botteon et al. (2019) for more information on the cluster.
+### Input 
+### Settings
+### Output
 
 
