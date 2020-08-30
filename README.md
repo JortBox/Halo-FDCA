@@ -38,7 +38,7 @@ This software will run a multithreaded process by default using the `multiproces
 
 This flowchart gives a general overview of the pipeline. On code level, the pipeline works roughly like this:<br>
 First, a `Radio_Halo` object must be initiated. When initiating the object, all relevant properties are processed. This class is documented in `__HaloObject__.py`.
-This class also handles the very first fits such that the image coordinates can be related to sky coordinates without using the header.  
+This class also handles the very first fits such that the image coordinates can be related to sky coordinates without using the header. The `Radio_Halo` class handles teps up to 'Second preliminary fit'. 'Rotating and regridding' is not performed by the class.
 
 ### Input
 The input required to successfully run the algorithm is a standardised astronomical FITS file containing a data image with acompanying header that must include keys standard for radio astronomy (e.g. Observing frequency, sythesised beam information and pixel/sky scale). An optional extra file that can be used as input is a DS9 region file (.reg format) where image subsets can be masked. these regions will be ignored during flux density estimation. Objects and their files can be injected into the puipeline using the 'database.dat' file in /Data/. To run an object, a line in database.dat should look like this:
