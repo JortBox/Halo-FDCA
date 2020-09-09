@@ -1,4 +1,5 @@
 #Data to use for MCMC.
 #Col1: object, Col2: /path/to/data/file.fits, Col3: /path/to/DS9_regfile.reg
 #
+Abell2744,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/A2744_JVLA.image.fits,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/A2744halo.reg
 RXCJ1825.3+3026,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/RXCJ1825.3+3026_masksubROBUST-0.5TAPER30-MFS-image_corrected.fits,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/RXCJ1825.3+3026.haloexcl.reg

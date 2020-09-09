@@ -27,8 +27,8 @@ import astropy.units as u
 from astropy.convolution import Gaussian2DKernel
 from astropy.convolution import convolve
 
-import plotting_fits as plot
-import markov_chain_monte_carlo
+#import plotting_fits as plot
+#import markov_chain_monte_carlo
 
 #plt.style.use('classic')
 #plt.rc('text',usetex=True)
@@ -249,7 +249,7 @@ def get_rms(hdu,boxsize=1000,niter=200,eps=1e-6,verbose=False):
         oldrms=rms
     raise Exception('Failed to converge')
 
-def findrms(self, data, niter=100, maskSup=1e-7):
+def findrms(data, niter=100, maskSup=1e-7):
     m      = data[np.abs(data)>maskSup]
     rmsold = np.std(m)
     diff   = 1e-1
@@ -289,8 +289,9 @@ def rotate_image(obj,img, decrease_fov=False):
         return f
 
 def regrid_to_beamsize(obj, img, accuracy=100.):
-    y_scale = np.sqrt(obj.beam_area*obj.bmin/obj.bmaj).value
-    x_scale = (obj.beam_area/y_scale).value
+    x_scale = np.sqrt(np.pi/(4*np.log(2.)))*obj.bmaj.value
+    y_scale = np.sqrt(np.pi/(4*np.log(2.)))*obj.bmin.value
+
     new_pix_size = np.array((y_scale,x_scale))
     accuracy = int(1./accuracy*100)
 

@@ -30,7 +30,7 @@ def FindTargets():
     targets  = list()
     path     = os.getcwd()
     for i in reversed(range(len(path))):
-        if path[i-24:i] == 'RadioHalo_FluxCalculator':
+        if path[i-9:i] == 'Halo-FDCA':
             basedir = path[:i]+'/'
 
     data_file = basedir+'Data/database.dat'
@@ -58,19 +58,21 @@ def MCMC_run(halo, maskpath, logger, dim='rotated_ellipse'):
 
     fit = mcmc.fitting(halo, halo.data_mcmc, dim, p0, bounds,
                         walkers=200, steps=1200, save=True, mask=True, burntime=250,
-                        logger=halo.log, rebin=True, maskpath=maskpath, max_radius=None, k_exponent=False)
+                        logger=halo.log, maskpath=maskpath, max_radius=None, k_exponent=False)
     fit.__preFit__()
     fit.__run__()
 
 def MCMC_retreival(halo, maskpath, logger, dim='circle'):
     processing = mcmc.processing(halo, halo.data, dim=dim,logger=logger,
-                                    mask=True,rebin=True, maskpath=maskpath, k_exponent=False)
-    processing.plot_results()
-    processing.get_flux()
-    processing.get_power(freq=150*u.MHz)
-    #processing.get_confidence_interval(percentage=90)
-    #processing.get_confidence_interval(percentage=95)
+                                    mask=True, maskpath=maskpath, k_exponent=False)
+    #processing.plot_results()
+    #print(halo.original_image.shape)
+    #print(halo.pix_size)
+    #print(halo.bmaj, halo.bmin, halo.bpa)
     processing.get_chi2_value()
+    processing.get_flux(int_max=10)
+    #processing.get_power(freq=150*u.MHz)
+
     #processing.tableprint()
     #print(processing.power_val.value)
     #print(processing.params_units[3])
@@ -78,17 +80,7 @@ def MCMC_retreival(halo, maskpath, logger, dim='circle'):
 
 def worker_process(object, path, maskpath, logger):
     # Model to use for fitting
-    if object == 'PSZ2G048.10+57.16':
-        loc = SkyCoord(230.316086, 30.627828, unit=u.deg)
-        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, M500=3.589891, z=0.0783,loc=loc)
-    elif object == 'PSZ2G189.31+59.24':
-        loc = SkyCoord(157.954447, 35.040602, unit=u.deg)
-        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, M500=3.241592, z=0.122,loc=loc)
-    elif object == 'PSZ2G084.69-58.60':
-        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, R500=0.8644)
-    elif object == 'Abell1033':
-        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, z=0.122)
-    elif object == 'Abell2744':
+    if object == 'Abell2744':
         loc = SkyCoord('00 14 20.03 -30 23 17.8', unit=(u.hourangle, u.deg), frame='icrs')
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, z=0.308, loc=loc)
     elif object == 'RXCJ1825.3+3026':
@@ -103,8 +95,8 @@ def worker_process(object, path, maskpath, logger):
 
     #try:
     halo.result4 = MCMC_retreival(halo, maskpath, logger, dim='circle')
-    halo.result = MCMC_retreival(halo, maskpath, logger, dim='rotated_ellipse')
-    halo.result = MCMC_retreival(halo, maskpath, logger, dim='skewed')
+    halo.result6 = MCMC_retreival(halo, maskpath, logger, dim='rotated_ellipse')
+    halo.result8 = MCMC_retreival(halo, maskpath, logger, dim='skewed')
     #except:
     #    pass
 

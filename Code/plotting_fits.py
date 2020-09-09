@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import os
 #import aplpy
 from scipy.optimize import curve_fit
-from matplotlib.colors import Normalize, LogNorm, SymLogNorm
+from matplotlib.colors import Normalize, LogNorm, SymLogNorm, DivergingNorm
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import ScalarFormatter
 from scipy import ndimage
@@ -59,103 +59,123 @@ def quick_imshow(obj, data, noise=True, name = 'plot'):
     plt.savefig(name+'.pdf')
     plt.show()
 
-def fit_result(obj, model, mask=False):
+def fit_result(obj, model, data, noise, mask=False, regrid=False):
     fig, axes = plt.subplots(ncols=3, nrows=1, sharey=True)
     halo      = obj.halo
     ra        = halo.ra.value
     dec       = halo.dec.value
+    bmin      = halo.bmin
+    bmaj      = halo.bmaj
+    scale     = 1.
+    xlabel    = 'RA [Deg]'
+    ylabel    = 'DEC [Deg]'
     for axi in axes.flat:
         axi.xaxis.set_major_locator(plt.MaxNLocator(5))
         axi.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
         axi.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+
     fig.set_size_inches(3.2*5,5.1)
+    image_mask = obj.image_mask
 
-    vmin=-2*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value
-    vmax=4*(obj.params_units[0])
+    if regrid:
+        data  = obj.halo.regridding(data)
+        model = obj.halo.regridding(model)
+        image_mask = obj.halo.regridding(obj.image_mask*u.Jy).value
+        noise      = utils.findrms(data.value)*u.Jy
+        scale = (np.array((bmin.value,bmaj.value))/halo.pix_size).value
+        bmin  = bmin/(scale[0]*halo.pix_size)
+        bmaj  = bmaj/(scale[1]*halo.pix_size)
+        ra         = np.arange(0,data.shape[1])#halo.ra.value
+        dec        = np.arange(0,data.shape[0])#halo.dec.value
+        xlabel    = 'Pixels'
+        ylabel    = 'Pixels'
 
-    NORM    = LogNorm(vmin=0.4*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
-                        vmax=20*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value)
-    #NORM = SymLogNorm(2.*obj.params_units[0] , linscale=1.0, vmin=vmin, vmax=vmax)
-    NORMres = Normalize(vmin=-2.*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
-                        vmax=1.*(u.Jy*obj.parameters[0]/halo.pix_area).to(uJyarcsec2).value)
-    Normres=Normalize(vmin=0,vmax=4)
+    draw_sizebar(halo,axes[0], scale, regrid)
+    draw_ellipse(halo,axes[0], bmin, bmaj, regrid)
 
-    data = np.copy(obj.data)
+    data  = (data/halo.pix_area).to(uJyarcsec2).value
+    noise = (noise/halo.pix_area).to(uJyarcsec2).value
+    model = (model/halo.pix_area).to(uJyarcsec2).value
+
+    NORMres = Normalize(vmin=-2.*noise, vmax=1.*data.max())
+    Normdiv = DivergingNorm(vmin=0.8*data.min(), vcenter=0., vmax=0.8*data.max())
+
+    masked_data = np.copy(data)
     if mask:
-        data.value[obj.image_mask==1]= -100.
+        if regrid:
+            masked_data[image_mask >= obj.mask_treshold*image_mask.max()] =-100.
+        else:
+            masked_data[image_mask==1]= -100.
 
-    im1 = axes[0].imshow((data/halo.pix_area).to(uJyarcsec2).value,
-                        cmap='inferno', origin='lower',
+    im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
-    try:
-        LEVEL = np.arange(1,7)*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value
-        cont1 = axes[0].contour((model/halo.pix_area).to(uJyarcsec2).value,
-                        colors='white', levels=LEVEL, alpha=0.6,
+    #try:
+    LEVEL = np.arange(1,7)*noise
+    cont1 = axes[0].contour(model,colors='white', levels=LEVEL, alpha=0.6,
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
-        cont2 = axes[0].contour((data/halo.pix_area).to(uJyarcsec2).value,
-                        colors='lightgreen', levels=np.array([-99.8]), alpha=0.6, linestyles='-',
-                        extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.5)
+    cont2 = axes[0].contour(masked_data,colors='lightgreen', levels=np.array([-99.8]),
+                        alpha=0.6, linestyles='-',extent=(ra.max(),ra.min(),dec.min(),dec.max()),
+                        norm = NORMres,linewidths=1.5)
         #pass
-    except:
-        print('PROCESSING: Failed making contours')
-        pass
+    #except:
+    #    print('PROCESSING: Failed making contours')
+    #    pass
 
     axes[0].annotate('$V(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
                         ha='center', va='top', color='white')
     axes[0].set_title("Subtracted halo", fontsize=titlesize)
-    axes[0].set_xlabel('RA [deg]', fontsize=labelsize)
-    axes[0].set_ylabel('DEC [deg]', fontsize=labelsize)
+    axes[0].set_xlabel(xlabel, fontsize=labelsize)
+    axes[0].set_ylabel(ylabel, fontsize=labelsize)
     axes[0].grid(color='white', linestyle='-', alpha=0.25)
-    draw_sizebar(halo,axes[0])
-    draw_ellipse(halo,axes[0])
+
     plt.tight_layout()
 
-    im2 = axes[1].imshow((model/halo.pix_area).to(uJyarcsec2).value,
-                        cmap='inferno', origin='lower',
+    im2 = axes[1].imshow(model,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
     axes[1].annotate('$I(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
                         ha='center', va='top', color='white')
     axes[1].set_title("Exponential model", fontsize=titlesize)
-    axes[1].set_xlabel('RA [deg]', fontsize=labelsize)
+    axes[1].set_xlabel(xlabel, fontsize=labelsize)
     axes[1].grid(color='white', linestyle='-', alpha=0.25)
-    #draw_sizebar(halo,axes[1])
-    #draw_ellipse(halo,axes[1])
-    plt.tight_layout()
-
-    im3 = axes[2].imshow(abs((halo.data/halo.pix_area).to(uJyarcsec2).value-\
-                        (model/halo.pix_area).to(uJyarcsec2).value),
-                        cmap='inferno', origin='lower',
-                        extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
-    cont4 = axes[2].contour((data/halo.pix_area).to(uJyarcsec2).value,
-                        colors='lightgreen', levels=np.array([-99.8]), alpha=0.6, linestyles='-',
-                        extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.5)
-    try:
-        cont3 = axes[2].contour((model/halo.pix_area).to(uJyarcsec2).value, alpha=0.7,
-                            colors='white', levels=[2*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value],
-                            extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm=NORMres)
-        axes[2].clabel(cont3, fontsize=12, inline=1, fmt='2$\\sigma_{\\mathrm{rms}}$')
-    except: pass
-    axes[2].annotate('$|V(x,y)-I(x,y)|$',xy=(0.5, 1), xycoords='axes fraction',
-                        fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
-                        ha='center', va='top', color='white')
-    axes[2].set_title("Residual image", fontsize=titlesize)
-    axes[2].set_xlabel('RA [deg]', fontsize=labelsize)
-    axes[2].grid(color='white', linestyle='-', alpha=0.25)
-    #draw_sizebar(halo,axes[2])
-    #draw_ellipse(halo,axes[2])
-    plt.tight_layout()
-    import matplotlib.ticker as ticker
-
-    cbar = fig.colorbar(im3)
+    cbar = fig.colorbar(im2,ax=axes[1])
     cbar.ax.set_ylabel('$\\mu$Jy arcsec$^{-2}$',fontsize=labelsize)
     #cbar.formatter = ScalarFormatter(useMathText=False)
     #cbar.formatter = ticker.LogFormatter(base=10.,labelOnlyBase=True)
-    cbar.formatter = ticker.StrMethodFormatter('%.2f')
+    #cbar.formatter = ticker.StrMethodFormatter('%.2f')
+    plt.tight_layout()
 
 
-    plt.savefig(halo.plotPath +halo.file.replace('.fits','')+'_mcmc_model'+obj.filename_append+'.pdf')
+    im3 = axes[2].imshow(data-model, cmap='PuOr_r', origin='lower',
+                        extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = Normdiv)
+    cont4 = axes[2].contour(masked_data,
+                        colors='red', levels=np.array([-99.8]), alpha=0.6, linestyles='-',
+                        extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.5)
+    try:
+        cont3 = axes[2].contour(model, alpha=0.7, colors='black', levels=[2*noise],
+                            extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm=NORMres)
+        axes[2].clabel(cont3, fontsize=12, inline=1, fmt='2$\\sigma_{\\mathrm{rms}}$',colors='black')
+    except: pass
+    axes[2].annotate('$V(x,y)-I(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
+                        fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
+                        ha='center', va='top', color='black')
+    axes[2].set_title("Residual image", fontsize=titlesize)
+    axes[2].set_xlabel(xlabel, fontsize=labelsize)
+    axes[2].grid(color='black', linestyle='-', alpha=0.25)
+    plt.tight_layout()
+    import matplotlib.ticker as ticker
+
+    cbar = fig.colorbar(im3,ax=axes[2])
+    cbar.ax.set_ylabel('$\\mu$Jy arcsec$^{-2}$',fontsize=labelsize)
+    #cbar.formatter = ScalarFormatter(useMathText=False)
+    #cbar.formatter = ticker.LogFormatter(base=10.,labelOnlyBase=True)
+    #cbar.formatter = ticker.StrMethodFormatter('%.2f')
+
+    if regrid:
+        plt.savefig(halo.plotPath +halo.file.replace('.fits','')+'_mcmc_model'+obj.filename_append+'_REGRID.pdf')
+    else:
+        plt.savefig(halo.plotPath +halo.file.replace('.fits','')+'_mcmc_model'+obj.filename_append+'.pdf')
     #plt.show()
     plt.clf()
     plt.close(fig)
@@ -279,6 +299,8 @@ def fit_result_mcmc(obj, func):
         axi.yaxis.set_major_locator(plt.MaxNLocator(3))
     fig.set_size_inches(3.4*5,5)
 
+
+
     fit = (func(obj, *halo.params).reshape(len(halo.x_pix), len(halo.y_pix)))*u.Jy
 
     NORM = Normalize(vmin=-2*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
@@ -331,12 +353,16 @@ def fit_result_mcmc(obj, func):
     plt.show()
     #plt.clf()
 
-def draw_sizebar(obj,ax):
+def draw_sizebar(obj,ax, scale, regrid=False):
     """
     Draw a horizontal bar with length of 0.1 in data coordinates,
     with a fixed label underneath.
     """
-    length = 1./obj.factor.to(u.Mpc/u.deg)
+    if regrid:
+        length = 1./obj.factor.to(u.Mpc/u.deg)/(scale[1]*obj.pix_size)
+    else:
+        length = 1./obj.factor.to(u.Mpc/u.deg)
+
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     asb = AnchoredSizeBar(ax.transData,length.value,
                           r"1 Mpc",
@@ -345,20 +371,23 @@ def draw_sizebar(obj,ax):
                           frameon=False, color='white')#, fontsize=labelsize)
     ax.add_artist(asb)
 
-def draw_ellipse(obj,ax):
+def draw_ellipse(obj,ax, bmin, bmaj, regrid=False):
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
     """
     Draw an ellipse of width=0.1, height=0.15 in data coordinates
     """
-    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
+
+    bpa = obj.bpa.value
+    if regrid:
+        bpa = 0
     try:
-        ae = AnchoredEllipse(ax.transData, width=obj.bmaj.value, height=obj.bmin.value,
-                                angle=obj.bpa.value,
-                                loc='lower left', pad=0.3, borderpad=0.3,
+        ae = AnchoredEllipse(ax.transData, width=bmaj.value, height=bmin.value,
+                                angle=bpa, loc='lower left', pad=0.3, borderpad=0.3,
                                 frameon=True,color='lightskyblue')
     except:
-        ae = AnchoredEllipse(ax.transData, width=obj.bmaj.value, height=obj.bmin.value,
-                                angle=obj.bpa.value,
-                                loc='lower left', pad=0.3, borderpad=0.3,frameon=True)
+        ae = AnchoredEllipse(ax.transData, width=bmaj.value, height=bmin.value,
+                                angle=bpa, loc='lower left', pad=0.3, borderpad=0.3,
+                                frameon=True)
 
     ax.add_artist(ae)
 
@@ -408,10 +437,11 @@ def model_comparisson(halo, mask=False):
     NORM    = LogNorm(vmin=0.4*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
                         vmax=20*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value)
     #NORM = SymLogNorm(2.*halo.result4.params_units[0] , linscale=1.0, vmin=vmin, vmax=vmax)
-    NORMres = Normalize(vmin=-2.*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
-                        vmax=1.*(u.Jy*halo.result4.params[0]/halo.pix_area).to(uJyarcsec2).value)
 
     data = np.copy(halo.result4.data)
+
+    NORMres = Normalize(vmin=-2.*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
+                        vmax=1.*(data/halo.pix_area).to(uJyarcsec2).value.max())
     if mask:
         data.value[halo.result4.image_mask==1]= -100.
 
@@ -429,7 +459,7 @@ def model_comparisson(halo, mask=False):
         print('PROCESSING: Failed making contours')
         pass
 
-    axes[0].set_title('Circular\n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result4.flux_val.value, halo.result4.flux_std.value), fontsize=15)
+    axes[0].set_title('Circular\n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result4.flux_val.value, halo.result4.flux_err.value), fontsize=15)
     axes[0].set_xlabel('RA [deg]', fontsize=labelsize)
     axes[0].set_ylabel('DEC [deg]', fontsize=labelsize)
     axes[0].grid(color='white', linestyle='-', alpha=0.25)
@@ -451,7 +481,7 @@ def model_comparisson(halo, mask=False):
         print('PROCESSING: Failed making contours')
         pass
 
-    axes[1].set_title('Elliptical\n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result6.flux_val.value, halo.result8.flux_std.value), fontsize=15)
+    axes[1].set_title('Elliptical\n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result6.flux_val.value, halo.result8.flux_err.value), fontsize=15)
     axes[1].set_xlabel('RA [deg]', fontsize=labelsize)
     axes[1].set_ylabel('DEC [deg]', fontsize=labelsize)
     axes[1].grid(color='white', linestyle='-', alpha=0.25)
@@ -474,7 +504,7 @@ def model_comparisson(halo, mask=False):
         pass
 
 
-    axes[2].set_title('Skewed \n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result8.flux_val.value, halo.result8.flux_std.value), fontsize=15)
+    axes[2].set_title('Skewed \n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result8.flux_val.value, halo.result8.flux_err.value), fontsize=15)
     axes[2].set_xlabel('RA [deg]', fontsize=labelsize)
     axes[2].set_ylabel('DEC [deg]', fontsize=labelsize)
     axes[2].grid(color='white', linestyle='-', alpha=0.25)

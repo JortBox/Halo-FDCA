@@ -26,8 +26,8 @@ from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
 
 # Subfiles imports
-import plotting_fits as plot
-import markov_chain_monte_carlo
+#import plotting_fits as plot
+#import markov_chain_monte_carlo
 import utils
 
 #plt.rc('text',usetex=True)
@@ -53,7 +53,6 @@ class Radio_Halo(object):
             characteristics manually
     path (str): Path to data read from 'database.dat'. Compatible with
           Leiden Observatory data structure.
-    convolved (bool):Depricated.
     decrease_fov (bool): Declare if image size has to be decreased before MCMCing. Amount
                   of decreasement has ben automatically set to 3.5*r_e in
                   self.exponentialFit().
@@ -75,7 +74,7 @@ class Radio_Halo(object):
                           power values. Default is -1.2 (No conclusions can be drawn
                           from using this default value in calculations).
     '''
-    def __init__(self, object, path, convolved=False, decreased_fov=False,
+    def __init__(self, object, path, decreased_fov=False,
                 logger=logging, loc=None, M500=None, R500=None, z=None, spectr_index=-1.2):
 
         self.user_radius = R500
@@ -126,9 +125,9 @@ class Radio_Halo(object):
         self.set_image_characteristics(decreased_fov)
 
     def initiatePaths(self):
-        path = os.getcwd()
+        path = os.path.dirname(os.path.abspath(__file__))
         for i in reversed(range(len(path))):
-            if path[i-24:i] == 'RadioHalo_FluxCalculator':
+            if path[i-9:i] == 'Halo-FDCA':
                 self.basedir = path[:i]+'/'
 
         txt           = self.path.split('/')
@@ -174,6 +173,8 @@ class Radio_Halo(object):
             coord    = w.celestial.wcs_pix2world(cent_pix,0)
             self.loc = SkyCoord(coord[0,0], coord[0,1], unit=u.deg)
             self.user_loc = False
+
+
 
 
     def extract_object_info(self, M500, R500, z):
@@ -314,8 +315,8 @@ class Radio_Halo(object):
 
 
     def get_noise(self, data, ampnoise=0.2):
-        #rmsnoise   = utils.findrms(np.ndarray.flatten(data.value))*data.unit
-        rmsnoise   = utils.get_rms(self.path)
+        rmsnoise   = utils.findrms(data.value)
+        #rmsnoise   = utils.get_rms(self.path)
         imagenoise = 0.#np.sqrt((ampnoise*data)**2+(rmsnoise*np.sqrt(1./self.beam2pix))**2)
         return rmsnoise, imagenoise
 

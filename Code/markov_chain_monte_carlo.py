@@ -75,11 +75,22 @@ class fitting(object):
     maskpath (str): Custom path to DS9 region file, read from database.dat.
                     If '--' is given, and mas=True, the standard
                     directory will be searched.
+    max_radius (float): maximum posiible radius cut-off. Fitted halos cannot have any
+                        r > max_radius. In units of kpc.
+                        Default is None (implying image_size/2).
+    gamma_prior (bool): wether to use a gamma distribution as a prior for radii.
+                        Default is False. For the gamma parameters:
+                        shape = 2.5, scale = 120 kpc.
     '''
-    def __init__(self, _parent_, data, dim, p0, bounds, walkers, steps,
-                            save=False, burntime=0, logger=logging, rebin=True,
-                            forward=False, mask=False, maskpath='--', max_radius=None,
+    def __init__(self, _parent_, data, dim, p0, bounds, walkers, steps,save=False,
+                            burntime=0, logger=logging, rebin=True, mask=False,
+                            maskpath='--', max_radius=None, gamma_prior=False,
                             k_exponent=False, offset=False):
+
+        if dim not in ['circle','ellipse', 'rotated_ellipse', 'skewed']:
+            print('Provide valid function kind')
+            sys.exit()
+
         p0 = list(p0)
         self.orig_shape = _parent_.data.shape
         self.rebin = rebin
@@ -98,24 +109,12 @@ class fitting(object):
         self.p0 = p0
         self.bounds = bounds
 
-        '''
-        if k_exponent:
-            bounds[0].append(0.)
-            bounds[1].append(np.inf)
-            p0.append(1.)
-        if offset:
-            bounds[0].append(-np.inf)
-            bounds[1].append(np.inf)
-            p0.append(0.)
-        '''
-
         self.check_settings(dim, walkers, mask, burntime, maskpath, max_radius)
         x = np.arange(0,_parent_.data.shape[1],1)
         y = np.arange(0,_parent_.data.shape[0],1)
         self.x_pix, self.y_pix = np.meshgrid(x,y)
 
         self.dof = len(data.value.flat) - self.dim
-        #self.data2use = self.set_data_to_use(self.data)
 
 
     def __preFit__(self):
@@ -222,11 +221,10 @@ class fitting(object):
         if max_radius == None:
             self.max_radius = self.data.shape[0]/2.
         else:
-            self.max_radius = max_radius
+            self.max_radius = max_radius/self.halo.pix2kpc
 
         filename_append = '_%s' % (self.modelName)
         if self.mask: filename_append += '_mask'
-        #if self.rebin: filename_append += '_rebin'
         if self.k_exponent: filename_append += '_exp'
         if self.offset: filename_append += '_offset'
         self.filename_append = filename_append
@@ -257,7 +255,11 @@ class fitting(object):
             if not self.mask:
                 self.image_mask = np.zeros(self.halo.data.shape)
             self.binned_image_mask = self.halo.regridding(self.image_mask*u.Jy).value
-            return binned_data.value.ravel()[self.binned_image_mask.ravel() <=\
+            use = binned_data.value
+            print('rebinned image shape',use.shape)
+            #plt.imshow(use)
+            #plt.show()
+            return use.ravel()[self.binned_image_mask.ravel() <=\
                                     self.mask_treshold*self.binned_image_mask.max()]
         else:
             if self.mask:
@@ -401,7 +403,8 @@ def set_dictionary(obj):
         "mask_treshold":     obj.mask_treshold,
         "max_radius":        obj.max_radius,
         "params":            obj.params,
-        "paramNames":        obj.paramNames
+        "paramNames":        obj.paramNames,
+        "gamma_prior":       obj.gamma_prior,
         }
     return halo_info
 
@@ -419,8 +422,9 @@ def rotate_image(info,img, decrease_fov=False):
     return f
 
 def regrid_to_beamsize(info, img, accuracy=100.):
-    y_scale = np.sqrt(info['beam_area']*info['bmin']/info['bmaj']).value
-    x_scale = (info['beam_area']/y_scale).value
+    x_scale = np.sqrt(np.pi/(4*np.log(2.)))*obj.bmaj.value
+    y_scale = np.sqrt(np.pi/(4*np.log(2.)))*obj.bmin.value
+    
     new_pix_size = np.array((y_scale,x_scale))
     accuracy = int(1./accuracy*100)
 
@@ -496,18 +500,6 @@ def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
     exponent[np.where(np.isnan(exponent))]=0.
     return exponent
 
-'''
-def k_exponent_model(info, coord, I0, x0, y0, re_x, re_y, ang, P, rotate=False):
-    x,y = coord
-    x_rot =  (x-x0)*np.cos(ang)+(y-y0)*np.sin(ang)
-    y_rot = -(x-x0)*np.sin(ang)+(y-y0)*np.cos(ang)
-    G  = (x_rot/re_x)**2.+(y_rot/re_y)**2.
-    Ir = I0*(np.exp(-G**P))
-    if rotate:
-        Ir = rotate_image(info,Ir,decrease_fov=True)
-    return convolve_with_gaussian(info, Ir)
-'''
-
 def lnL(theta, data, coord, info):
     kwargs = {"rotate" : True}
     raw_model = info['_func_'](info,coord,theta,**kwargs)*u.Jy
@@ -526,13 +518,12 @@ def lnprior(theta, shape, info):
                     prior = -np.inf
 
     if prior != -np.inf:
-        #guess = 200./info['pix2kpc'] #average based on known sample of halos.
-        #prior = -np.sum(1./2*((theta['r1'])**2 + (theta['r2'])**2)/((info['max_radius']/4.)**2))
         if info['modelName'] == 'circle':
             radii = np.array([theta['r1']])
         else:
             radii = np.array([theta['r1'],theta['r2']])
-        prior = np.sum(np.log(utils.gamma_dist(radii, 2.6, 120./info['pix2kpc'].value)))
+        if info['gamma_prior']:
+            prior = np.sum(np.log(utils.gamma_dist(radii, 2.5, 120./info['pix2kpc'].value)))
     return prior
 
 def lnprior8(theta, shape, info):
@@ -543,11 +534,11 @@ def lnprior8(theta, shape, info):
                 if -np.pi/4. < theta['ang'] < 5*np.pi/4.:
                     prior =  0.0
 
-    if prior != -np.inf:
+    if prior != -np.inf and info['gamma_prior']:
         #guess = 225./info['pix2kpc'] #average based on known sample of halos.
         #prior = -np.sum(1./2*((theta['r1'])**2 + (theta['r2'])**2)/((info['max_radius']/4.)**2))
         radii = np.array([theta['r1'],theta['r2'],theta['r3'],theta['r4']])
-        prior = np.sum(np.log(utils.gamma_dist(radii, 2.6, 120./info['pix2kpc'].value)))
+        prior = np.sum(np.log(utils.gamma_dist(radii, 2.5, 120./info['pix2kpc'].value)))
     return prior
 
 def lnprob(theta, data, coord, info):
@@ -595,12 +586,11 @@ class processing(object):
     Mask (bool): applying mask to image. If true: a DS9 .reg  has to be present in the
                  Radio_halo.maskPath direcory Default is False.
     maskpath (str): Custom path to DS9 region file, read from database.dat.
-                    If '--' is given, and mas=True, the standard
+                    If '--' is given, and mask=True, the standard
                     directory will be searched.
     '''
     def __init__(self, _parent_, data, dim, logger, save=True, mask=False,
-                    rebin=False, forward=False, maskpath='--',
-                    k_exponent=False, offset=False):
+                    rebin=True, maskpath='--', k_exponent=False, offset=False):
         x = np.arange(0,data.shape[1],1)
         y = np.arange(0,data.shape[0],1)
         self.x_pix, self.y_pix = np.meshgrid(x,y)
@@ -615,18 +605,22 @@ class processing(object):
         self.alpha = _parent_.alpha # spectral index guess
         self.k_exponent = k_exponent
         self.offset = offset
+        self.mask_treshold = 0.4
 
         self.check_settings(dim, mask, maskpath)
-        self.extract_chain_file(rebin, forward)
+        self.extract_chain_file(rebin)
         self.retreive_mcmc_params()
         self.set_labels_and_units()
 
         self.dof = len(data.value.flat) - self.dim
 
     def plot_results(self):
-        plot.fit_result(self, self.model, mask=self.mask)
-        self.plotSampler()
-        self.cornerplot()
+        plot.fit_result(self, self.model, self.halo.data,
+                              self.halo.rmsnoise, mask=self.mask, regrid=False)
+        plot.fit_result(self, self.model, self.halo.data,
+                              self.halo.rmsnoise, mask=self.mask,regrid=True)
+        #self.plotSampler()
+        #self.cornerplot()
 
     def check_settings(self, dim, mask, maskpath):
         self.modelName  = dim
@@ -669,7 +663,7 @@ class processing(object):
             self.log.log(logging.INFO,'MCMC No mask set')
             self.mask=False
 
-    def extract_chain_file(self, rebin, forward):
+    def extract_chain_file(self, rebin):
         filename_append = '_{}'.format(self.modelName)
         if self.mask: filename_append += '_mask'
         #if rebin: filename_append += '_rebin'
@@ -761,7 +755,7 @@ class processing(object):
 
     def plotSampler(self):
         fig, axes = plt.subplots(ncols=1, nrows=self.dim, sharex=True)
-        axes[0].set_title('Number of walkers: '+str(self.walkers))
+        axes[0].set_title('Number of walkers: '+str(self.walkers), fontsize=25)
         for axi in axes.flat:
             axi.yaxis.set_major_locator(plt.MaxNLocator(3))
             fig.set_size_inches(2*10,15)
@@ -769,9 +763,10 @@ class processing(object):
         for i in range(self.dim):
             #axes[i].plot(self.sampler[:, int(0.4*self.sampler.shape[1]):, i].transpose(),color='black', alpha=0.3)
             axes[i].plot(self.sampler[:, :, i].transpose(),color='black', alpha=0.3,lw=0.5)
-            axes[i].set_ylabel(self.labels[i], fontsize=15)
+            axes[i].set_ylabel(self.labels[i], fontsize=20)
+            axes[-1].set_xlabel('steps', fontsize=20)
             axes[i].axvline(0.3*self.sampler.shape[1], ls='dashed', color='red')
-            plt.tick_params(labelsize=15)
+            axes[i].tick_params(labelsize=20)
             plt.xlim(0, self.sampler.shape[1])
 
         if self.save:
@@ -792,6 +787,9 @@ class processing(object):
         #print(self.centre_pix, self.halo.dec.shape, self.halo.ra.shape)
         self.centre_wcs = np.array((self.halo.ra.value[self.centre_pix[1]],
                                     self.halo.dec.value[self.centre_pix[0]]))*u.deg
+
+        print(self.centre_pix,np.percentile(self.samples.real[:, 1], [16, 50, 84])[1])
+        print(self.centre_wcs)
 
         for i in range(self.dim):
             samples_list.append(samples_units[:,i])
@@ -903,6 +901,8 @@ class processing(object):
         binned_data  = fitting.set_data_to_use(self, self.halo.data_mcmc)
         model        = self._func_(self, params, rotate=True).reshape(self.halo.data.shape)*u.Jy
         binned_model = utils.regrid_to_beamsize(self.halo, model)
+        #plt.imshow(binned_model)
+        #plt.show()
 
         if not self.mask:
             self.image_mask = np.zeros(self.halo.data.shape)
@@ -911,12 +911,22 @@ class processing(object):
         binned_model = binned_model.ravel()[binned_image_mask.ravel() <=\
                                 mask_treshold*binned_image_mask.max()]
 
-        chi2 = np.sum( ((binned_data-binned_model)/(self.rms.value*self.halo.beam2pix))**2. )
+        chi2 = np.sum( ((binned_data)/(self.rms.value*self.halo.beam2pix))**2. )
         binned_dof    = len(binned_data)-self.dim
         self.chi2_red = chi2/binned_dof
 
-        self.ln_likelihood = np.sum( ((binned_data-binned_model)**2.)/(2*(self.rms.value*self.halo.beam2pix)**2.)\
-                            + np.log(np.sqrt(2*np.pi)*(self.rms.value*self.halo.beam2pix)))
+        #print(self.rms.value*self.halo.beam2pix)
+        self.rmsregrid = utils.findrms(binned_data)
+        #print('NOISE', self.rms*self.halo.beam2pix, self.rmsregrid)
+        #alt_noise = utils.findrms((self.halo.data*self.halo.beam2pix).value)
+        print(self.rmsregrid, self.rms.value*self.halo.beam2pix)
+        #print(alt_noise)
+        chi2 = np.sum( ((binned_data-binned_model)/(self.rmsregrid))**2. )
+        binned_dof    = len(binned_data)-self.dim
+        self.chi2_red = chi2/binned_dof
+        #print(self.chi2_red)
+        self.ln_likelihood = np.sum( ((binned_data-binned_model)**2.)/(2*(self.rmsregrid)**2.)\
+                            + np.log(np.sqrt(2*np.pi)*self.rmsregrid))
         self.AIC  = 2*(self.dim-self.ln_likelihood)
         self.AICc = self.AIC + 2*(self.dim**2.+self.dim)/(len(binned_data)-self.dim-1)
         self.BIC  = self.dim*np.log(len(binned_data))-2*self.ln_likelihood
@@ -958,7 +968,6 @@ class processing(object):
         flux = (gamma(1./m)*np.pi*I0/(4*m) * factor * gammainc(1./m, int_max**(2*m))\
 
                     *(freq/self.halo.freq)**self.alpha).to(u.mJy)
-        print(gamma)
 
         self.flux      = np.copy(flux)
         self.flux_freq = freq
@@ -1004,28 +1013,42 @@ class processing(object):
         cal=0.1
         sub=0.1
         file = self.halo.file.replace('.fits','')+'_mcmc_model_ALL.pdf'
-        rms = ((self.rms/self.halo.pix_area).to(uJyarcsec2)).value
-        power = np.copy(self.power.value)/1.e25
-        power16 = np.sqrt((cal*self.power_val.value)**2+sub**2+(self.power_val.value-np.percentile(self.power.value, 16))**2)/1.e25
-        power84 = np.sqrt((cal*self.power_val.value)**2+sub**2+(np.percentile(self.power.value, 84)-self.power_val.value)**2)/1.e25
-        flux16 = np.sqrt((cal*self.flux_val.value)**2+sub**2+(self.flux_val.value-np.percentile(self.flux.value, 16))**2)
-        flux84 = np.sqrt((cal*self.flux_val.value)**2+sub**2+(np.percentile(self.flux.value, 84)-self.flux_val.value)**2)
+        #rms = ((self.rms/self.halo.pix_area).to(uJyarcsec2)).value
+        #power = np.copy(self.power.value)/1.e25
+        #power16 = np.sqrt((cal*self.power_val.value)**2+sub**2+(self.power_val.value-np.percentile(self.power.value, 16))**2)/1.e25
+        #power84 = np.sqrt((cal*self.power_val.value)**2+sub**2+(np.percentile(self.power.value, 84)-self.power_val.value)**2)/1.e25
+        flux16 = (self.flux_val.value-np.percentile(self.flux.value, 16))
+        flux84 = (np.percentile(self.flux.value, 84)-self.flux_val.value)
+        radius = np.argmax(self.parameters[3:7]*self.halo.pix2kpc)+3
+        print(radius)
 
         if self.dim == 4:
-            print('%s & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f & \\ref{fig:%s} \\vspace{0.05cm}\\\\' % (self.halo.name,
-            self.flux_val.value, flux84,flux16, np.percentile(power,50), power84, power16,
-            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
-            rms, self.AICc, self.flux_val/self.flux_std, self.halo.target))
+            print('%s & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$  & $%.f^{+%.f}_{-%.f}$& $%.f$ & $%.3f$ & $%.2f$ & \\ref{fig:%s} \\vspace{0.05cm}\\\\' % (self.halo.name,
+            self.flux_val.value, flux84,flux16, self.percentiles_units[0,1],
+            self.percentiles_units[0,2]-self.percentiles_units[0,1],
+            self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            self.percentiles_units[radius,1],
+            self.percentiles_units[radius,2]-self.percentiles_units[radius,1],
+            self.percentiles_units[radius,1]-self.percentiles_units[radius,0],
+            self.AICc, self.chi2_red, self.flux_val/self.flux_err, self.halo.target))
         elif self.dim==6:
-            print(' & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f& \\vspace{0.05cm}\\\\' % (self.flux_val.value,
-            flux84,flux16, np.percentile(power,50), power84, power16,
-            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
-            rms, self.AICc, self.flux_val/self.flux_std))
+            print(' & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$  & $%.f^{+%.f}_{-%.f}$& $%.f$ & $%.3f$& $%.2f$& \\vspace{0.05cm}\\\\' % (self.flux_val.value,
+            flux84,flux16, self.percentiles_units[0,1],
+            self.percentiles_units[0,2]-self.percentiles_units[0,1],
+            self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            self.percentiles_units[radius,1],
+            self.percentiles_units[radius,2]-self.percentiles_units[radius,1],
+            self.percentiles_units[radius,1]-self.percentiles_units[radius,0],
+            self.AICc, self.chi2_red, self.flux_val/self.flux_err))
         elif self.dim==8:
-            print(' & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f& \\vspace{0.1cm}\\\\' % (self.flux_val.value,
-            flux84,flux16, np.percentile(power,50), power84, power16,
-            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
-            rms, self.AICc, self.flux_val/self.flux_std))
+            print(' & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$  & $%.1f^{+%.f}_{-%.f}$& $%.f$ & $%.3f$& $%.2f$& \\vspace{0.1cm}\\\\' % (self.flux_val.value,
+            flux84,flux16, self.percentiles_units[0,1],
+            self.percentiles_units[0,2]-self.percentiles_units[0,1],
+            self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            self.percentiles_units[radius,1],
+            self.percentiles_units[radius,2]-self.percentiles_units[radius,1],
+            self.percentiles_units[radius,1]-self.percentiles_units[radius,0],
+            self.AICc, self.chi2_red, self.flux_val/self.flux_err))
 
 
 #        print('''
