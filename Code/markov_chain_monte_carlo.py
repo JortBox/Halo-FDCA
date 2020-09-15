@@ -98,7 +98,6 @@ class fitting(object):
         self.halo  = _parent_
         self.noise = _parent_.imagenoise
         self.rms   = _parent_.rmsnoise
-        self.sigma = (self.rms*self.halo.beam2pix).value
         self.data  = data
         self.steps = int(steps)
         self.save  = save
@@ -126,6 +125,7 @@ class fitting(object):
 
     def __run__(self):
         data = self.set_data_to_use(self.data)
+        self.mcmc_noise = utils.findrms(data)
         x = np.arange(0, self.data.shape[1])
         y = np.arange(0, self.data.shape[0])
         coord = np.meshgrid(x,y)
@@ -256,7 +256,7 @@ class fitting(object):
                 self.image_mask = np.zeros(self.halo.data.shape)
             self.binned_image_mask = self.halo.regridding(self.image_mask*u.Jy).value
             use = binned_data.value
-            print('rebinned image shape',use.shape)
+            #print('rebinned image shape',use.shape)
             #plt.imshow(use)
             #plt.show()
             return use.ravel()[self.binned_image_mask.ravel() <=\
@@ -395,7 +395,7 @@ def set_dictionary(obj):
         "beam2pix":          obj.halo.beam2pix,
         "pix2kpc":           obj.halo.pix2kpc,
         "mask":              obj.mask,
-        "sigma":             obj.sigma,
+        "sigma":             obj.mcmc_noise,
         "margin":            obj.halo.margin,
         "_func_":            obj._func_mcmc,
         "image_mask":        obj.image_mask,
@@ -424,7 +424,7 @@ def rotate_image(info,img, decrease_fov=False):
 def regrid_to_beamsize(info, img, accuracy=100.):
     x_scale = np.sqrt(np.pi/(4*np.log(2.)))*obj.bmaj.value
     y_scale = np.sqrt(np.pi/(4*np.log(2.)))*obj.bmin.value
-    
+
     new_pix_size = np.array((y_scale,x_scale))
     accuracy = int(1./accuracy*100)
 
@@ -788,8 +788,8 @@ class processing(object):
         self.centre_wcs = np.array((self.halo.ra.value[self.centre_pix[1]],
                                     self.halo.dec.value[self.centre_pix[0]]))*u.deg
 
-        print(self.centre_pix,np.percentile(self.samples.real[:, 1], [16, 50, 84])[1])
-        print(self.centre_wcs)
+        #print(self.centre_pix,np.percentile(self.samples.real[:, 1], [16, 50, 84])[1])
+        #print(self.centre_wcs)
 
         for i in range(self.dim):
             samples_list.append(samples_units[:,i])
@@ -919,7 +919,7 @@ class processing(object):
         self.rmsregrid = utils.findrms(binned_data)
         #print('NOISE', self.rms*self.halo.beam2pix, self.rmsregrid)
         #alt_noise = utils.findrms((self.halo.data*self.halo.beam2pix).value)
-        print(self.rmsregrid, self.rms.value*self.halo.beam2pix)
+        #print(self.rmsregrid, self.rms.value*self.halo.beam2pix)
         #print(alt_noise)
         chi2 = np.sum( ((binned_data-binned_model)/(self.rmsregrid))**2. )
         binned_dof    = len(binned_data)-self.dim
@@ -927,6 +927,8 @@ class processing(object):
         #print(self.chi2_red)
         self.ln_likelihood = np.sum( ((binned_data-binned_model)**2.)/(2*(self.rmsregrid)**2.)\
                             + np.log(np.sqrt(2*np.pi)*self.rmsregrid))
+        self.ln_likelihood = -np.sum(((binned_data-binned_model)**2.)/(2*self.rmsregrid**2.)\
+                            + np.log(np.sqrt(2*np.pi)*self.rmsregrid) )
         self.AIC  = 2*(self.dim-self.ln_likelihood)
         self.AICc = self.AIC + 2*(self.dim**2.+self.dim)/(len(binned_data)-self.dim-1)
         self.BIC  = self.dim*np.log(len(binned_data))-2*self.ln_likelihood
@@ -939,7 +941,14 @@ class processing(object):
         self.log.log(logging.INFO,'AICc: {}'.format(self.AICc))
         self.log.log(logging.INFO,'AIC whole: {}'.format(self.AICc_whole))
         self.log.log(logging.INFO,'BIC: {}'.format(self.BIC))
-
+        #print(self.parameters, self.parameters[0]*np.exp(-1.))
+        #print(model.max())
+        #fig, axes = plt.subplots(ncols=1, nrows=1)
+        #axes.imshow(self.halo.data.value)
+        #axes.contour(model.value,colors='black', levels=[self.parameters[0]*np.exp(-2.)])
+        #plt.show()
+        #plt.close(fig)
+        #sys.exit()
 
         x = np.arange(0,self.data.shape[1],1)
         y = np.arange(0,self.data.shape[0],1)

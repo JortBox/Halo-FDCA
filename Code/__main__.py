@@ -70,7 +70,7 @@ def MCMC_retreival(halo, maskpath, logger, dim='circle'):
     #print(halo.pix_size)
     #print(halo.bmaj, halo.bmin, halo.bpa)
     processing.get_chi2_value()
-    processing.get_flux(int_max=10)
+    #processing.get_flux(int_max=10)
     #processing.get_power(freq=150*u.MHz)
 
     #processing.tableprint()
@@ -89,9 +89,9 @@ def worker_process(object, path, maskpath, logger):
     else:
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True)
 
-    #MCMC_run(halo, maskpath, logger, dim='circle')
-    #MCMC_run(halo, maskpath, logger, dim='rotated_ellipse')
-    #MCMC_run(halo, maskpath, logger, dim='skewed')
+    MCMC_run(halo, maskpath, logger, dim='circle')
+    MCMC_run(halo, maskpath, logger, dim='rotated_ellipse')
+    MCMC_run(halo, maskpath, logger, dim='skewed')
 
     #try:
     halo.result4 = MCMC_retreival(halo, maskpath, logger, dim='circle')
