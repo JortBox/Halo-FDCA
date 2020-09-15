@@ -423,8 +423,8 @@ def rotate_image(info,img, decrease_fov=False):
     return f
 
 def regrid_to_beamsize(info, img, accuracy=100.):
-    x_scale = np.sqrt(np.pi/(4*np.log(2.)))*obj.bmaj.value
-    y_scale = np.sqrt(np.pi/(4*np.log(2.)))*obj.bmin.value
+    x_scale = np.sqrt(np.pi/(4*np.log(2.)))*info['bmaj'].value
+    y_scale = np.sqrt(np.pi/(4*np.log(2.)))*info['bmin'].value
 
     new_pix_size = np.array((y_scale,x_scale))
     accuracy = int(1./accuracy*100)

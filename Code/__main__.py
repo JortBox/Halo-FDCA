@@ -65,12 +65,12 @@ def MCMC_run(halo, maskpath, logger, dim='rotated_ellipse'):
 def MCMC_retreival(halo, maskpath, logger, dim='circle'):
     processing = mcmc.processing(halo, halo.data, dim=dim,logger=logger,
                                     mask=True, maskpath=maskpath, k_exponent=False)
-    #processing.plot_results()
+    processing.plot_results()
     #print(halo.original_image.shape)
     #print(halo.pix_size)
     #print(halo.bmaj, halo.bmin, halo.bpa)
     processing.get_chi2_value()
-    #processing.get_flux(int_max=10)
+    processing.get_flux(int_max=10)
     #processing.get_power(freq=150*u.MHz)
 
     #processing.tableprint()
