@@ -103,7 +103,7 @@ class fitting(object):
         self.save  = save
         self.mask_treshold = 0.4
         self.k_exponent = k_exponent
-        self.offset = offset
+        self.gamma_prior = gamma_prior
 
         self.p0 = p0
         self.bounds = bounds
