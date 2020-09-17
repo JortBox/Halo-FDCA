@@ -265,7 +265,18 @@ class Radio_Halo(object):
             self.x_pix, self.y_pix = np.meshgrid(x,y)
             self.exponentialFit(self.data.value)
         else:
-            self.fov_info = [0,self.data.shape[0],0,self.data.shape[1]]
+            pivot = ((np.sqrt(2.)/2.-0.5)*np.array(data.shape)).astype(np.int64)
+            padX  = [pivot[0], pivot[0]]
+            padY  = [pivot[1], pivot[1]]
+            self.data_mcmc     = np.pad(data, [padY, padX], 'constant')
+            self.fov_info_mcmc = [-pivot[0],self.data.shape[0]+pivot[0],
+                                  -pivot[1],self.data.shape[1]+pivot[1]]
+            self.fov_info      = [0,self.data.shape[0],0,self.data.shape[1]]
+            self.margin = np.array(self.fov_info)-np.array(self.fov_info_mcmc)
+            self.data = data[self.fov_info[0]:self.fov_info[1],
+                             self.fov_info[2]:self.fov_info[3]]
+            self.ra   =  self.ra[self.fov_info[2]:self.fov_info[3]]
+            self.dec  = self.dec[self.fov_info[0]:self.fov_info[1]]
 
         self.noise_char = utils.noise_characterisation(self,self.data.value)
         self.pix2kpc    = self.pix_size*self.factor.to(u.kpc/u.deg)
