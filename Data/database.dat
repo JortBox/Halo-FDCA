@@ -4,6 +4,6 @@
 #Abell2744,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/A2744_JVLA.image.fits,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/A2744halo.reg
 #RXCJ1825.3+3026,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/RXCJ1825.3+3026_masksubROBUST-0.5TAPER30-MFS-image_corrected.fits,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/RXCJ1825.3+3026.haloexcl.reg
 #phoenix,/Users/jortboxelaar/Desktop/Lband_uvmin185_b0-MFS-image.fits,/Users/jortboxelaar/Desktop/phoenix.haloexcl.reg
-Abell2744,/net/bach2/data2/boxelaar/Halo-FDCA/Example/A2744_JVLA.image.fits,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/A2744halo.reg
-RXCJ1825.3+3026,/net/bach2/data2/boxelaar/Halo-FDCA/Example/RXCJ1825.3+3026_masksubROBUST-0.5TAPER30-MFS-image_corrected.fits,/Users/jortboxelaar/Documents/Research/Halo-FDCA/Example/RXCJ1825.3+3026.haloexcl.reg
-#Phoenix,/net/lofar4/data2/rtimmerman/Phoenix_JVLA/Lband_uvmin185_b0-MFS-image.fits,/net/bach2/data2/boxelaar/brp-extra_data/phoenix.haloexcl.reg
+#Abell2744,/net/bach2/data2/boxelaar/Halo-FDCA/Example/A2744_JVLA.image.fits,/net/bach2/data2/boxelaar/Halo-FDCA/Example/A2744halo.reg
+#RXCJ1825.3+3026,/net/bach2/data2/boxelaar/Halo-FDCA/Example/RXCJ1825.3+3026_masksubROBUST-0.5TAPER30-MFS-image_corrected.fits,/net/bach2/data2/boxelaar/Halo-FDCA/Example/RXCJ1825.3+3026.haloexcl.reg
+Phoenix,/net/lofar4/data2/rtimmerman/Phoenix_JVLA/Lband_uvmin185_b0-MFS-image.fits,/net/bach2/data2/boxelaar/brp-extra_data/phoenix.haloexcl.reg

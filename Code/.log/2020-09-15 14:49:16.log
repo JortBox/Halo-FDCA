@@ -1,0 +1,4 @@
+2020-09-15 14:49:16,936 l2744        MainProcess INFO     Start Process for: /net/bach2/data2/boxelaar/Halo-FDCA/Example/A2744_JVLA.image.fits
+2020-09-15 14:49:16,995 l2744        MainProcess WARNING  No valid z key found. setting z=0.1 as filling to continue. Ignore this message if z != None
+2020-09-15 14:49:16,995 l2744        MainProcess WARNING  No R500 key found. setting R500=1.0Mpc to continue
+2020-09-15 14:49:16,995 l2744        MainProcess INFO     Custom redshift set
