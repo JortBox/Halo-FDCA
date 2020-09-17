@@ -1,0 +1,124 @@
+2020-09-16 18:59:33,812 l2744        MainProcess INFO     Start Process for: /net/bach2/data2/boxelaar/Halo-FDCA/Example/A2744_JVLA.image.fits
+2020-09-16 18:59:33,880 l2744        MainProcess WARNING  No valid z key found. setting z=0.1 as filling to continue. Ignore this message if z != None
+2020-09-16 18:59:33,880 l2744        MainProcess WARNING  No R500 key found. setting R500=1.0Mpc to continue
+2020-09-16 18:59:33,880 l2744        MainProcess INFO     Custom redshift set
+2020-09-16 18:59:36,973 l2744        MainProcess INFO     MCMC Mask set
+2020-09-16 18:59:38,019 l2744        MainProcess INFO     MCMC initial guess: I0      0.000042
+x0    173.679917
+y0    173.100258
+r1     14.067111
+Name: params, dtype: float64 
+ with error: [1.44634529e-07 4.03511454e-02 4.02677410e-02 4.07748834e-02]
+2020-09-16 19:19:13,309 l2744        MainProcess INFO     MCMC Mask set
+2020-09-16 19:19:15,316 l2744        MainProcess INFO     MCMC initial guess: I0       0.000041
+x0     173.731714
+y0     173.203034
+r1      15.001661
+r2      13.408973
+ang      0.845346
+Name: params, dtype: float64 
+ with error: [1.43139371e-07 4.03136406e-02 4.07192820e-02 4.83771042e-02
+ 5.79259706e-02 2.06445367e-02]
+2020-09-16 19:39:25,495 l2744        MainProcess INFO     MCMC Mask set
+2020-09-16 19:39:30,472 l2744        MainProcess INFO     MCMC initial guess: I0       0.000043
+x0     172.205134
+y0     167.643368
+r1      20.449448
+r2       8.309148
+r3      12.561879
+r4      12.561879
+ang      1.134248
+Name: params, dtype: float64 
+ with error: [1.33341013e-07 6.35195902e-02 6.08040332e-02 7.26216074e-02
+ 7.62646640e-02 8.68486284e-02 6.29304707e-02 7.23908990e-03]
+2020-09-16 20:04:13,607 l2744        MainProcess INFO     MCMC parameter dimension: circle
+2020-09-16 20:04:14,740 l2744        MainProcess INFO     MCMC Mask set
+2020-09-16 20:04:20,901 l2744        MainProcess INFO     chi^2_red: 1.4863825551626542
+2020-09-16 20:04:20,902 l2744        MainProcess INFO     AIC: -60093.35526789564
+2020-09-16 20:04:20,902 l2744        MainProcess INFO     AICc: -60093.34271296783
+2020-09-16 20:04:20,902 l2744        MainProcess INFO     AIC whole: 1266720.2375143226
+2020-09-16 20:04:20,902 l2744        MainProcess INFO     BIC: -60069.08290939053
+2020-09-16 20:04:20,915 l2744        MainProcess INFO     MCMC Flux at 1518.7 MHz: 51.61 +/- 0.49 mJy
+2020-09-16 20:04:20,915 l2744        MainProcess INFO     S/N based on flux 106.32
+2020-09-16 20:04:20,916 l2744        MainProcess INFO     MCMC parameter dimension: rotated_ellipse
+2020-09-16 20:04:21,971 l2744        MainProcess INFO     MCMC Mask set
+2020-09-16 20:04:25,043 l2744        MainProcess INFO     chi^2_red: 1.4608143812392724
+2020-09-16 20:04:25,044 l2744        MainProcess INFO     AIC: -60173.76266695194
+2020-09-16 20:04:25,044 l2744        MainProcess INFO     AICc: -60173.73628504239
+2020-09-16 20:04:25,044 l2744        MainProcess INFO     AIC whole: 1265315.3935350487
+2020-09-16 20:04:25,044 l2744        MainProcess INFO     BIC: -60137.35412919427
+2020-09-16 20:04:25,055 l2744        MainProcess INFO     MCMC Flux at 1518.7 MHz: 52.18 +/- 0.50 mJy
+2020-09-16 20:04:25,055 l2744        MainProcess INFO     S/N based on flux 104.67
+2020-09-16 20:04:25,056 l2744        MainProcess INFO     MCMC parameter dimension: skewed
+2020-09-16 20:04:26,064 l2744        MainProcess INFO     MCMC Mask set
+2020-09-16 20:04:29,197 l2744        MainProcess INFO     chi^2_red: 1.1127679577369016
+2020-09-16 20:04:29,197 l2744        MainProcess INFO     AIC: -61280.51606172246
+2020-09-16 20:04:29,197 l2744        MainProcess INFO     AICc: -61280.47080716558
+2020-09-16 20:04:29,197 l2744        MainProcess INFO     AIC whole: 1257654.5241204991
+2020-09-16 20:04:29,197 l2744        MainProcess INFO     BIC: -61231.971344712234
+2020-09-16 20:04:29,213 l2744        MainProcess INFO     MCMC Flux at 1518.7 MHz: 51.62 +/- 0.46 mJy
+2020-09-16 20:04:29,213 l2744        MainProcess INFO     S/N based on flux 111.47
+2020-09-16 20:04:29,214 l2744        MainProcess INFO     closed Halo object Abell2744
+2020-09-16 20:04:29,214 1825.3+3026  MainProcess INFO     Start Process for: /net/bach2/data2/boxelaar/Halo-FDCA/Example/RXCJ1825.3+3026_masksubROBUST-0.5TAPER30-MFS-image_corrected.fits
+2020-09-16 20:04:29,216 1825.3+3026  MainProcess ERROR    Unknown what catalogue to use. If no costum values are given, filling values will be used
+2020-09-16 20:04:30,770 1825.3+3026  MainProcess WARNING  No R500 key found. setting R500=1.0Mpc as filling to continue. Ignore this message if R500 != None
+2020-09-16 20:04:30,771 1825.3+3026  MainProcess WARNING  No z key found. setting z=0.1Mpc as filling to continue. Ignore this message if z != None
+2020-09-16 20:04:30,771 1825.3+3026  MainProcess INFO     Custom redshift set
+2020-09-16 20:04:32,897 1825.3+3026  MainProcess ERROR    RXCJ1825.3+3026: Decreasing FoV not possible. Halo is too big
+2020-09-16 20:04:35,211 1825.3+3026  MainProcess INFO     MCMC Mask set
+2020-09-16 20:04:51,404 1825.3+3026  MainProcess INFO     MCMC initial guess: I0      0.000053
+x0    414.685887
+y0    452.237688
+r1     25.955357
+Name: params, dtype: float64 
+ with error: [1.82179932e-07 7.55748982e-02 7.55487121e-02 7.28346104e-02]
+2020-09-16 23:15:57,299 1825.3+3026  MainProcess INFO     MCMC Mask set
+2020-09-16 23:16:28,398 1825.3+3026  MainProcess INFO     MCMC initial guess: I0       0.000053
+x0     415.271115
+y0     452.518572
+r1      33.959058
+r2      20.567695
+ang      2.614800
+Name: params, dtype: float64 
+ with error: [1.76829561e-07 8.63102059e-02 6.90995094e-02 1.20165533e-01
+ 7.17506523e-02 4.20009819e-03]
+2020-09-17 01:37:19,774 1825.3+3026  MainProcess INFO     MCMC Mask set
+2020-09-17 01:38:42,582 1825.3+3026  MainProcess INFO     MCMC initial guess: I0       0.000052
+x0     405.441069
+y0     457.104248
+r1      47.189131
+r2      24.626466
+r3      20.776386
+r4      21.063555
+ang      2.711805
+Name: params, dtype: float64 
+ with error: [1.70010370e-07 1.63168000e-01 1.23352520e-01 2.27194346e-01
+ 1.80704347e-01 1.21786373e-01 1.22290134e-01 3.53671930e-03]
+2020-09-17 05:42:17,779 1825.3+3026  MainProcess INFO     MCMC parameter dimension: circle
+2020-09-17 05:42:18,464 1825.3+3026  MainProcess INFO     MCMC Mask set
+2020-09-17 05:42:24,890 1825.3+3026  MainProcess INFO     chi^2_red: 1.1988191060844546
+2020-09-17 05:42:24,890 1825.3+3026  MainProcess INFO     AIC: -39571.25178836304
+2020-09-17 05:42:24,890 1825.3+3026  MainProcess INFO     AICc: -39571.23827484953
+2020-09-17 05:42:24,891 1825.3+3026  MainProcess INFO     AIC whole: 8146901.666992854
+2020-09-17 05:42:24,891 1825.3+3026  MainProcess INFO     BIC: -39547.27325911731
+2020-09-17 05:42:24,901 1825.3+3026  MainProcess INFO     MCMC Flux at 143.7 MHz: 222.98 +/- 5.46 mJy
+2020-09-17 05:42:24,901 1825.3+3026  MainProcess INFO     S/N based on flux 40.84
+2020-09-17 05:42:24,902 1825.3+3026  MainProcess INFO     MCMC parameter dimension: rotated_ellipse
+2020-09-17 05:42:25,361 1825.3+3026  MainProcess INFO     MCMC Mask set
+2020-09-17 05:42:30,737 1825.3+3026  MainProcess INFO     chi^2_red: 1.1256575585743085
+2020-09-17 05:42:30,737 1825.3+3026  MainProcess INFO     AIC: -39786.134445657735
+2020-09-17 05:42:30,737 1825.3+3026  MainProcess INFO     AICc: -39786.10604809181
+2020-09-17 05:42:30,737 1825.3+3026  MainProcess INFO     AIC whole: 8168523.12628356
+2020-09-17 05:42:30,737 1825.3+3026  MainProcess INFO     BIC: -39750.16665178914
+2020-09-17 05:42:30,749 1825.3+3026  MainProcess INFO     MCMC Flux at 143.7 MHz: 233.09 +/- 5.81 mJy
+2020-09-17 05:42:30,749 1825.3+3026  MainProcess INFO     S/N based on flux 40.13
+2020-09-17 05:42:30,750 1825.3+3026  MainProcess INFO     MCMC parameter dimension: skewed
+2020-09-17 05:42:31,202 1825.3+3026  MainProcess INFO     MCMC Mask set
+2020-09-17 05:42:36,897 1825.3+3026  MainProcess INFO     chi^2_red: 1.1080096759813842
+2020-09-17 05:42:36,898 1825.3+3026  MainProcess INFO     AIC: -39836.570549602155
+2020-09-17 05:42:36,898 1825.3+3026  MainProcess INFO     AICc: -39836.52183512313
+2020-09-17 05:42:36,898 1825.3+3026  MainProcess INFO     AIC whole: 8178423.538291288
+2020-09-17 05:42:36,898 1825.3+3026  MainProcess INFO     BIC: -39788.6134911107
+2020-09-17 05:42:36,913 1825.3+3026  MainProcess INFO     MCMC Flux at 143.7 MHz: 243.44 +/- 6.37 mJy
+2020-09-17 05:42:36,914 1825.3+3026  MainProcess INFO     S/N based on flux 38.23
+2020-09-17 05:42:36,914 1825.3+3026  MainProcess INFO     closed Halo object RXCJ1825.3+3026
