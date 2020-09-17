@@ -1,0 +1,34 @@
+2020-09-17 16:33:13,732 nix          MainProcess INFO     Start Process for: /net/lofar4/data2/rtimmerman/Phoenix_JVLA/Lband_uvmin185_b0-MFS-image.fits
+2020-09-17 16:33:13,732 nix          MainProcess ERROR    Unknown what catalogue to use. If no costum values are given, filling values will be used
+2020-09-17 16:33:15,384 nix          MainProcess WARNING  No halo world location given. Assuming image centre.
+2020-09-17 16:33:15,384 nix          MainProcess INFO     - Not giving an approximate location can affect MCMC performance -
+2020-09-17 16:33:15,395 nix          MainProcess WARNING  No R500 key found. setting R500=1.0Mpc as filling to continue. Ignore this message if R500 != None
+2020-09-17 16:33:15,396 nix          MainProcess WARNING  No z key found. setting z=0.1Mpc as filling to continue. Ignore this message if z != None
+2020-09-17 16:33:30,411 nix          MainProcess INFO     MCMC parameter dimension: circle
+2020-09-17 16:33:31,323 nix          MainProcess INFO     MCMC Mask set
+2020-09-17 16:33:43,236 nix          MainProcess INFO     chi^2_red: 0.7394516187820328
+2020-09-17 16:33:43,236 nix          MainProcess INFO     AIC: -468.2888683951482
+2020-09-17 16:33:43,236 nix          MainProcess INFO     AICc: -466.4706865769664
+2020-09-17 16:33:43,236 nix          MainProcess INFO     AIC whole: -296095974.2208288
+2020-09-17 16:33:43,236 nix          MainProcess INFO     BIC: -463.10552093113085
+2020-09-17 16:33:43,248 nix          MainProcess INFO     MCMC Flux at 1518.5 MHz: 15.71 +/- 6.61 mJy
+2020-09-17 16:33:43,248 nix          MainProcess INFO     S/N based on flux 2.38
+2020-09-17 16:33:43,248 nix          MainProcess INFO     MCMC parameter dimension: rotated_ellipse
+2020-09-17 16:33:44,106 nix          MainProcess INFO     MCMC Mask set
+2020-09-17 16:33:46,766 nix          MainProcess INFO     chi^2_red: 0.34686353119602326
+2020-09-17 16:33:46,766 nix          MainProcess INFO     AIC: -474.0121214720184
+2020-09-17 16:33:46,766 nix          MainProcess INFO     AICc: -469.8121214720184
+2020-09-17 16:33:46,766 nix          MainProcess INFO     AIC whole: -292896790.67104405
+2020-09-17 16:33:46,766 nix          MainProcess INFO     BIC: -466.2371002759924
+2020-09-17 16:33:46,777 nix          MainProcess INFO     MCMC Flux at 1518.5 MHz: 10.60 +/- 3.69 mJy
+2020-09-17 16:33:46,777 nix          MainProcess INFO     S/N based on flux 2.87
+2020-09-17 16:33:46,777 nix          MainProcess INFO     MCMC parameter dimension: skewed
+2020-09-17 16:33:47,532 nix          MainProcess INFO     MCMC Mask set
+2020-09-17 16:33:50,308 nix          MainProcess INFO     chi^2_red: 0.7562685998059012
+2020-09-17 16:33:50,308 nix          MainProcess INFO     AIC: -462.92715223082274
+2020-09-17 16:33:50,309 nix          MainProcess INFO     AICc: -454.92715223082274
+2020-09-17 16:33:50,309 nix          MainProcess INFO     AIC whole: -293795702.7613694
+2020-09-17 16:33:50,309 nix          MainProcess INFO     BIC: -452.5604573027881
+2020-09-17 16:33:50,324 nix          MainProcess INFO     MCMC Flux at 1518.5 MHz: 11.19 +/- 3.84 mJy
+2020-09-17 16:33:50,324 nix          MainProcess INFO     S/N based on flux 2.91
+2020-09-17 16:33:50,325 nix          MainProcess INFO     closed Halo object Phoenix
