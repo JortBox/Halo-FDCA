@@ -80,12 +80,16 @@ def MCMC_retreival(halo, maskpath, logger, dim='circle'):
 
 def worker_process(object, path, maskpath, logger):
     # Model to use for fitting
+    print(object)
     if object == 'Abell2744':
         loc = SkyCoord('00 14 20.03 -30 23 17.8', unit=(u.hourangle, u.deg), frame='icrs')
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, z=0.308, loc=loc)
     elif object == 'RXCJ1825.3+3026':
         loc = SkyCoord('18 25 20.0 +30 26 11.2', unit=(u.hourangle, u.deg))
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, z=0.065, loc=loc)
+    elif object == 'Phoenix':
+        loc = SkyCoord('23 44 40.9 -42 41 54', unit=(u.hourangle, u.deg))
+        halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=False, z=0.597, loc=loc)
     else:
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True)
 
