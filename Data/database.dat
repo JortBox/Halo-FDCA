@@ -6,4 +6,4 @@
 Phoenix,/Users/jortboxelaar/Desktop/phoenix_Lband_uvmin185_b0-MFS-image_CUTOUT.fits,/Users/jortboxelaar/Desktop/phoenix.haloexcl.reg
 #Abell2744,/net/bach2/data2/boxelaar/Halo-FDCA/Example/A2744_JVLA.image.fits,/net/bach2/data2/boxelaar/Halo-FDCA/Example/A2744halo.reg
 #RXCJ1825.3+3026,/net/bach2/data2/boxelaar/Halo-FDCA/Example/RXCJ1825.3+3026_masksubROBUST-0.5TAPER30-MFS-image_corrected.fits,/net/bach2/data2/boxelaar/Halo-FDCA/Example/RXCJ1825.3+3026.haloexcl.reg
-#Phoenix,/net/lofar4/data2/rtimmerman/Phoenix_JVLA/Lband_uvmin185_b0-MFS-image.fits,/net/bach2/data2/boxelaar/brp_extra_data/phoenix.haloexcl.reg
+Phoenix,/net/bach2/data2/boxelaar/brp_extra_data/phoenix_Lband_uvmin185_b0-MFS-image_CUTOUT.fits,/net/bach2/data2/boxelaar/brp_extra_data/phoenix.haloexcl.reg
