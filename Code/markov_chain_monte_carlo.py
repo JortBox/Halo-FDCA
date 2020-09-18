@@ -620,8 +620,8 @@ class processing(object):
                               self.halo.rmsnoise, mask=self.mask, regrid=False)
         plot.fit_result(self, self.model, self.halo.data,
                               self.halo.rmsnoise, mask=self.mask,regrid=True)
-        #self.plotSampler()
-        #self.cornerplot()
+        self.plotSampler()
+        self.cornerplot()
 
     def check_settings(self, dim, mask, maskpath):
         self.modelName  = dim

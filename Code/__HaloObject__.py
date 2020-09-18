@@ -292,6 +292,7 @@ class Radio_Halo(object):
             self.bmin = self.findstring(string, 'BMIN')*u.deg
             self.bpa  = self.findstring(string, 'BPA')*u.deg
 
+
         self.pix_size  = abs(self.header['CDELT2'])*u.deg
         beammaj        = self.bmaj/(2.*(2.*np.log(2.))**0.5) # Convert to sigma
         beammin        = self.bmin/(2.*(2.*np.log(2.))**0.5) # Convert to sigma

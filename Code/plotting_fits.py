@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 import os
 #import aplpy
 from scipy.optimize import curve_fit
-from matplotlib.colors import Normalize, LogNorm, SymLogNorm, TwoSlopeNorm
+#from matplotlib.colors import Normalize, LogNorm, SymLogNorm
+import matplotlib.colors as mplc
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import ScalarFormatter
 from scipy import ndimage
@@ -97,8 +98,8 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     noise = (noise/halo.pix_area).to(uJyarcsec2).value
     model = (model/halo.pix_area).to(uJyarcsec2).value
 
-    NORMres = Normalize(vmin=-2.*noise, vmax=1.*data.max())
-    Normdiv = TwoSlopeNorm(vcenter=0., vmin=0.8*data.min(), vmax=0.8*data.max())
+    NORMres = mplc.Normalize(vmin=-2.*noise, vmax=30.*obj.params[0])
+    Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*data.min(), vmax=0.8*data.max())
 
     masked_data = np.copy(data)
     if mask:
@@ -200,9 +201,9 @@ def fit_result_noise(obj, model, mask=False):
         axi.yaxis.set_major_locator(plt.MaxNLocator(3))
     fig.set_size_inches(3.1*5,5)
 
-    NORM    = Normalize(vmin=-2*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
+    NORM    = mplc.Normalize(vmin=-2*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
                         vmax=20*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value)
-    NORMres = Normalize(vmin=-2.*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
+    NORMres = mplc.Normalize(vmin=-2.*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
                         vmax=20*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value)
     LEVEL = np.arange(2,7)*3*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value
 
@@ -359,13 +360,13 @@ def draw_sizebar(obj,ax, scale, regrid=False):
     with a fixed label underneath.
     """
     if regrid:
-        length = 1./obj.factor.to(u.Mpc/u.deg)/(scale[1]*obj.pix_size)
+        length = 0.5/obj.factor.to(u.Mpc/u.deg)/(scale[1]*obj.pix_size)
     else:
-        length = 1./obj.factor.to(u.Mpc/u.deg)
+        length = 0.5/obj.factor.to(u.Mpc/u.deg)
 
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     asb = AnchoredSizeBar(ax.transData,length.value,
-                          r"1 Mpc",
+                          r"500 kpc",
                           loc='lower center',
                           pad=0.1, borderpad=0.5, sep=5,
                           frameon=False, color='white')#, fontsize=labelsize)
@@ -382,11 +383,11 @@ def draw_ellipse(obj,ax, bmin, bmaj, regrid=False):
         bpa = 0
     try:
         ae = AnchoredEllipse(ax.transData, width=bmaj.value, height=bmin.value,
-                                angle=bpa, loc='lower left', pad=0.3, borderpad=0.3,
+                                angle=-bpa, loc='lower left', pad=0.3, borderpad=0.3,
                                 frameon=True,color='lightskyblue')
     except:
         ae = AnchoredEllipse(ax.transData, width=bmaj.value, height=bmin.value,
-                                angle=bpa, loc='lower left', pad=0.3, borderpad=0.3,
+                                angle=-bpa, loc='lower left', pad=0.3, borderpad=0.3,
                                 frameon=True)
 
     ax.add_artist(ae)
