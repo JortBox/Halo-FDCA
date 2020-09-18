@@ -1,0 +1,5 @@
+2020-09-17 16:44:37,060 nix          MainProcess INFO     Start Process for: /net/lofar4/data2/rtimmerman/Phoenix_JVLA/Lband_uvmin185_b0-MFS-image.fits
+2020-09-17 16:44:37,093 nix          MainProcess ERROR    Unknown what catalogue to use. If no costum values are given, filling values will be used
+2020-09-17 16:44:38,715 nix          MainProcess WARNING  No R500 key found. setting R500=1.0Mpc as filling to continue. Ignore this message if R500 != None
+2020-09-17 16:44:38,715 nix          MainProcess WARNING  No z key found. setting z=0.1Mpc as filling to continue. Ignore this message if z != None
+2020-09-17 16:44:38,715 nix          MainProcess INFO     Custom redshift set
