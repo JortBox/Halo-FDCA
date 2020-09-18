@@ -88,7 +88,7 @@ def worker_process(object, path, maskpath, logger):
         loc = SkyCoord('18 25 20.0 +30 26 11.2', unit=(u.hourangle, u.deg))
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True, z=0.065, loc=loc)
     elif object == 'Phoenix':
-        loc = SkyCoord('23 44 40.9 -42 41 54', unit=(u.hourangle, u.deg))
+        loc = SkyCoord('23 44 43.9 -42 43 13', unit=(u.hourangle, u.deg))
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=False, z=0.597, loc=loc)
     else:
         halo = HaloObject.Radio_Halo(object, path, logger=logger, decreased_fov=True)

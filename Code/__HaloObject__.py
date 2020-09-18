@@ -392,14 +392,18 @@ class Radio_Halo(object):
             w           = wcs.WCS(self.header)
             centre_wcs  = np.array([[self.loc.ra.deg,self.loc.dec.deg]])
             world_coord = w.celestial.wcs_world2pix(centre_wcs,0,ra_dec_order=True)
+            print(centre_wcs)
+            print(world_coord)
             return np.array([world_coord[0,0],world_coord[0,1]])
         else:
             return np.array((data.shape[1]/2.,data.shape[0]/2.),dtype=np.int64)
 
 
     def exponentialFit(self, image, first=False):
+        print(first)
         max_flux   = np.max(image)
         centre_pix = self.find_halo_centre(image, first)
+        print(image.shape)
         size = image.shape[1]/5.
         bounds  = ([0.,0.,0.,0.,],
                   [np.inf,image.shape[0],
@@ -407,6 +411,8 @@ class Radio_Halo(object):
                           image.shape[1]/2.])
         if self.user_radius != False:
             size = (self.radius_real/2.)/self.pix_size
+        print(max_flux,centre_pix[0],
+        centre_pix[1],size)
         popt, pcov = curve_fit(self.circle_model,(self.x_pix,self.y_pix),
                                 image.ravel(), p0=(max_flux,centre_pix[0],
                                 centre_pix[1],size), bounds=bounds)

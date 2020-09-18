@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import os
 #import aplpy
 from scipy.optimize import curve_fit
-from matplotlib.colors import Normalize, LogNorm, SymLogNorm, DivergingNorm
+from matplotlib.colors import Normalize, LogNorm, SymLogNorm, TwoSlopeNorm
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import ScalarFormatter
 from scipy import ndimage
@@ -98,7 +98,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     model = (model/halo.pix_area).to(uJyarcsec2).value
 
     NORMres = Normalize(vmin=-2.*noise, vmax=1.*data.max())
-    Normdiv = DivergingNorm(vmin=0.8*data.min(), vcenter=0., vmax=0.8*data.max())
+    Normdiv = TwoSlopeNorm(vcenter=0., vmin=0.8*data.min(), vmax=0.8*data.max())
 
     masked_data = np.copy(data)
     if mask:

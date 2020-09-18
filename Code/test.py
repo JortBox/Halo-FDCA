@@ -23,7 +23,7 @@ from scipy import ndimage
 from skimage.measure import block_reduce
 from skimage.transform import rescale
 
-
+'''
 import utils
 x = np.linspace(0,1000,500)
 y = utils.gamma_dist(x, 2.6,100.)
@@ -99,22 +99,23 @@ plt.savefig('paper_plot_3.pdf')
 plt.show()
 
 
-'''
+
 target='Abell 1156'
 cat = 'VII/110A/table3'
 table  = Vizier.query_object(target,catalog=cat)
 print(table[cat])
 sys.exit()
-
+'''
 
 cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
-factor    = cosmology.kpc_proper_per_arcmin(0.13)
+factor    = cosmology.kpc_proper_per_arcmin(0.597)
 print((0.8644*u.Mpc/factor).to(u.deg))
 
-
-hdul = fits.open('/Users/jortboxelaar/Desktop/cutout_PSZ2G084.69+42.28_masksubROBUST-0.5TAPER50kpc-MFS-image.fits')
-hdul[0].data = hdul[0].data[:,:,60:160,60:160]
-hdul[0].header['CRPIX1'] -= 60
-hdul[0].header['CRPIX2'] -= 60
-hdul.writeto('/Users/jortboxelaar/Desktop/cutout-extra_PSZ2G084.69+42.28_masksubROBUST-0.5TAPER50kpc-MFS-image.fits', overwrite=True)
-'''
+p=350
+hdul = fits.open('/Users/jortboxelaar/Desktop/phoenix_Lband_uvmin185_b0-MFS-image.fits')
+plt.imshow(hdul[0].data[0,0,p:-p,p:-p])
+hdul[0].data = hdul[0].data[:,:,p:-p,p:-p]
+plt.show()
+hdul[0].header['CRPIX1'] -= p
+hdul[0].header['CRPIX2'] -= p
+hdul.writeto('/Users/jortboxelaar/Desktop/phoenix_Lband_uvmin185_b0-MFS-image_CUTOUT.fits', overwrite=True)
