@@ -212,7 +212,7 @@ class fitting(object):
 
         if burntime is None:
             self.burntime = int(0.125*self.steps)
-        elif 0. > burntime or burntime >= 0.8*self.steps:
+        elif 0. > burntime or burntime >= self.steps:
             self.log.log(logging.ERROR,'MCMC Input burntime of {} is invalid. setting burntime to {}'\
                                             .format(burntime, 0.25*self.steps))
             self.burntime = int(0.25*self.steps)
@@ -590,8 +590,8 @@ class processing(object):
                     If '--' is given, and mask=True, the standard
                     directory will be searched.
     '''
-    def __init__(self, _parent_, data, dim, logger, save=True, mask=False,
-                    rebin=True, maskpath='--', k_exponent=False, offset=False):
+    def __init__(self, _parent_, data, dim, logger, save=True, mask=False, rebin=True,
+                        maskpath='--', k_exponent=False, offset=False, burntime=None):
         x = np.arange(0,data.shape[1],1)
         y = np.arange(0,data.shape[0],1)
         self.x_pix, self.y_pix = np.meshgrid(x,y)
@@ -610,7 +610,7 @@ class processing(object):
 
         self.check_settings(dim, mask, maskpath)
         self.extract_chain_file(rebin)
-        self.retreive_mcmc_params()
+        self.retreive_mcmc_params(burntime)
         self.set_labels_and_units()
 
         self.dof = len(data.value.flat) - self.dim
@@ -683,10 +683,19 @@ class processing(object):
         par = np.array(self.paramNames)[self.params]
         return np.where(par==parameter)[0][0]
 
-    def retreive_mcmc_params(self):
+    def retreive_mcmc_params(self, burntime):
         self.walkers  = self.info['nwalkers']
         self.steps    = self.info['steps']
-        self.burntime = int(self.info['burntime'])
+
+        if burntime is None:
+            self.burntime = int(0.125*self.steps)
+        elif 0. > burntime or burntime >= self.steps:
+            self.log.log(logging.ERROR,'MCMC Input burntime of {} is invalid. setting burntime to {}'\
+                                            .format(burntime, 0.25*self.steps))
+            self.burntime = int(0.25*self.steps)
+        else:
+            self.burntime = int(burntime)
+
         self.popt     = utils.add_parameter_labels(self, np.zeros(self.dim))
         try:
             self.noise_mu    = self.halo.header['N_MU']
