@@ -55,8 +55,8 @@ Currently, cluster characteristics such as location, redshift and M500 mass (R50
 
 ### Detailed pipeline description
 
-## Example (RXCJ1825.3+3026)
-We will now show an exapmle to showcase the code using RXCJ1825.3+3026. See: https://www.aanda.org/articles/aa/abs/2019/10/aa36022-19/aa36022-19.html by A.Botteon et al. (2019) for more information on the cluster.
+## Example (Abell 2744)
+We will now show an exapmle to showcase the code using Abell 2744. See:https://ui.adsabs.harvard.edu/abs/2017ApJ...845...81P  by C.J.J Pearce, (2017) for more information on the cluster.
 ### Input 
 ### Settings
 ### Output
