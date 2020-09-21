@@ -1,6 +1,0 @@
-2020-09-17 16:36:52,584 nix          MainProcess INFO     Start Process for: /net/lofar4/data2/rtimmerman/Phoenix_JVLA/Lband_uvmin185_b0-MFS-image.fits
-2020-09-17 16:36:52,585 nix          MainProcess ERROR    Unknown what catalogue to use. If no costum values are given, filling values will be used
-2020-09-17 16:36:54,238 nix          MainProcess WARNING  No halo world location given. Assuming image centre.
-2020-09-17 16:36:54,238 nix          MainProcess INFO     - Not giving an approximate location can affect MCMC performance -
-2020-09-17 16:36:54,248 nix          MainProcess WARNING  No R500 key found. setting R500=1.0Mpc as filling to continue. Ignore this message if R500 != None
-2020-09-17 16:36:54,248 nix          MainProcess WARNING  No z key found. setting z=0.1Mpc as filling to continue. Ignore this message if z != None
