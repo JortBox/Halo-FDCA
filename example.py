@@ -13,7 +13,9 @@ import numpy as np
 import FDCA
 
 data_path = '/Users/jortboxelaar/Documents/Research/Halo-FDCA/Data/A2744_JVLA.image.fits'
+#data_path = '/Users/jortboxelaar/Desktop/PSZ2G086.93+53.18_cut2.fits'
 mask_path = '/Users/jortboxelaar/Documents/Research/Halo-FDCA/Data/Masks/A2744halo.reg'
+#mask_path = '--'
 
 def get_initial_guess(halo):
     r_guess = halo.radius/(3.5*halo.pix_size)
@@ -28,14 +30,16 @@ def get_initial_guess(halo):
                r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
     return p0,bounds
 
+#loc  = SkyCoord('15 13 54.8967 +52 47 54.300', unit=(u.hourangle, u.deg), frame='icrs')
+#halo = FDCA.Radio_Halo('PSZ2G086.93+53.18', data_path, z=0.6752, loc=loc, decreased_fov=True, M500=None, R500=None, spectr_index=-1.2)
+
 loc  = SkyCoord('00 14 20.03 -30 23 17.8', unit=(u.hourangle, u.deg), frame='icrs')
-halo = FDCA.Radio_Halo('Abell2744', data_path, z=0.308, loc=loc, decreased_fov=True,
-                                            M500=None, R500=None, spectr_index=-1.2)
+halo = FDCA.Radio_Halo('Abell2744', data_path, z=0.308, loc=loc, decreased_fov=True, M500=None, R500=None, spectr_index=-1.2)
 p0, bounds = get_initial_guess(halo)
 
 '''
 fit  = FDCA.markov_chain_monte_carlo.fitting(halo, halo.data_mcmc, 'circle', p0,
-                                             bounds, walkers=200, steps=1000,
+                                             bounds, walkers=10, steps=20,
                                              burntime=None, logger=halo.log, mask=True,
                                              maskpath=mask_path, max_radius=None,
                                              gamma_prior=False, k_exponent=False,)

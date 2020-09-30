@@ -258,12 +258,15 @@ def findrms(data, niter=100, maskSup=1e-7):
     return rms
 
 
-def regridding(obj, data, decrease_fov=False):
-    data_rot = rotate_image(obj, data.value, decrease_fov)
+def regridding(obj, data, decrease_fov=False, mask=False):
+    data_rot = rotate_image(obj, data.value, decrease_fov, mask)
     regrid   = regrid_to_beamsize(obj, data_rot)*data.unit
     return regrid
 
-def rotate_image(obj,img, decrease_fov=False):
+def rotate_image(obj,img, decrease_fov=False, mask=False):
+    if mask: cval=1
+    else: cval=0
+
     if not decrease_fov:
         if np.array(img.shape)[0]%2 is 0:
             img = np.delete(img, 0, 0)
@@ -273,14 +276,14 @@ def rotate_image(obj,img, decrease_fov=False):
         pivot = (np.array(img.shape)/2).astype(np.int64)
         padX  = [int(img.shape[1]) - pivot[0], pivot[0]]
         padY  = [int(img.shape[0]) - pivot[1], pivot[1]]
-        img_pad  = np.pad(img, [padY, padX], 'constant')
-        img_rot  = ndimage.rotate(img_pad, -obj.bpa.value, reshape=False)
+        img_pad  = np.pad(img, [padY, padX], 'constant', constant_values=(cval))
+        img_rot  = ndimage.rotate(img_pad, -obj.bpa.value, reshape=False,mode='constant',cval=cval)
         #plt.imshow(img_rot[padY[0]:-padY[1], padX[0]:-padX[1]])
         #plt.show()
         return img_rot[padY[0]:-padY[1], padX[0]:-padX[1]]
     else:
-        img_rot = ndimage.rotate(img, -obj.bpa.value, reshape=False)
-        f= img_rot[obj.margin[0]:obj.margin[1], obj.margin[2]:obj.margin[3]]
+        img_rot = ndimage.rotate(img, -obj.bpa.value, reshape=False,mode='constant',cval=cval)
+        f= img_rot[obj.margin[2]:obj.margin[3], obj.margin[0]:obj.margin[1]]
         #plt.imshow(f)
         #plt.show()
         return f

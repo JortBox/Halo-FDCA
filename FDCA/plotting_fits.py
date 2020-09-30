@@ -60,7 +60,6 @@ def quick_imshow(obj, data, noise=True, name = 'plot'):
     plt.show()
 
 def fit_result(obj, model, data, noise, mask=False, regrid=False):
-    fig, axes = plt.subplots(ncols=3, nrows=1, sharey=True)
     halo      = obj.halo
     ra        = halo.ra.value
     dec       = halo.dec.value
@@ -69,20 +68,16 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     scale     = 1.
     xlabel    = 'RA [Deg]'
     ylabel    = 'DEC [Deg]'
-    for axi in axes.flat:
-        axi.xaxis.set_major_locator(plt.MaxNLocator(5))
-        axi.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
-        axi.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+    scale = 1.
 
-    fig.set_size_inches(3.2*5,5.1)
-    if mask:
-        image_mask = obj.image_mask
+    #if mask:
+    image_mask = obj.image_mask
 
     if regrid:
-        data  = utils.regridding(obj.halo,data)
+        data  = utils.regridding(obj.halo,data, decrease_fov=True)
         model = utils.regridding(obj.halo,model)
-        if mask:
-            image_mask = utils.regridding(obj.halo, obj.image_mask*u.Jy).value
+        #if mask:
+        image_mask = utils.regridding(obj.halo, obj.image_mask*u.Jy, mask= not obj.halo.cropped).value
         noise      = utils.findrms(data.value)*u.Jy
         scale = (np.array((bmin.value,bmaj.value))/halo.pix_size).value
         bmin  = bmin/(scale[0]*halo.pix_size)
@@ -91,6 +86,18 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         dec        = np.arange(0,data.shape[0])#halo.dec.value
         xlabel    = 'Pixels'
         ylabel    = 'Pixels'
+
+        #plt.imshow(image_mask)
+        #plt.show()
+
+    fig, axes = plt.subplots(ncols=3, nrows=1, sharey=True)
+
+    for axi in axes.flat:
+        axi.xaxis.set_major_locator(plt.MaxNLocator(5))
+        axi.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+        axi.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+
+    fig.set_size_inches(3.2*5,5.1)
 
     draw_sizebar(halo,axes[0], scale, regrid)
     draw_ellipse(halo,axes[0], bmin, bmaj, regrid)
@@ -103,11 +110,11 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     Normdiv = DivergingNorm(vmin=0.8*data.min(), vcenter=0., vmax=0.8*data.max())
 
     masked_data = np.copy(data)
-    if mask:
-        if regrid:
-            masked_data[image_mask >= obj.mask_treshold*image_mask.max()] =-100.
-        else:
-            masked_data[image_mask==1]= -100.
+    #if mask:
+    if regrid:
+        masked_data[image_mask > obj.mask_treshold*image_mask.max()] =-100.
+    else:
+        masked_data[image_mask==1]= -100.
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)

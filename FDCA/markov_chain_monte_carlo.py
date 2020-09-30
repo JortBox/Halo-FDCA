@@ -10,7 +10,7 @@ from __future__ import division
 import sys
 import os
 import logging
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import pandas as pd
@@ -101,7 +101,7 @@ class fitting(object):
         self.sigma = (self.rms*self.halo.beam2pix).value
         self.data  = data
         self.steps = int(steps)
-        self.mask_treshold = 0.4
+        self.mask_treshold = 0.5
         self.k_exponent = k_exponent
         self.offset = offset
         self.gamma_prior = gamma_prior
@@ -136,7 +136,8 @@ class fitting(object):
         # set_dictionary is called to create a dictionary with necessary atributes
         # because 'Pool' cannot pickle the fitting object.
         halo_info = set_dictionary(self)
-        with Pool() as pool:
+        num_CPU = cpu_count()
+        with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(self.walkers, self.dim, lnprob, pool=pool,
                                             args=[data,coord,halo_info])
             sampler.run_mcmc(pos, self.steps, progress=True)
@@ -144,7 +145,7 @@ class fitting(object):
         self.sampler_chain = sampler.chain
         self.samples = self.sampler_chain[:,int(self.burntime):,:].reshape((-1,self.dim))
 
-        if self.save:
+        if save:
             self.__save__()
             self.plotSampler()
 
@@ -240,7 +241,7 @@ class fitting(object):
 
     def setMask(self, data):
         regionpath = self.halo.maskPath
-        outfile    = self.halo.basedir+'Output/'+self.halo.target+'_mask.fits'
+        outfile    = self.halo.basedir+'Data/Masks/'+self.halo.target+'_mask.fits'
         utils.mask_region(self.halo.path, regionpath, outfile)
 
         '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
@@ -251,13 +252,16 @@ class fitting(object):
                                 self.halo.fov_info[2]:self.halo.fov_info[3]]
 
     def set_data_to_use(self,data):
+        print(self.halo.cropped)
         if self.rebin:
             binned_data = utils.regridding(self.halo, data, decrease_fov=True)
             if not self.mask:
                 self.image_mask = np.zeros(self.halo.data.shape)
-            self.binned_image_mask = utils.regridding(self.halo, self.image_mask*u.Jy).value
+            self.binned_image_mask = utils.regridding(self.halo, self.image_mask*u.Jy, mask = not self.halo.cropped).value
             use = binned_data.value
             #print('rebinned image shape',use.shape)
+            #plt.imshow(self.binned_image_mask)
+            #plt.show()
             #plt.imshow(use)
             #plt.show()
             return use.ravel()[self.binned_image_mask.ravel() <=\
@@ -417,7 +421,7 @@ def set_model_to_use(info,data):
 def rotate_image(info,img, decrease_fov=False):
     margin = info['margin']
     img_rot = ndimage.rotate(img, -info['bpa'].value, reshape=False)
-    f = img_rot[margin[0]:margin[1], margin[2]:margin[3]]
+    f = img_rot[margin[2]:margin[3], margin[0]:margin[1]]
     #plt.imshow(f)
     #plt.show()
     return f
@@ -524,7 +528,7 @@ def lnprior(theta, shape, info):
         else:
             radii = np.array([theta['r1'],theta['r2']])
         if info['gamma_prior']:
-            prior = np.sum(np.log(utils.gamma_dist(radii, 2.5, 120./info['pix2kpc'].value)))
+            prior = np.sum(np.log(utils.gamma_dist(radii, 2.3, 120./info['pix2kpc'].value)))
     return prior
 
 def lnprior8(theta, shape, info):
@@ -539,7 +543,7 @@ def lnprior8(theta, shape, info):
         #guess = 225./info['pix2kpc'] #average based on known sample of halos.
         #prior = -np.sum(1./2*((theta['r1'])**2 + (theta['r2'])**2)/((info['max_radius']/4.)**2))
         radii = np.array([theta['r1'],theta['r2'],theta['r3'],theta['r4']])
-        prior = np.sum(np.log(utils.gamma_dist(radii, 2.5, 120./info['pix2kpc'].value)))
+        prior = np.sum(np.log(utils.gamma_dist(radii, 2.3, 120./info['pix2kpc'].value)))
     return prior
 
 def lnprob(theta, data, coord, info):
@@ -606,7 +610,7 @@ class processing(object):
         self.alpha = _parent_.alpha # spectral index guess
         self.k_exponent = k_exponent
         self.offset = offset
-        self.mask_treshold = 0.4
+        self.mask_treshold = 0.5
 
         self.check_settings(dim, mask, maskpath)
         self.extract_chain_file(rebin)
@@ -618,7 +622,7 @@ class processing(object):
     def plot_results(self):
         plot.fit_result(self, self.model, self.halo.data,
                               self.halo.rmsnoise, mask=self.mask, regrid=False)
-        plot.fit_result(self, self.model, self.halo.data,
+        plot.fit_result(self, self.model, self.halo.data_mcmc,
                               self.halo.rmsnoise, mask=self.mask,regrid=True)
         self.plotSampler()
         self.cornerplot()
@@ -649,6 +653,7 @@ class processing(object):
         self.params = pd.DataFrame.from_dict({'params':self.AppliedParameters},
                                 orient='index',columns=self.paramNames).loc['params']
         self.dim    = len(self.params[self.params])
+        self.image_mask = np.zeros(self.halo.data.shape)
 
         if mask:
             if maskpath == '--':
@@ -908,7 +913,7 @@ class processing(object):
         if not self.mask:
             self.image_mask = np.zeros(self.halo.data.shape)
 
-        binned_image_mask = utils.regridding(self.halo, self.image_mask*u.Jy).value
+        binned_image_mask = utils.regridding(self.halo, self.image_mask*u.Jy, mask=not self.halo.cropped).value
         binned_model = binned_model.ravel()[binned_image_mask.ravel() <=\
                                 mask_treshold*binned_image_mask.max()]
 

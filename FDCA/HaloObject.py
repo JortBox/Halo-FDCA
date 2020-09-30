@@ -331,7 +331,8 @@ class Radio_Halo(object):
     def decrease_fov(self, data, width=2):
         ''' Function decreases image size based on first fit in exponentialFit.
         Slightly bigger image is used in MCMC. data is stored in self.data_mcmc'''
-        error = False
+        self.cropped = False
+        error        = False
         image_width = width*self.radius/self.pix_size
         test_fov = [int(self.centre_pix[1] - np.sqrt(2.01)*image_width),
                     int(self.centre_pix[1] + np.sqrt(2.01)*image_width),
@@ -361,6 +362,7 @@ class Radio_Halo(object):
                                   int(self.centre_pix[0] + np.sqrt(2.01)*image_width)]
             self.data_mcmc = data[self.fov_info_mcmc[0]:self.fov_info_mcmc[1],
                                   self.fov_info_mcmc[2]:self.fov_info_mcmc[3]]
+            self.cropped = True
 
         self.margin = np.array(self.fov_info)-np.array(self.fov_info_mcmc)
         self.data = data[self.fov_info[0]:self.fov_info[1],
