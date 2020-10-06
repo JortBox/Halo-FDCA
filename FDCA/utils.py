@@ -156,6 +156,42 @@ def export_fits(data, path, header=None):
     hdul.writeto(path, overwrite=True)
 
 
+def masking(obj, mask):
+    try: halo = obj.halo
+    except: halo = obj
+
+    if mask:
+        '''FIND MASK:'''
+        if os.path.isfile(halo.maskPath):
+            mask = True
+        else:
+            mask=False
+            obj.log.log(logging.ERROR,'No regionfile found,continueing without mask')
+
+        
+        '''SET MASK:'''
+        if mask:
+            regionpath = halo.maskPath
+            outfile    = halo.basedir+'Data/Masks/'+halo.target+'_mask.fits'
+            mask_region(halo.path, regionpath, outfile)
+
+            '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
+               is made wrt the entire image. fov_info makes the mask the same shape as
+               the image and overlays it'''
+            image_mask = fits.open(outfile)[0].data[0,0,
+                                    halo.fov_info[0]:halo.fov_info[1],
+                                    halo.fov_info[2]:halo.fov_info[3]]
+            obj.log.log(logging.INFO,'MCMC Mask set')
+    else:
+        obj.log.log(logging.INFO,'MCMC No mask set')
+        mask=False
+
+    if mask==False:
+        image_mask = np.zeros_like(halo.original_image[halo.fov_info[0]:halo.fov_info[1],
+                                                       halo.fov_info[2]:halo.fov_info[3]])
+    return image_mask, mask
+
+
 def mask_region(infilename,ds9region,outfilename):
     hdu=fits.open(infilename)
     hduflat = flatten(hdu)
@@ -256,6 +292,22 @@ def findrms(data, niter=100, maskSup=1e-7):
         if np.abs((rms-rmsold)/rmsold)<diff: break
         rmsold = rms
     return rms
+
+
+
+
+
+def setMask(self, data):
+    regionpath = self.halo.maskPath
+    outfile    = self.halo.basedir+'Data/Masks/'+self.halo.target+'_mask.fits'
+    utils.mask_region(self.halo.path, regionpath, outfile)
+
+    '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
+       is made wrt the entire image. fov_info makes the mask the same shape as
+       the image and overlays it'''
+    self.image_mask = fits.open(outfile)[0].data[0,0,
+                            self.halo.fov_info[0]:self.halo.fov_info[1],
+                            self.halo.fov_info[2]:self.halo.fov_info[3]]
 
 
 def regridding(obj, data, decrease_fov=False, mask=False):

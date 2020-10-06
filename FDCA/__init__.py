@@ -23,8 +23,8 @@ from . import plotting_fits
 def main():
     dir = os.getcwd()
     now = str(datetime.now())[:19]
-    if not os.path.exists(dir+'/.log/'):
-        os.makedirs(dir+'/.log/')
+    if not os.path.exists(dir+'/log/'):
+        os.makedirs(dir+'/log/')
     d = {
             'version': 1,
             'formatters': {
@@ -36,7 +36,7 @@ def main():
             'handlers': {
             'file': {
                 'class': 'logging.FileHandler',
-                'filename': dir+'/.log/'+now+'.log',
+                'filename': dir+'/log/'+now+'.log',
                 'mode': 'w',
                 'formatter': 'detailed',
             },
@@ -52,13 +52,13 @@ def main():
     logging.config.dictConfig(d)
     return logging
 
-def Radio_Halo(object, path, decreased_fov=True, loc=None, M500=None, R500=None,
+def Radio_Halo(object, path, decreased_fov=True, maskpath=None, mask=False, loc=None, M500=None, R500=None,
                 z=None, spectr_index=-1.2):
     logging = main()
     logger  = logging.getLogger(str(object)[4:])
     logger.log(logging.INFO, 'Start Process for: '+ path)
 
-    halo = HaloObject.Radio_Halo(object, path, decreased_fov=decreased_fov,
-                                logger=logger, loc=loc, M500=M500, R500=R500,
-                                z=z, spectr_index=spectr_index)
+    halo = HaloObject.Radio_Halo(object, path, maskpath=maskpath, mask=mask,
+                                decreased_fov=decreased_fov,logger=logger, loc=loc,
+                                M500=M500, R500=R500, z=z, spectr_index=spectr_index)
     return halo

@@ -74,7 +74,7 @@ class Radio_Halo(object):
                           power values. Default is -1.2 (No conclusions can be drawn
                           from using this default value in calculations).
     '''
-    def __init__(self, object, path, decreased_fov=False,
+    def __init__(self, object, path, decreased_fov=False, maskpath=None, mask=False,
                 logger=logging, loc=None, M500=None, R500=None, z=None, spectr_index=-1.2):
 
         self.user_radius = R500
@@ -102,7 +102,7 @@ class Radio_Halo(object):
         self.cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
         self.table  = Vizier.query_object(self.name,catalog=self.cat)
 
-        self.initiatePaths()
+        self.initiatePaths(maskpath)
         data = self.unpack_File()
         self.get_beam_area()
         self.original_image = np.copy(data)
@@ -113,6 +113,9 @@ class Radio_Halo(object):
 
         self.get_object_location(loc)
         self.extract_object_info(M500, R500, z)
+
+        self.fov_info              = [0,data.shape[0],0,data.shape[1]]
+        self.image_mask, self.mask = utils.masking(self, mask)
         self.exponentialFit(data, first=True) # Find centre of the image centre_pix
 
         if self.header['BUNIT']=='JY/BEAM' or self.header['BUNIT']=='Jy/beam':
@@ -124,7 +127,7 @@ class Radio_Halo(object):
         self.pix_to_world()
         self.set_image_characteristics(decreased_fov)
 
-    def initiatePaths(self):
+    def initiatePaths(self, maskpath):
         self.basedir = os.getcwd()+'/'
 
         txt           = self.path.split('/')
@@ -144,6 +147,11 @@ class Radio_Halo(object):
         if not os.path.isdir(self.plotPath):
             self.log.log(logging.INFO,'Creating plotting directory')
             os.makedirs(self.plotPath)
+
+        if maskpath == None:
+            self.maskPath = self.basedir+'Output/'+self.target+'.reg'
+        else:
+            self.maskPath = maskpath
 
     def get_object_location(self, loc):
         if loc is not None:
@@ -259,7 +267,9 @@ class Radio_Halo(object):
             self.decrease_fov(self.data)
             x = np.arange(0, np.shape(self.data.value)[1], step=1, dtype='float')
             y = np.arange(0, np.shape(self.data.value)[0], step=1, dtype='float')
-            self.x_pix, self.y_pix = np.meshgrid(x,y)
+            self.x_pix, self.y_pix     = np.meshgrid(x,y)
+            
+            self.image_mask, self.mask = utils.masking(self, self.mask)
             self.exponentialFit(self.data.value)
         else:
             pivot = ((np.sqrt(2.)/2.-0.5)*np.array(self.data.shape)).astype(np.int64)
@@ -396,6 +406,13 @@ class Radio_Halo(object):
             return np.array((data.shape[1]/2.,data.shape[0]/2.),dtype=np.int64)
 
 
+    def pre_mcmc_func(self, obj, *theta):
+        I0, x0, y0, re = theta
+        model = self.circle_model((obj.x_pix,obj.y_pix), I0, x0, y0, re )
+        if obj.mask:
+            return model[obj.image_mask.ravel() == 0]
+        else: return model
+
     def exponentialFit(self, image, first=False):
         max_flux   = np.max(image)
         centre_pix = self.find_halo_centre(image, first)
@@ -406,8 +423,13 @@ class Radio_Halo(object):
                           image.shape[1]/2.])
         if self.user_radius != False:
             size = (self.radius_real/2.)/self.pix_size
-        popt, pcov = curve_fit(self.circle_model,(self.x_pix,self.y_pix),
-                                image.ravel(), p0=(max_flux,centre_pix[0],
+
+        image = image.ravel()
+        if self.mask:
+            image = image[self.image_mask.ravel() == 0]
+
+        popt, pcov = curve_fit(self.pre_mcmc_func,self,
+                                image, p0=(max_flux,centre_pix[0],
                                 centre_pix[1],size), bounds=bounds)
 
         if (self.user_radius != False and self.radius_real<(3.5*popt[3]*self.pix_size)):# or popt[3]>0.5*image.shape[0]:

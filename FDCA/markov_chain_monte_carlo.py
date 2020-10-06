@@ -197,6 +197,8 @@ class fitting(object):
             self.walkers = int(2*self.dim+4)
             self.log.log(logging.WARNING,'MCMC Too few walkers, nwalkers = {}'.format(self.walkers))
 
+        self.image_mask, self.mask = utils.masking(self, mask)
+        '''
         if mask:
             if maskpath == '--':
                 self.halo.maskPath = self.halo.basedir+'Output/'+self.halo.target+'.reg'
@@ -210,6 +212,7 @@ class fitting(object):
         else:
             self.log.log(logging.INFO,'MCMC No mask set')
             self.mask=False
+        '''
 
         if burntime is None:
             self.burntime = int(0.125*self.steps)
@@ -252,18 +255,12 @@ class fitting(object):
                                 self.halo.fov_info[2]:self.halo.fov_info[3]]
 
     def set_data_to_use(self,data):
-        print(self.halo.cropped)
         if self.rebin:
             binned_data = utils.regridding(self.halo, data, decrease_fov=True)
             if not self.mask:
                 self.image_mask = np.zeros(self.halo.data.shape)
             self.binned_image_mask = utils.regridding(self.halo, self.image_mask*u.Jy, mask = not self.halo.cropped).value
             use = binned_data.value
-            #print('rebinned image shape',use.shape)
-            #plt.imshow(self.binned_image_mask)
-            #plt.show()
-            #plt.imshow(use)
-            #plt.show()
             return use.ravel()[self.binned_image_mask.ravel() <=\
                                     self.mask_treshold*self.binned_image_mask.max()]
         else:
@@ -655,6 +652,8 @@ class processing(object):
         self.dim    = len(self.params[self.params])
         self.image_mask = np.zeros(self.halo.data.shape)
 
+        self.image_mask, self.mask = utils.masking(self, mask)
+        '''
         if mask:
             if maskpath == '--':
                 self.halo.maskPath = self.halo.basedir+'Output/'+self.halo.target+'.reg'
@@ -668,6 +667,7 @@ class processing(object):
         else:
             self.log.log(logging.INFO,'MCMC No mask set')
             self.mask=False
+        '''
 
     def extract_chain_file(self, rebin):
         filename_append = '_{}'.format(self.modelName)

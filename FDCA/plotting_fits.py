@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import os
 #import aplpy
 from scipy.optimize import curve_fit
-from matplotlib.colors import Normalize, LogNorm, SymLogNorm, DivergingNorm
+import matplotlib.colors as mplc
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import ScalarFormatter
 from scipy import ndimage
@@ -106,8 +106,10 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     noise = (noise/halo.pix_area).to(uJyarcsec2).value
     model = (model/halo.pix_area).to(uJyarcsec2).value
 
-    NORMres = Normalize(vmin=-2.*noise, vmax=1.*data.max())
-    Normdiv = DivergingNorm(vmin=0.8*data.min(), vcenter=0., vmax=0.8*data.max())
+    if regrid:
+        NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*data.max())
+    else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*obj.params[0])
+    Normdiv = mplc.DivergingNorm(vmin=0.8*data.min(), vcenter=0., vmax=0.8*data.max())
 
     masked_data = np.copy(data)
     #if mask:
@@ -133,7 +135,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     axes[0].annotate('$V(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
                         ha='center', va='top', color='white')
-    axes[0].set_title("Subtracted halo", fontsize=titlesize)
+    axes[0].set_title("Radio data", fontsize=titlesize)
     axes[0].set_xlabel(xlabel, fontsize=labelsize)
     axes[0].set_ylabel(ylabel, fontsize=labelsize)
     axes[0].grid(color='white', linestyle='-', alpha=0.25)
@@ -145,7 +147,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     axes[1].annotate('$I(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
                         ha='center', va='top', color='white')
-    axes[1].set_title("Exponential model", fontsize=titlesize)
+    axes[1].set_title(obj.modelName.replace('_',' ')+" model", fontsize=titlesize)
     axes[1].set_xlabel(xlabel, fontsize=labelsize)
     axes[1].grid(color='white', linestyle='-', alpha=0.25)
     cbar = fig.colorbar(im2,ax=axes[1])
