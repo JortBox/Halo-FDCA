@@ -21,7 +21,7 @@ https://www.astropy.org
 
 `Scipy` v1.5 and up<br>
 `Numpy` v1.19 and up<br>
-`Matplotlib` <br>
+`Matplotlib` v3.3 and up<br>
 https://www.scipy.org/docs.html
 
 `emcee` v3.0 and up<br>
