@@ -32,7 +32,7 @@ import emcee
 import corner
 
 # Subfile imports
-from . import utils
+from . import fdca_utils as utils
 from . import plotting_fits as plot
 
 #plt.rc('text',usetex=True)

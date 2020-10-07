@@ -17,7 +17,7 @@ import astropy.units as u
 import numpy as np
 from . import HaloObject
 from . import markov_chain_monte_carlo
-from . import utils
+from . import fdca_utils as utils
 from . import plotting_fits
 
 def main():

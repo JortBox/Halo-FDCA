@@ -94,21 +94,7 @@ def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
     exponent = np.exp(-np.sqrt(func))
     exponent[np.where(np.isnan(exponent))]=0.
     return exponent
-'''
-def k_exponent_model(obj, I0, x0, y0, re_x, re_y, ang, P, rotate=False):
-    x = (obj.x_pix-x0)*np.cos(ang) + (obj.y_pix-y0)*np.sin(ang)
-    y = -(obj.x_pix-x0)*np.sin(ang) + (obj.y_pix-y0)*np.cos(ang)
-    G = (x/re_x)**2.+(y/re_y)**2.
 
-    Ir  = I0*(np.exp(-G**P)).reshape(len(x), len(y))*u.Jy
-    if rotate:
-        Ir = rotate_image(obj.halo,Ir,decrease_fov=True)
-    return convolve_with_gaussian(obj.halo, Ir).ravel()
-'''
-def forward_modelling(obj, *theta):
-    noise = advanced_noise_modeling(obj).value
-    Ixy   = grand_exponential(obj, *theta)
-    return Ixy + noise
 
 def noise_modelling(obj):
     noise = 15.*(np.random.randn(len(obj.halo.x_pix),len(obj.halo.y_pix))-0.030)*u.Jy
@@ -155,7 +141,6 @@ def export_fits(data, path, header=None):
     hdul = fits.HDUList([hdu])
     hdul.writeto(path, overwrite=True)
 
-
 def masking(obj, mask):
     try: halo = obj.halo
     except: halo = obj
@@ -168,7 +153,7 @@ def masking(obj, mask):
             mask=False
             obj.log.log(logging.ERROR,'No regionfile found,continueing without mask')
 
-        
+
         '''SET MASK:'''
         if mask:
             regionpath = halo.maskPath
@@ -293,10 +278,6 @@ def findrms(data, niter=100, maskSup=1e-7):
         rmsold = rms
     return rms
 
-
-
-
-
 def setMask(self, data):
     regionpath = self.halo.maskPath
     outfile    = self.halo.basedir+'Data/Masks/'+self.halo.target+'_mask.fits'
@@ -368,50 +349,6 @@ def regrid_to_beamsize(obj, img, accuracy=100.):
     #plt.show()
     #print(pseudo_array.shape, scale, f.shape)
     return f
-
-def HaloStatistics(halos):
-    power = list()
-    flux = list()
-    mass = list()
-    radius = list()
-    k_exp = list()
-
-    for halo in halos:
-        power.append([halo.result4.power_val.value, halo.result4.power_std])
-        flux.append([halo.result4.flux_val.value, halo.result4.flux_std.value])
-        mass.append([halo.M500.value, halo.M500_std.value])
-        radius_std = (halo.result4.percentiles_units[3,1]\
-                     -halo.result4.percentiles_units[3,0]\
-                     +halo.result4.percentiles_units[3,2]\
-                     -halo.result4.percentiles_units[3,1])/2.
-        radius.append([halo.result4.params_units[3], radius_std])
-        k_exp.append([halo.result4.parameters['k_exp'],0])
-
-    power  = np.array(power).reshape((len(halos),2))
-    flux   = np.array(flux).reshape((len(halos),2))
-    mass   = np.array(mass).reshape((len(halos),2))
-    radius = np.array(radius).reshape((len(halos),2))
-    k_exp  = np.array(k_exp).reshape((len(halos),2))
-
-    plt.errorbar(flux[:,0], k_exp[:,0], xerr=flux[:,1], lw=1,
-                    markersize=1., capsize=4, mew=1. ,fmt='.', alpha=0.8,
-                    color='black', marker='.')
-    plt.xlabel('$S_{\\nu}$')
-    plt.ylabel('k')
-    #plt.yscale('log')
-    #plt.savefig('mass-radius.pdf')
-    plt.minorticks_on()
-    plt.show()
-
-    plt.errorbar(k_exp[:,0], power[:,0], yerr=power[:,1], lw=1,
-                    markersize=1., capsize=4, mew=1. ,fmt='.', alpha=0.8,
-                    color='black', marker='.')
-    plt.ylabel('$P_{\\mathrm{150 MHz}}$ [W/Hz]')
-    plt.xlabel('k')
-    plt.xscale('log')
-    plt.minorticks_on()
-    #plt.savefig('power-radius.pdf')
-    plt.show()
 
 def gamma_dist(x, shape, scale):
     from scipy.special import gamma

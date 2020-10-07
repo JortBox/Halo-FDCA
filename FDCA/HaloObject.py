@@ -28,7 +28,7 @@ from astropy.cosmology import FlatLambdaCDM
 # Subfiles imports
 #import plotting_fits as plot
 #import markov_chain_monte_carlo
-from . import utils
+from . import fdca_utils as utils
 
 #plt.rc('text',usetex=True)
 #plt.rc('font', family='serif')
@@ -268,7 +268,7 @@ class Radio_Halo(object):
             x = np.arange(0, np.shape(self.data.value)[1], step=1, dtype='float')
             y = np.arange(0, np.shape(self.data.value)[0], step=1, dtype='float')
             self.x_pix, self.y_pix     = np.meshgrid(x,y)
-            
+
             self.image_mask, self.mask = utils.masking(self, self.mask)
             self.exponentialFit(self.data.value)
         else:

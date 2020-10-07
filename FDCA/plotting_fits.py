@@ -20,7 +20,7 @@ from matplotlib.ticker import ScalarFormatter
 from scipy import ndimage
 from scipy import signal
 
-from . import utils
+from . import fdca_utils as utils
 
 Jydeg2     = u.Jy/(u.deg*u.deg)
 mJyarcsec2 = u.mJy/(u.arcsec*u.arcsec)
@@ -106,10 +106,6 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     noise = (noise/halo.pix_area).to(uJyarcsec2).value
     model = (model/halo.pix_area).to(uJyarcsec2).value
 
-    if regrid:
-        NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*data.max())
-    else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*obj.params[0])
-    Normdiv = mplc.DivergingNorm(vmin=0.8*data.min(), vcenter=0., vmax=0.8*data.max())
 
     masked_data = np.copy(data)
     #if mask:
@@ -117,6 +113,11 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         masked_data[image_mask > obj.mask_treshold*image_mask.max()] =-100.
     else:
         masked_data[image_mask==1]= -100.
+
+    if regrid:
+        NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
+    else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*obj.params[0])
+    Normdiv = mplc.DivergingNorm(vmin=0.8*masked_data.min(), vcenter=0., vmax=0.8*masked_data.max())
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)

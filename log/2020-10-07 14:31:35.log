@@ -1,0 +1,5 @@
+2020-10-07 14:31:35,949 l2744        MainProcess INFO     Start Process for: ./Data/A2744_JVLA.image.fits
+2020-10-07 14:31:35,987 l2744        MainProcess WARNING  No valid z key found. setting z=0.1 as filling to continue. Ignore this message if z != None
+2020-10-07 14:31:35,987 l2744        MainProcess WARNING  No R500 key found. setting R500=1.0Mpc to continue
+2020-10-07 14:31:35,987 l2744        MainProcess INFO     Custom redshift set
+2020-10-07 14:31:36,595 l2744        MainProcess INFO     MCMC Mask set
