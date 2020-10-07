@@ -57,8 +57,10 @@ Currently, cluster characteristics such as location, redshift and M500 mass (R50
 
 ## Example (Abell 2744)
 We will now show an exapmle to showcase the code using Abell 2744. See:https://ui.adsabs.harvard.edu/abs/2017ApJ...845...81P  by C.J.J Pearce, (2017) for more information on the cluster.
-### Input 
+### Input
+
 ### Settings
+There is a
 ### Output
 
 
