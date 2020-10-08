@@ -82,7 +82,7 @@ processing = FDCA.markov_chain_monte_carlo.processing(halo, halo.data, args['mod
 processing.plot_results()
 #processing.cornerplot()
 processing.get_chi2_value()
-processing.get_flux(int_max=np.inf, freq=args['freq'])
+processing.get_flux(int_max=args['int_max'], freq=args['freq'])
 processing.get_power(freq=args['freq'])
 [conf_low, conf_up] = processing.get_confidence_interval(percentage=95, units=True)
 
