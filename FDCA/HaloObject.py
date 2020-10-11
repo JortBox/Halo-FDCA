@@ -408,37 +408,46 @@ class Radio_Halo(object):
 
     def pre_mcmc_func(self, obj, *theta):
         I0, x0, y0, re = theta
-        model = self.circle_model((obj.x_pix,obj.y_pix), I0, x0, y0, re )
+        model = obj.circle_model((obj.x_pix,obj.y_pix), I0, x0, y0, re )
         if obj.mask:
             return model[obj.image_mask.ravel() == 0]
         else: return model
 
-    def exponentialFit(self, image, first=False):
-        max_flux   = np.max(image)
-        centre_pix = self.find_halo_centre(image, first)
-        size = image.shape[1]/5.
+    def exponentialFit(self, data, first=False):
+        plotdata = np.copy(data)
+        plotdata[self.image_mask==1]=0
+        max_flux   = np.max(plotdata)
+        centre_pix = self.find_halo_centre(data, first)
+        size = data.shape[1]/3.
         bounds  = ([0.,0.,0.,0.,],
-                  [np.inf,image.shape[0],
-                          image.shape[1],
-                          image.shape[1]/2.])
+                  [np.inf,data.shape[0],
+                          data.shape[1],
+                          data.shape[1]/2.])
         if self.user_radius != False:
             size = (self.radius_real/2.)/self.pix_size
-
-        image = image.ravel()
+          
+        plt.imshow(plotdata)
+        image = data.ravel()
+        print(self.mask, size)
         if self.mask:
-            image = image[self.image_mask.ravel() == 0]
+            image = data.ravel()[self.image_mask.ravel() == 0]
 
         popt, pcov = curve_fit(self.pre_mcmc_func,self,
                                 image, p0=(max_flux,centre_pix[0],
                                 centre_pix[1],size), bounds=bounds)
+        plt.contour(self.circle_model((self.x_pix,self.y_pix), *popt).reshape(data.shape))
+        plt.savefig('test'+str(first)+'.pdf')
+        plt.clf()
+        print((max_flux,centre_pix[0],centre_pix[1],size),popt)
 
         if (self.user_radius != False and self.radius_real<(3.5*popt[3]*self.pix_size)):# or popt[3]>0.5*image.shape[0]:
             popt[3]=size
             print('size overwrite')
 
-        if first:
-            self.radius = 4*popt[3]*self.pix_size
+        #if first:
+        self.radius = 3.5*popt[3]*self.pix_size
         self.centre_pix = np.array([popt[1],popt[2]], dtype=np.int64)
+        self.I0 = popt[0]
 
     def circle_model(self, coords, I0, x0, y0, re):
         x,y = coords

@@ -48,7 +48,7 @@ def get_initial_guess(halo):
     if r_guess >= halo.data.shape[1]/2.: r_guess = halo.data.shape[1]/4.
 
     diff   = np.abs(halo.margin)
-    p0     = (np.max(halo.data.value), halo.centre_pix[0]+diff[0],
+    p0     = (halo.I0, halo.centre_pix[0]+diff[0],
               halo.centre_pix[1]+diff[2], r_guess,r_guess,r_guess,r_guess,0.,0.,0.)
     bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf, 0., -np.inf],
               [np.inf,halo.data.shape[0],halo.data.shape[1],
