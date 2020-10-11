@@ -436,8 +436,8 @@ class Radio_Halo(object):
             popt[3]=size
             print('size overwrite')
 
-        if first:
-            self.radius = 4*popt[3]*self.pix_size
+        #if first:
+        self.radius = 3.5*popt[3]*self.pix_size
         self.centre_pix = np.array([popt[1],popt[2]], dtype=np.int64)
 
     def circle_model(self, coords, I0, x0, y0, re):

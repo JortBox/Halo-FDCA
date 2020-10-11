@@ -117,7 +117,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     if regrid:
         NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
     else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*obj.params[0])
-    Normdiv = mplc.DivergingNorm(vmin=0.8*masked_data.min(), vcenter=0., vmax=0.8*masked_data.max())
+    Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*masked_data.min(), vmax=0.8*masked_data.max())
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
