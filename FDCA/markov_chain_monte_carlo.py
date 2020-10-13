@@ -340,7 +340,7 @@ class fitting(object):
             axes[i].set_ylabel('param '+str(i+1), fontsize=15)
             plt.tick_params(labelsize=15)
 
-        plt.savefig('%s%s_walkers%s.png' % (self.halo.plotPath,
+        plt.savefig('%s%s_walkers%s.pdf' % (self.halo.plotPath,
                                         self.halo.target,self.filename_append),dpi=300)
         plt.clf()
         plt.close(fig)
@@ -353,7 +353,7 @@ class fitting(object):
                             truths=np.asarray(self.popt[self.params]),
                             show_titles=True, title_fmt='.5f')
 
-        plt.savefig('%s%s_cornerplot%s.png' % (self.halo.plotPath,
+        plt.savefig('%s%s_cornerplot%s.pdf' % (self.halo.plotPath,
                                         self.halo.target,self.filename_append),dpi=300)
         plt.clf()
         plt.close(fig)
@@ -598,7 +598,7 @@ class processing(object):
         self.x_pix, self.y_pix = np.meshgrid(x,y)
 
         self.log = logger
-        self.log.log(logging.INFO,'MCMC parameter dimension: {}'.format(dim))
+        self.log.log(logging.INFO,'Model name: {}'.format(dim))
         self.noise = _parent_.imagenoise
         self.rms   = _parent_.rmsnoise
         self.data  = data
@@ -621,8 +621,8 @@ class processing(object):
                               self.halo.rmsnoise, mask=self.mask, regrid=False)
         plot.fit_result(self, self.model, self.halo.data_mcmc,
                               self.halo.rmsnoise, mask=self.mask,regrid=True)
-        #self.plotSampler()
-        #self.cornerplot()
+        self.plotSampler()
+        self.cornerplot()
 
     def check_settings(self, dim, mask, maskpath):
         self.modelName  = dim
@@ -806,8 +806,9 @@ class processing(object):
 
         self.popt_units        = self.transform_units(np.copy(self.popt))
         self.percentiles_units = self.get_percentiles(self.samples_units)
-        self.params_units      = self.percentiles_units[:,1].reshape(self.dim)
+        self.params_units      = utils.add_parameter_labels(self, self.percentiles_units[:,1].reshape(self.dim))
         self.get_units()
+        self.log.log(logging.INFO, '\n Parameters: \n'+str(self.params_units[self.params])+'\n In Units: '+str(self.units))
 
     def transform_units(self, params):
         params[0] = ((u.Jy*params[0]/self.halo.pix_area).to(uJyarcsec2)).value
@@ -866,11 +867,11 @@ class processing(object):
     def get_confidence_interval(self, percentage=95, units=True):
         alpha   = 1. - percentage/100.
         z_alpha = stats.norm.ppf(1.-alpha/2.)
-        se      = np.zeros((self.dim))
+        se      = np.zeros(self.params.shape)
 
         if units:
             for i in range(self.dim):
-                se[i] = np.sqrt( np.mean(self.samples_units[:, i]**2.)\
+                se[self.params] = np.sqrt( np.mean(self.samples_units[:, i]**2.)\
                                 -np.mean(self.samples_units[:, i])**2. )
             conf_low = self.params_units-z_alpha*se
             conf_up  = self.params_units+z_alpha*se

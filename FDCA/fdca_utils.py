@@ -157,7 +157,7 @@ def masking(obj, mask):
         '''SET MASK:'''
         if mask:
             regionpath = halo.maskPath
-            outfile    = halo.basedir+'Data/Masks/'+halo.target+'_mask.fits'
+            outfile    = '/'.join(halo.maskPath.split('/')[:-1])+'/'+halo.target+'_mask.fits'
             mask_region(halo.path, regionpath, outfile)
 
             '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
@@ -281,7 +281,7 @@ def findrms(data, niter=100, maskSup=1e-7):
 def setMask(self, data):
     regionpath = self.halo.maskPath
     outfile    = self.halo.basedir+'Data/Masks/'+self.halo.target+'_mask.fits'
-    utils.mask_region(self.halo.path, regionpath, outfile)
+    mask_region(self.halo.path, regionpath, outfile)
 
     '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
        is made wrt the entire image. fov_info makes the mask the same shape as

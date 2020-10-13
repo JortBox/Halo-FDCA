@@ -3,7 +3,7 @@
 
 '''
 Author: J.M. Boxelaar
-Version: 08 June 2020
+Version: 13 October 2020
 '''
 import logging
 import sys, os
@@ -20,11 +20,16 @@ from . import markov_chain_monte_carlo
 from . import fdca_utils as utils
 from . import plotting_fits as plot
 
-def main():
+
+
+
+'''
+def init_logging(path):
     dir = os.getcwd()
     now = str(datetime.now())[:19]
-    if not os.path.exists(dir+'/log/'):
-        os.makedirs(dir+'/log/')
+    if not os.path.exists(path+'log/'):
+        os.makedirs(path+'/log/')
+
     d = {
             'version': 1,
             'formatters': {
@@ -36,7 +41,7 @@ def main():
             'handlers': {
             'file': {
                 'class': 'logging.FileHandler',
-                'filename': dir+'/log/'+now+'.log',
+                'filename': path+'log/'+now+'.log',
                 'mode': 'w',
                 'formatter': 'detailed',
             },
@@ -53,12 +58,15 @@ def main():
     return logging
 
 def Radio_Halo(object, path, decreased_fov=True, maskpath=None, mask=False, loc=None, M500=None, R500=None,
-                z=None, spectr_index=-1.2):
-    logging = main()
+                z=None, outputpath='./', spectr_index=-1.2, logging=logging):
+    print(outputpath)
+    logging = init_logging(outputpath)
     logger  = logging.getLogger(str(object)[4:])
     logger.log(logging.INFO, 'Start Process for: '+ path)
 
     halo = HaloObject.Radio_Halo(object, path, maskpath=maskpath, mask=mask,
                                 decreased_fov=decreased_fov,logger=logger, loc=loc,
-                                M500=M500, R500=R500, z=z, spectr_index=spectr_index)
+                                M500=M500, R500=R500, z=z,
+                                outputpath=outputpath, spectr_index=spectr_index)
     return halo
+'''

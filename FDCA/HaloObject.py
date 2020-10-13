@@ -75,7 +75,8 @@ class Radio_Halo(object):
                           from using this default value in calculations).
     '''
     def __init__(self, object, path, decreased_fov=False, maskpath=None, mask=False,
-                logger=logging, loc=None, M500=None, R500=None, z=None, spectr_index=-1.2):
+                logger=logging, loc=None, M500=None, R500=None, z=None,
+                outputpath='./', spectr_index=-1.2):
 
         self.user_radius = R500
         self.user_loc    = loc
@@ -102,7 +103,7 @@ class Radio_Halo(object):
         self.cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
         self.table  = Vizier.query_object(self.name,catalog=self.cat)
 
-        self.initiatePaths(maskpath)
+        self.initiatePaths(maskpath,outputpath)
         data = self.unpack_File()
         self.get_beam_area()
         self.original_image = np.copy(data)
@@ -123,13 +124,12 @@ class Radio_Halo(object):
         else:
             self.log.log(logging.CRITICAL,'Possibly other units than jy/beam, CHECK HEADER UNITS!')
             sys.exit()
-            
+
         self.pix_to_world()
         self.set_image_characteristics(decreased_fov)
 
-    def initiatePaths(self, maskpath):
-        self.basedir = os.getcwd()+'/'
-
+    def initiatePaths(self, maskpath, outputpath):
+        self.basedir  = outputpath
         txt           = self.path.split('/')
         self.file     = txt[-1]
         self.dataPath = '/'+'/'.join(txt[:-1])+'/'
@@ -208,7 +208,7 @@ class Radio_Halo(object):
                 except:
                     self.z = 0.1
                     self.log.log(logging.WARNING,'No valid z key found. setting z='\
-                                        +str(self.z)+' as filling to continue. Ignore this message if z != None')
+                                        +str(self.z)+' as filling to continue. Ignore this message if -z != None')
                 self.R500 = 1.*u.Mpc
                 self.user_radius = False
                 self.log.log(logging.WARNING,'No R500 key found. setting R500='\
