@@ -49,26 +49,15 @@ The Markov Chain Monte Carlo (MCMC) algorithm is performed in the blue part of t
 The `processing` class in `markov_chain_monte_carlo.py` takes a halo object as input and processes the MCMC results by generating figures, statistical analysis and final flux density and parameter estimations. these results are found in the log files: `./Code/.log/`.
 
 ### Input
-The input required to successfully run the algorithm is a standardised astronomical FITS file containing a data image with acompanying header that must include keys standard for radio astronomy (e.g. Observing frequency, sythesised beam information and pixel/sky scale). An optional extra file that can be used as input is a DS9 region file (.reg format) where image subsets can be masked. these regions will be ignored during flux density estimation. Objects and their files can be injected into the puipeline using the 'database.dat' file in /Data/. To run an object, a line in database.dat should look like this:
-
-`cluster_name,/path/to/fits/file.fits,/path/to/region/file.reg`
-
-An arbitraty amound of clusters can be put in this file.
-
-Currently, cluster characteristics such as location, redshift and M500 mass (R500 radius if availible) can be retrieved from catalogues on VIZIER. This automatic retrieval of cluster information is availible for MCXC, PSZ2, Abell and WHL clusters. A catalogue search is not always succesful, it is adviced to give the essential cluster information, redshift and sky location, as input. 
-
-### Detailed pipeline description
-
-## Example (Abell 2744)
-We will now show an exapmle to showcase the code using Abell 2744. See:https://ui.adsabs.harvard.edu/abs/2017ApJ...845...81P  by C.J.J Pearce, (2017) for more information on the cluster.
-### Input
 The code requires very specific input to be able to work properly. 
 
 - .FITS file:<br>
-This includes a FITS image with a clean preferably point source subtracted radio image of a galaxy cluster containing diffuse emission. 
+This includes a FITS image with a clean, preferably point source subtracted radio image of a galaxy cluster containing diffuse emission. 
 
 - .reg file:<br>
 A DS9 region file with ragions drawn around contamination in the image, saved in physical coordinates. The schape of the region can be of any kind. A region file is not mandatory to be able to run the code. 
+
+Currently, cluster characteristics such as location, redshift and M500 mass (R500 radius if availible) can be retrieved from catalogues on VIZIER. This automatic retrieval of cluster information is availible for MCXC, PSZ2, Abell and WHL clusters. A catalogue search is not always succesful, it is adviced to give the essential cluster information, redshift and sky location, as input. 
 
 ### Settings
 Halo-FDCA is very flexible and has many settings that can be easily set by the user within the terminal using `argparse`. All possible settings and their use can be retrieved by entering `python3 HaloFitting.py -h` in the terminal. The help page will look like this:
@@ -137,5 +126,8 @@ The keywords `-o` and `-d_path` are mandatory to give to be able to run the code
 
 Note: At this point, the code only works when `HaloFitting.py` is runned from it's current directory. To get around this problem, The FDCA directory should be placed in your python "site-packages" directory to effectively let it function as a package. 
 ### Output
+
+## Example (Abell 2744)
+We will now show an exapmle to showcase the code using Abell 2744. See:https://ui.adsabs.harvard.edu/abs/2017ApJ...845...81P  by C.J.J Pearce, (2017) for more information on the cluster.
 
 
