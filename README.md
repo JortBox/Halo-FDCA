@@ -1,4 +1,4 @@
-# Halo-FDCa (Flux Density Calculator)
+# Halo-FDCA (Flux Density CAlculator)
 
 ## Introduction
 This software pipile is created to automate flux density (and power) estimations of radio halos in galaxy clusters. This is done by fitting the surface brightness profile of halos to a mathematical model using Bayesian Inference. From the resulting fits, the flux density profile can be calculatied analytically. The text below provides a step-by-step example and walk trough of the algorithm as well as a summary of installation and machine requirements. A full text on the methodology can be found under 'Citation'.
