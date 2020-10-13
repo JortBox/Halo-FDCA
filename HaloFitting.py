@@ -106,7 +106,7 @@ halo = FDCA.HaloObject.Radio_Halo(args['o'], args['d_path'], maskpath=args['m_pa
                             outputpath=args['out_path'], spectr_index=args['spectr_idx'])
 p0, bounds = get_initial_guess(halo)
 
-'''
+
 fit  = FDCA.markov_chain_monte_carlo.fitting(halo, halo.data_mcmc, args['model'], p0,
                                              bounds, walkers=args['walkers'], steps=args['steps'],
                                              burntime=args['burntime'], logger=halo.log, mask=args['m'],
@@ -114,7 +114,7 @@ fit  = FDCA.markov_chain_monte_carlo.fitting(halo, halo.data_mcmc, args['model']
                                              gamma_prior=args['gamma_prior'], k_exponent=args['k_exp'])
 fit.__preFit__()
 fit.__run__(save=args['s'])
-'''
+
 
 processing = FDCA.markov_chain_monte_carlo.processing(halo, halo.data, args['model'],
                                                     logger=halo.log,mask=args['m'],
@@ -126,10 +126,6 @@ processing.get_chi2_value()
 processing.get_flux(int_max=args['int_max'], freq=args['freq'])
 processing.get_power(freq=args['freq'])
 [conf_low, conf_up] = processing.get_confidence_interval(percentage=95, units=True)
-#processing.tableprint()
-#halo.result4 = processing
-
-#FDCA.plotting_fits.model_comparisson(halo, mask=halo.result4.mask)
 
 halo.Close()
 #python3 HaloFitting.py -o Abell2744 -d_path ./ExampleData/A2744_JVLA.image.fits -m_path ./ExampleData/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -model circle
