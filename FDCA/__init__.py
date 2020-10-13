@@ -18,7 +18,7 @@ import numpy as np
 from . import HaloObject
 from . import markov_chain_monte_carlo
 from . import fdca_utils as utils
-from . import plotting_fits
+from . import plotting_fits as plot
 
 def main():
     dir = os.getcwd()

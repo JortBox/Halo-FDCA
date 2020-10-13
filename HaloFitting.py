@@ -55,9 +55,6 @@ def get_initial_guess(halo):
                r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
     return p0,bounds
 
-#loc  = SkyCoord('15 13 54.8967 +52 47 54.300', unit=(u.hourangle, u.deg), frame='icrs')
-#halo = FDCA.Radio_Halo('PSZ2G086.93+53.18', data_path, z=0.6752, loc=loc, decreased_fov=True, M500=None, R500=None, spectr_index=-1.2)
-
 loc = args['loc']
 if loc is not None:
     loc  = SkyCoord(args['loc'], unit=(u.hourangle, u.deg), frame=args['frame'])
@@ -74,16 +71,23 @@ fit  = FDCA.markov_chain_monte_carlo.fitting(halo, halo.data_mcmc, args['model']
 fit.__preFit__()
 fit.__run__(save=args['s'])
 
+
 processing = FDCA.markov_chain_monte_carlo.processing(halo, halo.data, args['model'],
                                                     logger=halo.log,mask=args['m'],
                                                     maskpath=args['m_path'], save=args['s'],
                                                     k_exponent=args['k_exp'], offset=False,
                                                     burntime=args['burntime'])
 processing.plot_results()
-processing.cornerplot()
+#processing.cornerplot()
 processing.get_chi2_value()
-processing.get_flux(int_max=np.inf, freq=args['freq'])
+processing.get_flux(int_max=args['int_max'], freq=args['freq'])
 processing.get_power(freq=args['freq'])
 [conf_low, conf_up] = processing.get_confidence_interval(percentage=95, units=True)
+#processing.tableprint()
+#halo.result4 = processing
+
+
+#FDCA.plotting_fits.model_comparisson(halo, mask=halo.result4.mask)
 
 halo.Close()
+#python3 HaloFitting.py -o Abell2744 -d_path ./Data/A2744_JVLA.image.fits -m_path ./Data/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -model circle

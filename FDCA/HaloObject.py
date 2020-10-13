@@ -123,7 +123,7 @@ class Radio_Halo(object):
         else:
             self.log.log(logging.CRITICAL,'Possibly other units than jy/beam, CHECK HEADER UNITS!')
             sys.exit()
-
+            
         self.pix_to_world()
         self.set_image_characteristics(decreased_fov)
 
@@ -416,7 +416,6 @@ class Radio_Halo(object):
     def exponentialFit(self, data, first=False):
         plotdata = np.copy(data)
         plotdata[self.image_mask==1]=0
-        print(data.max(), plotdata.max())
         max_flux   = np.max(plotdata)
         centre_pix = self.find_halo_centre(data, first)
         if not first: size = self.radius/(3.5*self.pix_size)
@@ -427,20 +426,14 @@ class Radio_Halo(object):
                           data.shape[1]/2.])
         if self.user_radius != False:
             size = (self.radius_real/2.)/self.pix_size
-          
-        plt.imshow(plotdata)
+
         image = data.ravel()
-        print(self.mask, size)
         if self.mask:
             image = data.ravel()[self.image_mask.ravel() == 0]
 
         popt, pcov = curve_fit(self.pre_mcmc_func,self,
                                 image, p0=(max_flux,centre_pix[0],
                                 centre_pix[1],size), bounds=bounds)
-        plt.contour(self.circle_model((self.x_pix,self.y_pix), *popt).reshape(data.shape))
-        plt.savefig('test'+str(first)+'.pdf')
-        plt.clf()
-        print((max_flux,centre_pix[0],centre_pix[1],size),popt)
 
         if (self.user_radius != False and self.radius_real<(3.5*popt[3]*self.pix_size)):# or popt[3]>0.5*image.shape[0]:
             popt[3]=size

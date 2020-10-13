@@ -621,8 +621,8 @@ class processing(object):
                               self.halo.rmsnoise, mask=self.mask, regrid=False)
         plot.fit_result(self, self.model, self.halo.data_mcmc,
                               self.halo.rmsnoise, mask=self.mask,regrid=True)
-        self.plotSampler()
-        self.cornerplot()
+        #self.plotSampler()
+        #self.cornerplot()
 
     def check_settings(self, dim, mask, maskpath):
         self.modelName  = dim
@@ -995,3 +995,30 @@ class processing(object):
                                         (np.percentile(power, [84])[0]-\
                                         np.percentile(power, [16])[0]).value/2.,
                                         power.unit))
+
+    def tableprint(self):
+        cal=0.1
+        sub=0.1
+        file = self.halo.file.replace('.fits','')+'_mcmc_model_ALL.pdf'
+        rms = ((self.rms/self.halo.pix_area).to(uJyarcsec2)).value
+        power = np.copy(self.power.value)/1.e25
+        power16 = np.sqrt((cal*self.power_val.value)**2+sub**2+(self.power_val.value-np.percentile(self.power.value, 16))**2)/1.e25
+        power84 = np.sqrt((cal*self.power_val.value)**2+sub**2+(np.percentile(self.power.value, 84)-self.power_val.value)**2)/1.e25
+        flux16 = (self.flux_val.value-np.percentile(self.flux.value, 16))
+        flux84 = (np.percentile(self.flux.value, 84)-self.flux_val.value)
+
+        if self.dim == 4:
+            print('%s & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f & \\ref{fig:%s} \\vspace{0.05cm}\\\\' % (self.halo.name,
+            self.flux_val.value, flux84,flux16, np.percentile(power,50), power84, power16,
+            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            rms, self.chi2_red, self.flux_val/self.flux_err, self.halo.target))
+        elif self.dim==6:
+            print(' & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f& \\vspace{0.05cm}\\\\' % (self.flux_val.value,
+            flux84,flux16, np.percentile(power,50), power84, power16,
+            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            rms, self.chi2_red, self.flux_val/self.flux_err))
+        elif self.dim==8:
+            print(' & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f& \\vspace{0.1cm}\\\\' % (self.flux_val.value,
+            flux84,flux16, np.percentile(power,50), power84, power16,
+            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
+            rms, self.chi2_red, self.flux_val/self.flux_err))

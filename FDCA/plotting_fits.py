@@ -29,7 +29,7 @@ uJyarcsec2 = 1.e-3*u.mJy/(u.arcsec*u.arcsec)
 titlesize = 20
 labelsize = 13
 
-plt.style.use('classic')
+#plt.style.use('classic')
 plt.rc('text',usetex=True)
 plt.rc('font', family='serif')
 
@@ -116,7 +116,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
 
     if regrid:
         NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
-    else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*masked_data.max())
+    else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
     Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
@@ -125,7 +125,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     LEVEL = np.arange(1,7)*noise
     cont1 = axes[0].contour(model,colors='white', levels=LEVEL, alpha=0.6,
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
-    cont2 = axes[0].contour(masked_data,colors='lightgreen', levels=np.array([-99.8]),
+    cont2 = axes[0].contour(masked_data,colors='lightgreen', levels=np.array([-9999.8]),
                         alpha=0.6, linestyles='-',extent=(ra.max(),ra.min(),dec.min(),dec.max()),
                         norm = NORMres,linewidths=1.5)
         #pass
@@ -162,7 +162,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     im3 = axes[2].imshow(data-model, cmap='PuOr_r', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = Normdiv)
     cont4 = axes[2].contour(masked_data,
-                        colors='lightgreen', levels=np.array([-99.8]), alpha=0.6, linestyles='-',
+                        colors='red', levels=np.array([-9999.8]), alpha=0.6, linestyles='-',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.5)
     try:
         cont3 = axes[2].contour(model, alpha=0.7, colors='black', levels=[2*noise],
@@ -394,11 +394,11 @@ def draw_ellipse(obj,ax, bmin, bmaj, regrid=False):
         bpa = 0
     try:
         ae = AnchoredEllipse(ax.transData, width=bmaj.value, height=bmin.value,
-                                angle=bpa, loc='lower left', pad=0.3, borderpad=0.3,
+                                angle=-bpa, loc='lower left', pad=0.3, borderpad=0.3,
                                 frameon=True,color='lightskyblue')
     except:
         ae = AnchoredEllipse(ax.transData, width=bmaj.value, height=bmin.value,
-                                angle=bpa, loc='lower left', pad=0.3, borderpad=0.3,
+                                angle=-bpa, loc='lower left', pad=0.3, borderpad=0.3,
                                 frameon=True)
 
     ax.add_artist(ae)
@@ -431,6 +431,9 @@ def power_mass_relation(power, mass, targets):
 
 def model_comparisson(halo, mask=False):
     fig, axes = plt.subplots(ncols=3, nrows=1, sharey=True)
+    bmin      = halo.bmin
+    bmaj      = halo.bmaj
+    scale     = 1.
     model4 = halo.result4.model
     model6 = halo.result6.model
     model8 = halo.result8.model
@@ -445,83 +448,88 @@ def model_comparisson(halo, mask=False):
     vmin=-2*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value
     vmax=4*(halo.result4.params_units[0])
 
+    data = (np.copy(halo.result4.data)/halo.pix_area).to(uJyarcsec2).value
+    noise = (halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value
+    masked_data = data.copy()
+    #if mask:
+    masked_data[halo.result4.image_mask==1]= -10000.
+
     LEVEL = np.arange(1,7)*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value
-    NORM    = LogNorm(vmin=0.4*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
-                        vmax=20*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value)
+    #NORM    = mplc.LogNorm(vmin=0.4*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
+    #                    vmax=20*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value)
     #NORM = SymLogNorm(2.*halo.result4.params_units[0] , linscale=1.0, vmin=vmin, vmax=vmax)
 
-    data = np.copy(halo.result4.data)
 
-    NORMres = Normalize(vmin=-2.*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
-                        vmax=1.*(data/halo.pix_area).to(uJyarcsec2).value.max())
-    if mask:
-        data.value[halo.result4.image_mask==1]= -100.
 
-    im1 = axes[0].imshow((data/halo.pix_area).to(uJyarcsec2).value,
+    #NORMres = mplc.Normalize(vmin=-2.*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
+    #                    vmax=1.*(data/halo.pix_area).to(uJyarcsec2).value.max())
+    NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*masked_data.max())
+
+    im1 = axes[0].imshow(masked_data,
                         cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
     try:
         cont1 = axes[0].contour((model4/halo.pix_area).to(uJyarcsec2).value,
                         colors='white', levels=LEVEL, alpha=0.6,
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
-        cont2 = axes[0].contour((data/halo.pix_area).to(uJyarcsec2).value,
-                        colors='lightgreen', levels=np.array([-99.8]), alpha=0.9, linestyles='-',
+        cont2 = axes[0].contour(masked_data,
+                        colors='lightgreen', levels=np.array([-999.8]), alpha=0.9, linestyles='-',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.5)
     except:
         print('PROCESSING: Failed making contours')
         pass
 
-    axes[0].set_title('Circular\n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result4.flux_val.value, halo.result4.flux_err.value), fontsize=15)
+    axes[0].set_title('Circular\n $S_{\\mathrm{1.5 GHz}}=%.1f\\pm%.1f$ mJy' % (halo.result4.flux_val.value, halo.result4.flux_err.value), fontsize=15)
     axes[0].set_xlabel('RA [deg]', fontsize=labelsize)
     axes[0].set_ylabel('DEC [deg]', fontsize=labelsize)
     axes[0].grid(color='white', linestyle='-', alpha=0.25)
-    draw_sizebar(halo,axes[0])
-    draw_ellipse(halo,axes[0])
+    draw_sizebar(halo,axes[0], scale)
+    draw_ellipse(halo,axes[0], bmin, bmaj)
     plt.tight_layout()
 
-    im2 = axes[1].imshow((data/halo.pix_area).to(uJyarcsec2).value,
+    im2 = axes[1].imshow(masked_data,
                         cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
     try:
         cont3 = axes[1].contour((model6/halo.pix_area).to(uJyarcsec2).value,
                         colors='white', levels=LEVEL, alpha=0.6,
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
-        cont4 = axes[1].contour((data/halo.pix_area).to(uJyarcsec2).value,
-                        colors='lightgreen', levels=np.array([-99.8]), alpha=0.9, linestyles='-',
+        cont4 = axes[1].contour(masked_data,
+                        colors='lightgreen', levels=np.array([-999.8]), alpha=0.9, linestyles='-',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.5)
     except:
         print('PROCESSING: Failed making contours')
         pass
 
-    axes[1].set_title('Elliptical\n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result6.flux_val.value, halo.result8.flux_err.value), fontsize=15)
+    axes[1].set_title('Elliptical\n $S_{\\mathrm{1.5 GHz}}=%.1f\\pm%.1f$ mJy' % (halo.result6.flux_val.value, halo.result8.flux_err.value), fontsize=15)
     axes[1].set_xlabel('RA [deg]', fontsize=labelsize)
     axes[1].set_ylabel('DEC [deg]', fontsize=labelsize)
     axes[1].grid(color='white', linestyle='-', alpha=0.25)
-    draw_sizebar(halo,axes[1])
-    draw_ellipse(halo,axes[1])
+    draw_sizebar(halo,axes[0], scale)
+    draw_ellipse(halo,axes[0], bmin, bmaj)
     plt.tight_layout()
 
-    im3 = axes[2].imshow((data/halo.pix_area).to(uJyarcsec2).value,
+    im3 = axes[2].imshow(masked_data,
                         cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
     try:
         cont5 = axes[2].contour((model8/halo.pix_area).to(uJyarcsec2).value,
                         colors='white', levels=LEVEL, alpha=0.6,
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
-        cont6 = axes[2].contour((data/halo.pix_area).to(uJyarcsec2).value,
-                        colors='lightgreen', levels=np.array([-99.8]), alpha=0.9, linestyles='-',
+        cont6 = axes[2].contour(masked_data,
+                        colors='lightgreen', levels=np.array([-999.8]), alpha=0.9, linestyles='-',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.5)
     except:
         print('PROCESSING: Failed making contours')
         pass
 
 
-    axes[2].set_title('Skewed \n $S_{\\mathrm{144 MHz}}=%.0f\\pm%.0f$ mJy' % (halo.result8.flux_val.value, halo.result8.flux_err.value), fontsize=15)
+    axes[2].set_title('Skewed \n $S_{\\mathrm{1.5 GHz}}=%.1f\\pm%.1f$ mJy' % (halo.result8.flux_val.value, halo.result8.flux_err.value), fontsize=15)
     axes[2].set_xlabel('RA [deg]', fontsize=labelsize)
     axes[2].set_ylabel('DEC [deg]', fontsize=labelsize)
     axes[2].grid(color='white', linestyle='-', alpha=0.25)
-    draw_sizebar(halo,axes[2])
-    draw_ellipse(halo,axes[2])
+    draw_sizebar(halo,axes[0], scale)
+    draw_ellipse(halo,axes[0], bmin, bmaj)
     plt.tight_layout()
 
 
