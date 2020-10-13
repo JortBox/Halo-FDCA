@@ -64,10 +64,10 @@ We will now show an exapmle to showcase the code using Abell 2744. See:https://u
 ### Input
 The code requires very specific input to be able to work properly. 
 
-- .FITS file:
+- .FITS file:<br>
 This includes a FITS image with a clean preferably point source subtracted radio image of a galaxy cluster containing diffuse emission. 
 
-- .reg file:
+- .reg file:<br>
 A DS9 region file with ragions drawn around contamination in the image, saved in physical coordinates. The schape of the region can be of any kind. A region file is not mandatory to be able to run the code. 
 
 ### Settings
