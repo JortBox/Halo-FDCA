@@ -29,9 +29,9 @@ uJyarcsec2 = 1.e-3*u.mJy/(u.arcsec*u.arcsec)
 titlesize = 20
 labelsize = 13
 
-#plt.style.use('classic')
-#plt.rc('text',usetex=True)
-#plt.rc('font', family='serif')
+plt.style.use('classic')
+plt.rc('text',usetex=True)
+plt.rc('font', family='serif')
 
 def quick_imshow(obj, data, noise=True, name = 'plot'):
     fig, ax = plt.subplots()
@@ -110,14 +110,14 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     masked_data = np.copy(data)
     #if mask:
     if regrid:
-        masked_data[image_mask > obj.mask_treshold*image_mask.max()] =-100.
+        masked_data[image_mask > obj.mask_treshold*image_mask.max()] =-10000.
     else:
-        masked_data[image_mask==1]= -100.
+        masked_data[image_mask==1]= -10000.
 
     if regrid:
         NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
-    else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*obj.params[0])
-    Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*masked_data.min(), vmax=0.8*masked_data.max())
+    else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*masked_data.max())
+    Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
@@ -371,13 +371,13 @@ def draw_sizebar(obj,ax, scale, regrid=False):
     with a fixed label underneath.
     """
     if regrid:
-        length = 1./obj.factor.to(u.Mpc/u.deg)/(scale[1]*obj.pix_size)
+        length = 0.1/obj.factor.to(u.Mpc/u.deg)/(scale[1]*obj.pix_size)
     else:
-        length = 1./obj.factor.to(u.Mpc/u.deg)
+        length = 0.1/obj.factor.to(u.Mpc/u.deg)
 
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     asb = AnchoredSizeBar(ax.transData,length.value,
-                          r"1 Mpc",
+                          r"100 kpc",
                           loc='lower center',
                           pad=0.1, borderpad=0.5, sep=5,
                           frameon=False, color='white')#, fontsize=labelsize)

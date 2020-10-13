@@ -80,7 +80,7 @@ processing = FDCA.markov_chain_monte_carlo.processing(halo, halo.data, args['mod
                                                     k_exponent=args['k_exp'], offset=False,
                                                     burntime=args['burntime'])
 processing.plot_results()
-#processing.cornerplot()
+processing.cornerplot()
 processing.get_chi2_value()
 processing.get_flux(int_max=np.inf, freq=args['freq'])
 processing.get_power(freq=args['freq'])
