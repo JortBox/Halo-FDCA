@@ -1,0 +1,33 @@
+2020-10-12 14:52:15,756 nix          MainProcess INFO     Start Process for: /net/bach2/data2/boxelaar/brp_extra_data/phoenix_Lband_uvmin185_b0-MFS-image_CUTOUT.fits
+2020-10-12 14:52:15,756 nix          MainProcess ERROR    Unknown what catalogue to use. If no costum values are given, filling values will be used
+2020-10-12 14:52:17,355 nix          MainProcess WARNING  No R500 key found. setting R500=1.0Mpc as filling to continue. Ignore this message if R500 != None
+2020-10-12 14:52:17,356 nix          MainProcess WARNING  No z key found. setting z=0.1Mpc as filling to continue. Ignore this message if z != None
+2020-10-12 14:52:17,356 nix          MainProcess INFO     Custom redshift set
+2020-10-12 14:52:18,034 nix          MainProcess INFO     MCMC Mask set
+2020-10-12 14:52:20,323 nix          MainProcess ERROR    Phoenix: Decreasing FoV not possible. Halo is too big
+2020-10-12 14:52:21,007 nix          MainProcess INFO     MCMC Mask set
+2020-10-12 14:52:22,175 nix          MainProcess INFO     MCMC Mask set
+2020-10-12 14:52:39,100 nix          MainProcess INFO     MCMC initial guess: I0       0.000003
+x0     228.075606
+y0     221.456002
+r1      23.595001
+r2      20.244380
+ang      0.278624
+Name: params, dtype: float64 
+ with error: [1.36031852e-08 6.15003456e-02 7.76373528e-02 8.59432124e-02
+ 7.21358066e-02 1.27320058e-02]
+2020-10-12 16:24:06,486 nix          MainProcess INFO     MCMC parameter dimension: rotated_ellipse
+2020-10-12 16:24:07,178 nix          MainProcess INFO     MCMC Mask set
+2020-10-12 16:24:52,378 nix          MainProcess INFO     chi^2_red: 0.9351341734255374
+2020-10-12 16:24:52,379 nix          MainProcess INFO     AIC: -11699.603562091845
+2020-10-12 16:24:52,396 nix          MainProcess INFO     MCMC Flux at 1518.5 MHz: 8.39 +/- 0.17 mJy
+2020-10-12 16:24:52,397 nix          MainProcess INFO     S/N based on flux 48.63
+2020-10-12 16:24:52,411 nix          MainProcess INFO     Power at 1518.5 MHz: (1.36e+25 +/- 2.79e+23) W / Hz
+2020-10-12 16:24:52,422 nix          MainProcess INFO     95% Confidence interval of $I_0$: (74.19469, 88.28150) $\mu$Jy arcsec$^{-2}$
+2020-10-12 16:24:52,422 nix          MainProcess INFO     95% Confidence interval of $x_0$: (356.18261, 356.18270) deg
+2020-10-12 16:24:52,422 nix          MainProcess INFO     95% Confidence interval of $y_0$: (317.27988, 317.28003) deg
+2020-10-12 16:24:52,423 nix          MainProcess INFO     95% Confidence interval of $r_{x}$: (29.04520, 32.44947) kpc
+2020-10-12 16:24:52,423 nix          MainProcess INFO     95% Confidence interval of $r_{y}$: (22.28717, 25.26330) kpc
+2020-10-12 16:24:52,423 nix          MainProcess INFO     95% Confidence interval of $\phi_e$: (0.90578, 1.19263) Rad
+2020-10-12 16:24:52,423 nix          MainProcess INFO     
+2020-10-12 16:24:52,423 nix          MainProcess INFO     closed Halo object Phoenix

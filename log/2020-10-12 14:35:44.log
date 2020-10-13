@@ -1,0 +1,21 @@
+2020-10-12 14:35:44,603 nix          MainProcess INFO     Start Process for: /net/bach2/data2/boxelaar/brp_extra_data/phoenix_Lband_uvmin185_b0-MFS-image_CUTOUT.fits
+2020-10-12 14:35:44,603 nix          MainProcess ERROR    Unknown what catalogue to use. If no costum values are given, filling values will be used
+2020-10-12 14:35:46,233 nix          MainProcess WARNING  No R500 key found. setting R500=1.0Mpc as filling to continue. Ignore this message if R500 != None
+2020-10-12 14:35:46,234 nix          MainProcess WARNING  No z key found. setting z=0.1Mpc as filling to continue. Ignore this message if z != None
+2020-10-12 14:35:46,234 nix          MainProcess INFO     Custom redshift set
+2020-10-12 14:35:46,926 nix          MainProcess INFO     MCMC Mask set
+2020-10-12 14:35:48,031 nix          MainProcess ERROR    Phoenix: Decreasing FoV not possible. Halo is too big
+2020-10-12 14:35:48,701 nix          MainProcess INFO     MCMC Mask set
+2020-10-12 14:35:49,262 nix          MainProcess INFO     MCMC parameter dimension: circle
+2020-10-12 14:35:50,061 nix          MainProcess INFO     MCMC Mask set
+2020-10-12 14:36:09,941 nix          MainProcess INFO     chi^2_red: 1.0518751769057058
+2020-10-12 14:36:09,942 nix          MainProcess INFO     AIC: -11634.373734736939
+2020-10-12 14:36:09,952 nix          MainProcess INFO     MCMC Flux at 1518.5 MHz: 8.15 +/- 0.18 mJy
+2020-10-12 14:36:09,952 nix          MainProcess INFO     S/N based on flux 46.06
+2020-10-12 14:36:09,965 nix          MainProcess INFO     Power at 1518.5 MHz: (1.32e+25 +/- 2.86e+23) W / Hz
+2020-10-12 14:36:09,970 nix          MainProcess INFO     95% Confidence interval of $I_0$: (69.57972, 82.15763) $\mu$Jy arcsec$^{-2}$
+2020-10-12 14:36:09,970 nix          MainProcess INFO     95% Confidence interval of $x_0$: (356.18253, 356.18263) deg
+2020-10-12 14:36:09,970 nix          MainProcess INFO     95% Confidence interval of $y_0$: (317.27988, 317.28004) deg
+2020-10-12 14:36:09,970 nix          MainProcess INFO     95% Confidence interval of $r_{e}$: (26.14439, 29.00633) kpc
+2020-10-12 14:36:09,970 nix          MainProcess INFO     
+2020-10-12 14:36:09,971 nix          MainProcess INFO     closed Halo object Phoenix

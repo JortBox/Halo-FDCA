@@ -416,9 +416,11 @@ class Radio_Halo(object):
     def exponentialFit(self, data, first=False):
         plotdata = np.copy(data)
         plotdata[self.image_mask==1]=0
+        print(data.max(), plotdata.max())
         max_flux   = np.max(plotdata)
         centre_pix = self.find_halo_centre(data, first)
-        size = data.shape[1]/3.
+        if not first: size = self.radius/(3.5*self.pix_size)
+        else: size = data.shape[1]/4.
         bounds  = ([0.,0.,0.,0.,],
                   [np.inf,data.shape[0],
                           data.shape[1],

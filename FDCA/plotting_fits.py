@@ -110,14 +110,14 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     masked_data = np.copy(data)
     #if mask:
     if regrid:
-        masked_data[image_mask > obj.mask_treshold*image_mask.max()] =-100.
+        masked_data[image_mask > obj.mask_treshold*image_mask.max()] =-10000.
     else:
-        masked_data[image_mask==1]= -100.
+        masked_data[image_mask==1]= -10000.
 
     if regrid:
         NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
     else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=2.*masked_data.max())
-    Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*masked_data.min(), vmax=0.8*masked_data.max())
+    Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
