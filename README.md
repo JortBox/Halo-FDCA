@@ -64,7 +64,69 @@ We will now show an exapmle to showcase the code using Abell 2744. See:https://u
 ### Input
 
 ### Settings
-There is a
+Halo-FDCA is very flexible and has many settings that can be easily set by the user within the terminal using `argparse`. All possible settings and their use can be retrieved by entering `python3 HaloFitting.py -h` in the terminal. The help page will look like this:
+
+`
+usage: HaloFitting.py [-h] -o O [-model MODEL] [-frame FRAME] [-loc LOC]
+                      [-z Z] [-m M] -d_path D_PATH -m_path M_PATH
+                      [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
+                      [-walkers WALKERS] [-steps STEPS] [-burntime BURNTIME]
+                      [-max_radius MAX_RADIUS] [-gamma_prior GAMMA_PRIOR]
+                      [-k_exp K_EXP] [-s S] [-int_max INT_MAX] [-freq FREQ]
+
+Halo-FDCA: A automated flux density calculator for radio halos in galaxy
+clusters. (Boxelaar et al.)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -o O                  (str) Cluster object name
+-model MODEL          (str) Model to use. choose from (circle, ellipse,
+                        rotated_ellipse, skewed). Default: circle
+  -frame FRAME          (str) Coordinate frame. Default: ICRS
+  -loc LOC              (str) Sky coordinates of cluster. provide coordinates
+                        of the form: 'hh mm ss.ss -dd mm ss.s' in hourangle
+                        units. Default: None and image centre is chosen.
+  -z Z                  (float) cluster redshift
+  -m M                  (bool) choose to include mask or not. If True,
+                        -maskPath should be specified. Default: True
+  -d_path D_PATH        (str) Path to clusters radio FITS image.
+
+  -m_path M_PATH        (str) Path to clusters .reg mask file.
+  -out_path OUT_PATH    (str) Path to code output. Default: directory code is
+                        in.
+  -fov FOV              (bool) Declare if image size has to be decreased
+                        before MCMC-ing. Amount of decreasement has ben
+                        automatically set to 3.5*r_e. Default: True
+  -spectr_idx SPECTR_IDX
+                        (float) Set spectral index of cluster (S ~ nu^alpha).
+                        Used to calculate power and extrapolate flux to
+                        arbitrary frequencies. Default: -1.2
+  -walkers WALKERS      (int) Number of walkers to deploy in the MCMC
+                        algorithm. Default: 200
+  -steps STEPS          (int) Number of evauations each walker has to do.
+                        Default: 1200
+  -burntime BURNTIME    (int) Burn-in time for MCMC walkers. See emcee
+                        documentation for info. Default: None
+  -max_radius MAX_RADIUS
+                        (float) Maximum posiible radius cut-off. Fitted halos
+                        cannot have any r > max_radius. In units of kpc.
+                        Default: None (implying image_size/2).
+  -gamma_prior GAMMA_PRIOR
+                        (bool) Wether to use a gamma distribution as a prior
+                        for radii. Default is False. For the gamma parameters:
+                        shape = 2.5, scale = 120 kpc. Default: False
+  -k_exp K_EXP          (bool) Wether to use k exponent to change shape of
+                        exponential distribution. Default: False
+  -s S                  (bool) Whether to save the mcmc sampler chain in a
+                        fits file. When true, k will be included as parameter.
+                        Default: True.
+  -int_max INT_MAX      (float) Integration radius in r_e units. Default: inf
+  -freq FREQ            (float) frequency in MHz to calculate flux in. When
+                        given, the spectral index will be used. Default: image
+                        frequency
+`
+
+Note: At this point, the code only works when `HaloFitting.py` is runned from it's current directory. To get around this problem, The FDCA directory should be placed in your python "site-packages" directory to effectively let it function as a package. 
 ### Output
 
 
