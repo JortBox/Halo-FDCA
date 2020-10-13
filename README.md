@@ -66,7 +66,8 @@ We will now show an exapmle to showcase the code using Abell 2744. See:https://u
 ### Settings
 Halo-FDCA is very flexible and has many settings that can be easily set by the user within the terminal using `argparse`. All possible settings and their use can be retrieved by entering `python3 HaloFitting.py -h` in the terminal. The help page will look like this:
 
-`
+```
+{
 usage: HaloFitting.py [-h] -o O [-model MODEL] [-frame FRAME] [-loc LOC]
                       [-z Z] [-m M] -d_path D_PATH -m_path M_PATH
                       [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
@@ -124,7 +125,8 @@ optional arguments:
   -freq FREQ            (float) frequency in MHz to calculate flux in. When
                         given, the spectral index will be used. Default: image
                         frequency
-`
+}                        
+```
 
 Note: At this point, the code only works when `HaloFitting.py` is runned from it's current directory. To get around this problem, The FDCA directory should be placed in your python "site-packages" directory to effectively let it function as a package. 
 ### Output
