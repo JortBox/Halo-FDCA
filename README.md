@@ -63,7 +63,6 @@ Currently, cluster characteristics such as location, redshift and M500 mass (R50
 Halo-FDCA is very flexible and has many settings that can be easily set by the user within the terminal using `argparse`. All possible settings and their use can be retrieved by entering `python3 HaloFitting.py -h` in the terminal. The help page will look like this:
 
 ```
-{
 usage: HaloFitting.py [-h] -o O [-model MODEL] [-frame FRAME] [-loc LOC]
                       [-z Z] [-m M] -d_path D_PATH [-m_path M_PATH]
                       [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
@@ -119,8 +118,7 @@ optional arguments:
   -int_max INT_MAX      (float) Integration radius in r_e units. Default: inf
   -freq FREQ            (float) frequency in MHz to calculate flux in. When
                         given, the spectral index will be used. Default: image
-                        frequency
-}                        
+                        frequency                       
 ```
 The keywords `-o` and `-d_path` are mandatory to give to be able to run the code. 
 
