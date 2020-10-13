@@ -1,0 +1,27 @@
+2020-10-13 17:57:32,086 l2744        MainProcess INFO     Start Process for: ./Data/A2744_JVLA.image.fits
+2020-10-13 17:57:32,093 l2744        MainProcess INFO     Creating plotting directory
+2020-10-13 17:57:32,122 l2744        MainProcess WARNING  No valid z key found. setting z=0.1 as filling to continue. Ignore this message if z != None
+2020-10-13 17:57:32,122 l2744        MainProcess WARNING  No R500 key found. setting R500=1.0Mpc to continue
+2020-10-13 17:57:32,122 l2744        MainProcess INFO     Custom redshift set
+2020-10-13 17:57:33,014 l2744        MainProcess INFO     MCMC Mask set
+2020-10-13 17:57:35,627 l2744        MainProcess INFO     MCMC Mask set
+2020-10-13 17:57:36,674 l2744        MainProcess INFO     MCMC Mask set
+2020-10-13 17:57:37,173 l2744        MainProcess INFO     MCMC initial guess: I0      0.000042
+x0    142.679606
+y0    142.101415
+r1     14.065214
+Name: params, dtype: float64 
+ with error: [1.52052589e-07 4.24041024e-02 4.23164730e-02 4.28580044e-02]
+2020-10-13 18:13:27,655 l2744        MainProcess INFO     MCMC parameter dimension: circle
+2020-10-13 18:13:28,563 l2744        MainProcess INFO     MCMC Mask set
+2020-10-13 18:13:38,051 l2744        MainProcess INFO     chi^2_red: 1.44629100417874
+2020-10-13 18:13:38,051 l2744        MainProcess INFO     AIC: -37697.2614410933
+2020-10-13 18:13:38,065 l2744        MainProcess INFO     MCMC Flux at 1518.7 MHz: 51.82 +/- 0.56 mJy
+2020-10-13 18:13:38,065 l2744        MainProcess INFO     S/N based on flux 92.02
+2020-10-13 18:13:38,077 l2744        MainProcess INFO     Power at 1518.7 MHz: (1.68e+25 +/- 1.82e+23) W / Hz
+2020-10-13 18:13:38,082 l2744        MainProcess INFO     95% Confidence interval of $I_0$: (2.53506, 2.64560) $\mu$Jy arcsec$^{-2}$
+2020-10-13 18:13:38,083 l2744        MainProcess INFO     95% Confidence interval of $x_0$: (3.58154, 3.58212) deg
+2020-10-13 18:13:38,083 l2744        MainProcess INFO     95% Confidence interval of $y_0$: (329.60605, 329.60665) deg
+2020-10-13 18:13:38,083 l2744        MainProcess INFO     95% Confidence interval of $r_{e}$: (251.41392, 260.43392) kpc
+2020-10-13 18:13:38,083 l2744        MainProcess INFO     
+2020-10-13 18:13:38,083 l2744        MainProcess INFO     closed Halo object Abell2744
