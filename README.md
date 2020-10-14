@@ -115,10 +115,13 @@ optional arguments:
   -s S                  (bool) Whether to save the mcmc sampler chain in a
                         fits file. When true, k will be included as parameter.
                         Default: True.
+  -run RUN              (bool) Whether to run a MCMC routine or skip it to go
+                        straight to processing. can be done if a runned sample
+                        already exists in the output path. Default: True
   -int_max INT_MAX      (float) Integration radius in r_e units. Default: inf
   -freq FREQ            (float) frequency in MHz to calculate flux in. When
                         given, the spectral index will be used. Default: image
-                        frequency                       
+                        frequency                    
 ```
 The keywords `-o` and `-d_path` are mandatory to give to be able to run the code. 
 
