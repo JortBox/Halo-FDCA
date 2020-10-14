@@ -140,5 +140,5 @@ To run the example from the 'Example' directory, use the following line included
 ```
 python3 HaloFitting.py Abell2744 ./Example/A2744_JVLA.image.fits -m_path ./Example/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -out_path ./Example/ -model circle
 ```
-Here, the circular model is fitted and samples/figures are saved to the Example directory.
+Here, the circular model is fitted and samples/figures are saved to the Example directory. The relevant data is located in **./Example/A2744_JVLA.image.fits** and the mask is in **./Example/Masks/A2744halo.reg**.
 
