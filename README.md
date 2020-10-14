@@ -143,7 +143,7 @@ We will now show an exapmle to showcase the code using Abell 2744. See:https://u
 
 The recommended way to install prefactor is to download it from github with:
 
-git clone https://github.com/JortBox/Halo-FDCA.git
+`git clone https://github.com/JortBox/Halo-FDCA.git`
 This allows for easy updating of the code to include bugfixes or new features. Once downloaded, the installation is complete; to set up a run from the **Example** directory, use the following line included with standard settings:
 ```
 python3 HaloFitting.py Abell2744 ./Example/A2744_JVLA.image.fits -m_file ./Example/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -out_path ./Example/ -model circle
