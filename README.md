@@ -41,7 +41,7 @@ This software will run a multithreaded process by default using the `multiproces
 ![Flowchart!](flowchart-1.png "Flowchart")
 
 This flowchart gives a general overview of the pipeline. On code level, the pipeline works roughly like this:<br>
-First, a `Radio_Halo` object must be initiated. When initiating the object, all relevant properties are processed. This class is documented in `__HaloObject__.py`.
+First, a `Radio_Halo` object must be initiated. When initiating the object, all relevant properties are processed. This class is documented in `HaloObject.py`.
 This class also handles the very first fits such that the image coordinates can be related to sky coordinates without using the header. The `Radio_Halo` class handles steps up to 'Second preliminary fit'. 'Rotating and regridding' is not performed by the class.
 
 The Markov Chain Monte Carlo (MCMC) algorithm is performed in the blue part of the flowchart. This takes place in the `fitting` class in `markov_chain_monte_carlo.py` (see calss documentation there and below). This class takes a Radio Halo object as input and from there starts the profile fitting based on the extra settings given as input. 'Chains' that are the result of MCMC are saved in new FITS files (`./Results/Samples/`), settings of the speciffic run are saved in the header. 
