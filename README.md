@@ -12,7 +12,7 @@ Boxelaar et al., 2020 (in prep.), Astronomy and Computing
 
 Also available on the arXiv: t.b.a.
 
-## Requisites
+## Requirements
 
 This software is written in the `Python` programming language and is meant for application in astronomical research. Key software requirements to run the pipeline include:
 
