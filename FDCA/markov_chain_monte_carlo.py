@@ -808,7 +808,11 @@ class processing(object):
         self.percentiles_units = self.get_percentiles(self.samples_units)
         self.params_units      = utils.add_parameter_labels(self, self.percentiles_units[:,1].reshape(self.dim))
         self.get_units()
-        self.log.log(logging.INFO, '\n Parameters: \n'+str(self.params_units[self.params])+'\n In Units: '+str(self.units))
+        uncertainties1 = self.percentiles_units[:,1]-self.percentiles_units[:,0]
+        uncertainties2 = self.percentiles_units[:,2]-self.percentiles_units[:,1]
+        self.log.log(logging.INFO, '\n Parameters: \n%s \nOne sigma parameter uncertainties (lower, upper): \
+                                    \n%s \n%s \nIn Units: %s' % (str(self.params_units[self.params]),
+                                    str(uncertainties1), str(uncertainties2), str(self.units)))
 
     def transform_units(self, params):
         params[0] = ((u.Jy*params[0]/self.halo.pix_area).to(uJyarcsec2)).value
@@ -970,6 +974,7 @@ class processing(object):
         self.log.log(logging.INFO,'MCMC Flux at {:.1f} {}: {:.2f} +/- {:.2f} {}'\
                                     .format(freq.value, freq.unit, self.flux_val.value,
                                     self.flux_err.value,flux.unit))
+        self.log.log(logging.INFO,'Integration radius'+str(int_max))
         self.log.log(logging.INFO,'S/N based on flux {:.2f}'\
                                     .format(self.flux_val.value/self.flux_err.value))
 
@@ -997,6 +1002,7 @@ class processing(object):
                                         np.percentile(power, [16])[0]).value/2.,
                                         power.unit))
 
+    '''
     def tableprint(self):
         cal=0.1
         sub=0.1
@@ -1023,3 +1029,4 @@ class processing(object):
             flux84,flux16, np.percentile(power,50), power84, power16,
             self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
             rms, self.chi2_red, self.flux_val/self.flux_err))
+    '''
