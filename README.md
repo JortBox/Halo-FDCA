@@ -136,9 +136,15 @@ Note: At this point, the code only works when `HaloFitting.py` is runned from it
 Samples file in FITS format containing the walker strings and run infromation (found in **outputpath/Output/Samples**). This file is used to process the routine and retrieve flux denisty and parameter values. All values and their one sigma uncertainties will be printed in the log file after running the pipeline. The figures will be in **outputpath/Output/Plots**. There, all relevant figures will be saved. This includes the corner plot, walker plot and radio image with model overlay for the original and regridded image. 
 
 ## Example (Abell 2744)
+
+### Installation and Example (Abell 2744)
+
 We will now show an exapmle to showcase the code using Abell 2744. See:https://ui.adsabs.harvard.edu/abs/2017ApJ...845...81P  by C.J.J Pearce, (2017) for more information on the cluster.
 
-To run the example from the 'Example' directory, use the following line included with standard settings:
+The recommended way to install prefactor is to download it from github with:
+
+git clone https://github.com/JortBox/Halo-FDCA.git
+This allows for easy updating of the code to include bugfixes or new features. Once downloaded, the installation is complete; to set up a run from the **Example** directory, use the following line included with standard settings:
 ```
 python3 HaloFitting.py Abell2744 ./Example/A2744_JVLA.image.fits -m_file ./Example/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -out_path ./Example/ -model circle
 ```
