@@ -57,7 +57,7 @@ This includes a FITS image with a clean, preferably point source subtracted radi
 - .reg file:<br>
 A DS9 region file with ragions drawn around contamination in the image, saved in physical coordinates. The schape of the region can be of any kind. A region file is not mandatory to be able to run the code. 
 
-Currently, cluster characteristics such as location, redshift and M500 mass (R500 radius if availible) can be retrieved from catalogues on VIZIER. This automatic retrieval of cluster information is availible for MCXC, PSZ2, Abell and WHL clusters. A catalogue search is not always succesful, it is adviced to give the essential cluster information, redshift and sky location, as input. 
+Currently, cluster characteristics such as location and redshift can be retrieved from catalogues on VIZIER. This automatic retrieval of cluster information is availible for MCXC, PSZ2, Abell and WHL clusters. A catalogue search is not always succesful, it is adviced to give the essential cluster information, redshift and sky location, as input. 
 
 ### Settings
 Halo-FDCA is very flexible and has many settings that can be easily set by the user within the terminal using `argparse`. All possible settings and their use can be retrieved by entering `python3 HaloFitting.py -h` in the terminal. The help page will look like this:
