@@ -21,52 +21,12 @@ from . import fdca_utils as utils
 from . import plotting_fits as plot
 
 
-
-
-'''
-def init_logging(path):
-    dir = os.getcwd()
-    now = str(datetime.now())[:19]
-    if not os.path.exists(path+'log/'):
-        os.makedirs(path+'/log/')
-
-    d = {
-            'version': 1,
-            'formatters': {
-            'detailed': {
-                'class': 'logging.Formatter',
-                'format': '%(asctime)s %(name)-12s %(processName)-2s %(levelname)-8s %(message)s'
-            }
-            },
-            'handlers': {
-            'file': {
-                'class': 'logging.FileHandler',
-                'filename': path+'log/'+now+'.log',
-                'mode': 'w',
-                'formatter': 'detailed',
-            },
-            },
-            'root': {
-            'level': 'INFO',
-            'handlers': ['file'] #,'console'
-            },
-        }
-
-    root = logging.getLogger()
-    root.setLevel(logging.INFO)
-    logging.config.dictConfig(d)
-    return logging
-
-def Radio_Halo(object, path, decreased_fov=True, maskpath=None, mask=False, loc=None, M500=None, R500=None,
-                z=None, outputpath='./', spectr_index=-1.2, logging=logging):
-    print(outputpath)
-    logging = init_logging(outputpath)
-    logger  = logging.getLogger(str(object)[4:])
-    logger.log(logging.INFO, 'Start Process for: '+ path)
-
+def Radio_Halo(object, path, decreased_fov=True, maskpath=None, mask=False, loc=None,
+                M500=None, R500=None, z=None, outputpath='./', spectr_index=-1.2,
+                logger=logging):
+                
     halo = HaloObject.Radio_Halo(object, path, maskpath=maskpath, mask=mask,
                                 decreased_fov=decreased_fov,logger=logger, loc=loc,
-                                M500=M500, R500=R500, z=z,
-                                outputpath=outputpath, spectr_index=spectr_index)
+                                M500=M500, R500=R500, z=z,outputpath=outputpath,
+                                spectr_index=spectr_index)
     return halo
-'''
