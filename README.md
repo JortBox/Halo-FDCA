@@ -80,11 +80,21 @@ positional arguments:
   d_file                (str) FITS image location (containing radio halo).
 
 optional arguments:
+
   -h, --help            show this help message and exit
   -model {circle,ellipse,rotated_ellipse,skewed}
                         (str) Model to use. choose from (circle, ellipse,
                         rotated_ellipse, skewed). Default: circle
   -frame FRAME          (str) Coordinate frame. Default: ICRS
+  -loc LOC              (str) Sky coordinates of cluster. provide coordinates
+                        of the form: 'hh mm ss.ss -dd mm ss.s' in hourangle
+                        units. Default: None and image centre is chosen.
+  -z Z                  (float) cluster redshift
+  -m M                  (bool) choose to include mask or not. If True,
+                        -maskPath should be specified. Default: True
+  -m_file M_FILE        (str) Mask file location. Default: None
+  -out_path OUT_PATH    (str) Path to code output. Default: directory code is
+                        in.
   -fov FOV              (bool) Declare if image size has to be decreased
                         before MCMC-ing. Amount of decreasement has ben
                         automatically set to 3.5*r_e. Default: True
