@@ -108,7 +108,7 @@ optional arguments:
   -burntime BURNTIME    (int) Burn-in time for MCMC walkers. See emcee
                         documentation for info. Default: None. this is 1/4th of the steps.
   -max_radius MAX_RADIUS
-                        (float) Maximum posiible radius cut-off. Fitted halos
+                        (float) e-folding radius upper prior. Fitted halos
                         cannot have any r > max_radius. In units of kpc.
                         Default: None (implying image_size/2).
   -gamma_prior GAMMA_PRIOR
