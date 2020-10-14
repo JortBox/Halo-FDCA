@@ -64,20 +64,20 @@ Halo-FDCA is very flexible and has many settings that can be easily set by the u
 
 ```
 usage: HaloFitting.py [-h] [-model {circle,ellipse,rotated_ellipse,skewed}]
-                      [-frame FRAME] [-loc LOC] [-z Z] [-m M] [-m_path M_PATH]
+                      [-frame FRAME] [-loc LOC] [-z Z] [-m M] [-m_file M_FILE]
                       [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
                       [-walkers WALKERS] [-steps STEPS] [-burntime BURNTIME]
                       [-max_radius MAX_RADIUS] [-gamma_prior GAMMA_PRIOR]
-                      [-k_exp K_EXP] [-s S] [-run RUN] [-int_max INT_MAX]
-                      [-freq FREQ]
-                      object d_path
+                      [-k_exp K_EXP] [-s S] [-run_mcmc RUN_MCMC]
+                      [-int_max INT_MAX] [-freq FREQ]
+                      object d_file
 
 Halo-FDCA: An automated flux density calculator for radio halos in galaxy
 clusters. (Boxelaar et al.)
 
 positional arguments:
   object                (str) Cluster object name
-  d_path                (str) Path to clusters radio FITS image.
+  d_file                (str) FITS image location (containing radio halo).
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -85,15 +85,6 @@ optional arguments:
                         (str) Model to use. choose from (circle, ellipse,
                         rotated_ellipse, skewed). Default: circle
   -frame FRAME          (str) Coordinate frame. Default: ICRS
-  -loc LOC              (str) Sky coordinates of cluster. provide coordinates
-                        of the form: 'hh mm ss.ss -dd mm ss.s' in hourangle
-                        units. Default: None and image centre is chosen.
-  -z Z                  (float) cluster redshift
-  -m M                  (bool) choose to include mask or not. If True,
-                        -maskPath should be specified. Default: True
-  -m_path M_PATH        (str) Path to clusters .reg mask file. Default: None
-  -out_path OUT_PATH    (str) Path to code output. Default: directory code is
-                        in.
   -fov FOV              (bool) Declare if image size has to be decreased
                         before MCMC-ing. Amount of decreasement has ben
                         automatically set to 3.5*r_e. Default: True
@@ -106,9 +97,10 @@ optional arguments:
   -steps STEPS          (int) Number of evauations each walker has to do.
                         Default: 1200
   -burntime BURNTIME    (int) Burn-in time for MCMC walkers. See emcee
-                        documentation for info. Default: None. this is 1/4th of the steps.
+                        documentation for info. Default: None. this is 1/4th
+                        of the steps.
   -max_radius MAX_RADIUS
-                        (float) e-folding radius upper prior. Fitted halos
+                        (float) Maximum posiible radius cut-off. Fitted halos
                         cannot have any r > max_radius. In units of kpc.
                         Default: None (implying image_size/2).
   -gamma_prior GAMMA_PRIOR
@@ -125,7 +117,7 @@ optional arguments:
   -int_max INT_MAX      (float) Integration radius in r_e units. Default: inf
   -freq FREQ            (float) frequency in MHz to calculate flux in. When
                         given, the spectral index will be used. Default: image
-                        frequency             
+                        frequency        
 ```
 The keywords `object` and `d_path` are mandatory to give to be able to run the code.
 
