@@ -118,9 +118,8 @@ optional arguments:
   -k_exp K_EXP          (bool) Wether to use k exponent to change shape of
                         exponential distribution. Default: False
   -s S                  (bool) Whether to save the mcmc sampler chain in a
-                        fits file.
-                        Default: True.
-  -run RUN              (bool) Whether to run a MCMC routine or skip it to go
+                        fits file. Default: True.
+  -run_mcmc RUN_MCMC    (bool) Whether to run a MCMC routine or skip it to go
                         straight to processing. can be done if a runned sample
                         already exists in the output path. Default: True
   -int_max INT_MAX      (float) Integration radius in r_e units. Default: inf
