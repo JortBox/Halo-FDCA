@@ -63,20 +63,26 @@ Currently, cluster characteristics such as location, redshift and M500 mass (R50
 Halo-FDCA is very flexible and has many settings that can be easily set by the user within the terminal using `argparse`. All possible settings and their use can be retrieved by entering `python3 HaloFitting.py -h` in the terminal. The help page will look like this:
 
 ```
-usage: HaloFitting.py [-h] -o O [-model MODEL] [-frame FRAME] [-loc LOC]
-                      [-z Z] [-m M] -d_path D_PATH [-m_path M_PATH]
+usage: HaloFitting.py [-h] [-model {circle,ellipse,rotated_ellipse,skewed}]
+                      [-frame FRAME] [-loc LOC] [-z Z] [-m M] [-m_path M_PATH]
                       [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
                       [-walkers WALKERS] [-steps STEPS] [-burntime BURNTIME]
                       [-max_radius MAX_RADIUS] [-gamma_prior GAMMA_PRIOR]
-                      [-k_exp K_EXP] [-s S] [-int_max INT_MAX] [-freq FREQ]
+                      [-k_exp K_EXP] [-s S] [-run RUN] [-int_max INT_MAX]
+                      [-freq FREQ]
+                      object d_path
 
 Halo-FDCA: An automated flux density calculator for radio halos in galaxy
 clusters. (Boxelaar et al.)
 
+positional arguments:
+  object                (str) Cluster object name
+  d_path                (str) Path to clusters radio FITS image.
+
 optional arguments:
   -h, --help            show this help message and exit
-  -o O                  (str) Cluster object name
-  -model MODEL          (str) Model to use. choose from (circle, ellipse,
+  -model {circle,ellipse,rotated_ellipse,skewed}
+                        (str) Model to use. choose from (circle, ellipse,
                         rotated_ellipse, skewed). Default: circle
   -frame FRAME          (str) Coordinate frame. Default: ICRS
   -loc LOC              (str) Sky coordinates of cluster. provide coordinates
@@ -85,7 +91,6 @@ optional arguments:
   -z Z                  (float) cluster redshift
   -m M                  (bool) choose to include mask or not. If True,
                         -maskPath should be specified. Default: True
-  -d_path D_PATH        (str) Path to clusters radio FITS image.
   -m_path M_PATH        (str) Path to clusters .reg mask file. Default: None
   -out_path OUT_PATH    (str) Path to code output. Default: directory code is
                         in.
@@ -121,9 +126,9 @@ optional arguments:
   -int_max INT_MAX      (float) Integration radius in r_e units. Default: inf
   -freq FREQ            (float) frequency in MHz to calculate flux in. When
                         given, the spectral index will be used. Default: image
-                        frequency                    
+                        frequency             
 ```
-The keywords `-o` and `-d_path` are mandatory to give to be able to run the code. 
+The keywords `object` and `d_path` are mandatory to give to be able to run the code.
 
 Note: At this point, the code only works when `HaloFitting.py` is runned from it's current directory. To get around this problem, The FDCA directory should be placed in your python "site-packages" directory to effectively let it function as a package. 
 ### Output
@@ -131,4 +136,9 @@ Note: At this point, the code only works when `HaloFitting.py` is runned from it
 ## Example (Abell 2744)
 We will now show an exapmle to showcase the code using Abell 2744. See:https://ui.adsabs.harvard.edu/abs/2017ApJ...845...81P  by C.J.J Pearce, (2017) for more information on the cluster.
 
+To run the example from the 'Example' directory, use the following line included with standard settings:
+```
+python3 HaloFitting.py Abell2744 ./Example/A2744_JVLA.image.fits -m_path ./Example/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -out_path ./Example/ -model circle
+```
+Here, the circular model is fitted and samples/figures are saved to the Example directory.
 
