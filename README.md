@@ -106,7 +106,7 @@ optional arguments:
   -steps STEPS          (int) Number of evauations each walker has to do.
                         Default: 1200
   -burntime BURNTIME    (int) Burn-in time for MCMC walkers. See emcee
-                        documentation for info. Default: None
+                        documentation for info. Default: None. this is 1/4th of the steps.
   -max_radius MAX_RADIUS
                         (float) Maximum posiible radius cut-off. Fitted halos
                         cannot have any r > max_radius. In units of kpc.
