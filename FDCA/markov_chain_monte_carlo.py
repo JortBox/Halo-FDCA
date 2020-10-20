@@ -10,7 +10,7 @@ from __future__ import division
 import sys
 import os
 import logging
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count, freeze_support
 
 import numpy as np
 import pandas as pd
@@ -138,6 +138,7 @@ class fitting(object):
         # because 'Pool' cannot pickle the fitting object.
         halo_info = set_dictionary(self)
         num_CPU = cpu_count()
+        freeze_support()
         with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(self.walkers, self.dim, lnprob, pool=pool,
                                             args=[data,coord,halo_info])
