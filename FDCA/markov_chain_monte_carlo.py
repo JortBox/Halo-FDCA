@@ -120,8 +120,9 @@ class fitting(object):
     def __preFit__(self):
         try:
             self.pre_mcmc_fit(self.halo.data, p0=np.array(self.p0), bounds=np.array(self.bounds))
-        except:
-            self.log.log(logging.CRITICAL,'MCMC Failed to execute pre-fit.')
+        except Exception as e:
+            self.log.log(logging.CRITICAL,'MCMC Failed to execute pre-fit with error message:\n')
+            self.log.log(logging.CRITICAL,e)
             sys.exit()
 
     def __run__(self, save=False):
@@ -254,6 +255,10 @@ class fitting(object):
                                 self.halo.fov_info[0]:self.halo.fov_info[1],
                                 self.halo.fov_info[2]:self.halo.fov_info[3]]
 
+    def at(self, parameter):
+        par = np.array(self.paramNames)[self.params]
+        return np.where(par == parameter)[0][0]
+
     def set_data_to_use(self,data):
         if self.rebin:
             binned_data = utils.regridding(self.halo, data, decrease_fov=True)
@@ -320,8 +325,11 @@ class fitting(object):
                 self.popt['ang'] -= np.pi
 
         self.centre_pix = np.array([self.popt['x0'],self.popt['y0']], dtype=np.int64)
-        self.log.log(logging.INFO,'MCMC initial guess: {} \n with error: {}'\
-                                    .format(self.popt[self.params],self.perr))
+        self.centre_wcs = np.array((self.halo.ra.value[self.centre_pix[1]],
+                                    self.halo.dec.value[self.centre_pix[0]]))*u.deg
+        popt_units = self.transform_units(np.copy(self.popt))
+        popt_units = utils.add_parameter_labels(self, popt_units[self.params])
+        self.log.log(logging.INFO,'MCMC initial guess: \n{} \n and units: mJy/arcsec2, deg, deg, r_e: kpc, rad'.format(popt_units,self.perr))
 
         x = np.arange(0,self.data.shape[1],1)
         y = np.arange(0,self.data.shape[0],1)
@@ -357,6 +365,21 @@ class fitting(object):
                                         self.halo.target,self.filename_append),dpi=300)
         plt.clf()
         plt.close(fig)
+
+    def transform_units(self, params):
+        params[0] = ((u.Jy*params[0]/self.halo.pix_area).to(uJyarcsec2)).value
+        params[1] = (params[1]-self.centre_pix[0])*self.halo.pix_size.value+self.centre_wcs[0].value
+        params[2] = (params[2]-self.centre_pix[1])*self.halo.pix_size.value+self.centre_wcs[1].value
+        params[3] = ((params[3]*self.halo.pix2kpc).to(u.kpc)).value
+        if self.modelName in ['ellipse', 'rotated_ellipse', 'skewed']:
+            params[4] = ((params[4]*self.halo.pix2kpc).to(u.kpc)).value
+
+        if self.modelName == 'skewed':
+            params[5] = ((params[5]*self.halo.pix2kpc).to(u.kpc)).value
+            params[6] = ((params[6]*self.halo.pix2kpc).to(u.kpc)).value
+        if self.modelName in ['rotated_ellipse', 'skewed']:
+            params[self.at('ang')] = params[self.at('ang')]
+        return params
 
     def set_sampler_header(self):
         self.hdu.header['nwalkers'] = (self.walkers)
@@ -771,7 +794,6 @@ class processing(object):
             fig.set_size_inches(2*10,15)
 
         for i in range(self.dim):
-            #axes[i].plot(self.sampler[:, int(0.4*self.sampler.shape[1]):, i].transpose(),color='black', alpha=0.3)
             axes[i].plot(self.sampler[:, :, i].transpose(),color='black', alpha=0.3,lw=0.5)
             axes[i].set_ylabel(self.labels[i], fontsize=20)
             axes[-1].set_xlabel('steps', fontsize=20)

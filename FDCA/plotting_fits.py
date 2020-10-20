@@ -30,8 +30,8 @@ titlesize = 20
 labelsize = 13
 
 #plt.style.use('classic')
-plt.rc('text',usetex=True)
-plt.rc('font', family='serif')
+#plt.rc('text',usetex=True)
+#plt.rc('font', family='serif')
 
 def fit_result(obj, model, data, noise, mask=False, regrid=False):
     halo      = obj.halo
@@ -91,7 +91,10 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     if regrid:
         NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
     else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
-    Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
+    try:
+        Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
+    except:
+        Normdiv = mplc.DivergingNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
@@ -102,10 +105,6 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     cont2 = axes[0].contour(masked_data,colors='lightgreen', levels=np.array([-9999.8]),
                         alpha=0.6, linestyles='-',extent=(ra.max(),ra.min(),dec.min(),dec.max()),
                         norm = NORMres,linewidths=1.5)
-        #pass
-    #except:
-    #    print('PROCESSING: Failed making contours')
-    #    pass
 
     axes[0].annotate('$V(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
