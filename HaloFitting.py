@@ -55,7 +55,6 @@ args = parser.parse_args()
 def init_logging(args):
     path = args.out_path
     now = str(datetime.now())[:19]
-    print(path)
     if not os.path.exists(path+'/log/'):
         os.makedirs(path+'/log/')
 
