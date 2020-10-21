@@ -134,12 +134,12 @@ class Radio_Halo(object):
         self.file     = txt[-1]
         self.dataPath = '/'+'/'.join(txt[:-1])+'/'
 
-        if not os.path.isdir(self.basedir+'Output/'):
-            self.log.log(logging.INFO,'Creating modelling directory')
-            os.makedirs(self.basedir+'Output/')
+        #if not os.path.isdir(self.basedir+'Output/'):
+        #    self.log.log(logging.INFO,'Creating modelling directory')
+        #    os.makedirs(self.basedir+'Output/')
 
-        self.plotPath  = self.basedir+'Output/Plots/'
-        self.modelPath = self.basedir+'Output/Samples/'
+        self.plotPath  = self.basedir+'/Plots/'
+        self.modelPath = self.basedir+'/Samples/'
 
         if not os.path.isdir(self.modelPath):
             self.log.log(logging.INFO,'Creating modelling directory')
@@ -149,7 +149,7 @@ class Radio_Halo(object):
             os.makedirs(self.plotPath)
 
         if maskpath == None:
-            self.maskPath = self.basedir+'Output/'+self.target+'.reg'
+            self.maskPath = self.basedir+'/'+self.target+'.reg'
         else:
             self.maskPath = maskpath
 

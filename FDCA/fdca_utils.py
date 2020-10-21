@@ -157,7 +157,7 @@ def masking(obj, mask):
         '''SET MASK:'''
         if mask:
             regionpath = halo.maskPath
-            outfile    = '/'.join(halo.maskPath.split('/')[:-1])+'/'+halo.target+'_mask.fits'
+            outfile    = halo.basedir+'/'+halo.file.replace('.fits','')+'_MASK.fits'
             mask_region(halo.path, regionpath, outfile)
 
             '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
