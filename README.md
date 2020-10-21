@@ -149,5 +149,5 @@ This allows for easy updating of the code to include bugfixes or new features. O
 ```
 python3 HaloFitting.py Abell2744 ./Example/Data_dir/A2744_JVLA.image.fits -m_file ./Example/Data_dir/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -out_path './Example/Output_dir' -model circle
 ```
-Here, the circular model is fitted and samples/figures are saved to the Example directory. The relevant data is located in **./Example/A2744_JVLA.image.fits** and the mask is in **./Example/Masks/A2744halo.reg**.
+Here, the circular model is fitted and samples/figures are saved to the Example directory. The relevant data is located in **./Example/Data/A2744_JVLA.image.fits** and the mask is in **./Example/Data/A2744halo.reg**.
 
