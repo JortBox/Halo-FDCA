@@ -330,7 +330,7 @@ class fitting(object):
                                     self.halo.dec.value[self.centre_pix[0]]))*u.deg
         popt_units = self.transform_units(np.copy(self.popt))
         popt_units = utils.add_parameter_labels(self, popt_units[self.params])
-        self.log.log(logging.INFO,'MCMC initial guess: \n{} \n and units: mJy/arcsec2, deg, deg, r_e: kpc, rad'.format(popt_units,self.perr))
+        self.log.log(logging.INFO,'MCMC initial guess: \n{} \n and units: muJy/arcsec2, deg, deg, r_e: kpc, rad'.format(popt_units,self.perr))
 
         x = np.arange(0,self.data.shape[1],1)
         y = np.arange(0,self.data.shape[0],1)
