@@ -171,7 +171,7 @@ class Radio_Halo(object):
             coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
             self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
         else:
-            self.log.log(logging.WARNING,'No halo world location given. Assuming image centre.')
+            self.log.log(logging.WARNING,'No halo sky location given. Assuming image centre.')
             self.log.log(logging.INFO,'- Not giving an approximate location can affect MCMC performance -')
             cent_pix = (np.array([self.original_image.shape])/2).astype(np.int64)
             w        = wcs.WCS(self.header)
@@ -199,20 +199,20 @@ class Radio_Halo(object):
                 self.R500 = 1.*u.Mpc
                 self.M500 = 3.e14*u.Msun
                 self.user_radius = False
-                self.log.log(logging.WARNING,'No R500 key found. setting R500='\
-                                        +str(self.R500.value)+'Mpc to continue')
+                #self.log.log(logging.WARNING,'No R500 key found. setting R500='\
+                #                        +str(self.R500.value)+'Mpc to continue')
 
             elif self.target[:5] == 'Abell':
                 try:
                     self.z = float(self.table[self.cat]['z'][0])
                 except:
                     self.z = 0.1
-                    self.log.log(logging.WARNING,'No valid z key found. setting z='\
-                                        +str(self.z)+' as filling to continue. Ignore this message if -z != None')
+                    #self.log.log(logging.WARNING,'No valid z key found. setting z='\
+                    #                    +str(self.z)+' as filling to continue. Ignore this message if -z != None')
                 self.R500 = 1.*u.Mpc
                 self.user_radius = False
-                self.log.log(logging.WARNING,'No R500 key found. setting R500='\
-                                        +str(self.R500.value)+'Mpc to continue')
+                #self.log.log(logging.WARNING,'No R500 key found. setting R500='\
+                #                        +str(self.R500.value)+'Mpc to continue')
 
 
             elif self.target[:4] == 'PSZ2':
@@ -225,25 +225,25 @@ class Radio_Halo(object):
                 except:
                     self.R500 = 1.*u.Mpc
                     self.user_radius = False
-                    self.log.log(logging.WARNING,'No R500 key found. setting R500='\
-                                            +str(self.R500.value)+'Mpc to continue')
+                #    self.log.log(logging.WARNING,'No R500 key found. setting R500='\
+                #                            +str(self.R500.value)+'Mpc to continue')
             else:
                 self.R500 = 1.*u.Mpc
                 self.z    = 0.1
                 self.user_radius = False
-                self.log.log(logging.WARNING,'No R500 key found. setting R500='\
-                                    +str(self.R500.value)+'Mpc as filling to continue. Ignore this message if R500 != None')
-                self.log.log(logging.WARNING,'No z key found. setting z='\
-                                    +str(self.z)+'Mpc as filling to continue. Ignore this message if z != None')
+                #self.log.log(logging.WARNING,'No R500 key found. setting R500='\
+                #                    +str(self.R500.value)+'Mpc as filling to continue. Ignore this message if R500 != None')
+                #self.log.log(logging.WARNING,'No z key found. setting z='\
+                #                    +str(self.z)+'Mpc as filling to continue. Ignore this message if z != None')
         except:
             print('catalogue search FAILED')
             self.R500 = 1.*u.Mpc
             self.z    = 0.1
             self.user_radius = False
-            self.log.log(logging.WARNING,'No R500 key found. setting R500='\
-                                +str(self.R500.value)+'Mpc as filling to continue. Ignore this message if R500 != None')
-            self.log.log(logging.WARNING,'No z key found. setting z='\
-                                +str(self.z)+'Mpc as filling to continue. Ignore this message if z500 != None')
+            #self.log.log(logging.WARNING,'No R500 key found. setting R500='\
+            #                    +str(self.R500.value)+'Mpc as filling to continue. Ignore this message if R500 != None')
+            #self.log.log(logging.WARNING,'No z key found. setting z='\
+            #                    +str(self.z)+'Mpc as filling to continue. Ignore this message if z500 != None')
 
         if M500 is not None:
             self.M500 = float(M500)*1.e14*u.Msun
