@@ -65,14 +65,15 @@ Currently, cluster characteristics such as location and redshift can be retrieve
 Halo-FDCA is very flexible and has many settings that can be easily set by the user within the terminal using `argparse`. All possible settings and their use can be inspected by entering `python3 HaloFitting.py -h` in the terminal. The help page will look like this:
 
 ```
-usage: HaloFitting.py [-h] [-model {circle,ellipse,rotated_ellipse,skewed}]
+usage: HaloFitting.py [-h] -z Z
+                      [-model {circle,ellipse,rotated_ellipse,skewed}]
                       [-frame FRAME] [-loc LOC] [-m M] [-m_file M_FILE]
                       [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
                       [-walkers WALKERS] [-steps STEPS] [-burntime BURNTIME]
                       [-max_radius MAX_RADIUS] [-gamma_prior GAMMA_PRIOR]
                       [-k_exp K_EXP] [-s S] [-run_mcmc RUN_MCMC]
                       [-int_max INT_MAX] [-freq FREQ]
-                      object d_file z
+                      object d_file
 
 Halo-FDCA: An automated flux density calculator for radio halos in galaxy
 clusters. (Boxelaar et al.)
@@ -80,10 +81,10 @@ clusters. (Boxelaar et al.)
 positional arguments:
   object                (str) Cluster object name
   d_file                (str) FITS image location (containing radio halo).
-  z                     (float) cluster redshift
 
 optional arguments:
   -h, --help            show this help message and exit
+  -z Z                  (float) cluster redshift
   -model {circle,ellipse,rotated_ellipse,skewed}
                         (str) Model to use. choose from (circle, ellipse,
                         rotated_ellipse, skewed). Default: circle
@@ -128,7 +129,7 @@ optional arguments:
   -int_max INT_MAX      (float) Integration radius in r_e units. Default: inf
   -freq FREQ            (float) frequency in MHz to calculate flux in. When
                         given, the spectral index will be used. Default: image
-                        frequency        
+                        frequency  
 ```
 The keywords `object`, `d_path` and `z` are mandatory to give to be able to run the code.
 
