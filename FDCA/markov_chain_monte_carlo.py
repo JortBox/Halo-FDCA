@@ -10,7 +10,7 @@ from __future__ import division
 import sys
 import os
 import logging
-from multiprocessing import Pool, cpu_count, freeze_support
+from multiprocessing import Pool, cpu_count, freeze_support, set_start_method
 
 import numpy as np
 import pandas as pd
@@ -38,6 +38,9 @@ from . import plotting_fits as plot
 #plt.rc('text',usetex=True)
 #plt.rc('font', family='serif')
 #np.seterr(divide='ignore', invalid='ignore')
+
+set_start_method("fork")
+freeze_support()
 
 rad2deg    = 180./np.pi
 deg2rad    = np.pi/180.
@@ -138,7 +141,6 @@ class fitting(object):
         # because 'Pool' cannot pickle the fitting object.
         halo_info = set_dictionary(self)
         num_CPU = cpu_count()
-        freeze_support()
         with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(self.walkers, self.dim, lnprob, pool=pool,
                                             args=[data,coord,halo_info])

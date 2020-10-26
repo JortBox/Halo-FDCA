@@ -13,6 +13,7 @@ from datetime import datetime
 import astropy.units as u
 import numpy as np
 import argparse
+#import multiprocessing
 
 import FDCA
 
@@ -25,31 +26,6 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean type expected.')
-
-parser = argparse.ArgumentParser(description='Halo-FDCA: An automated flux density calculator for radio halos in galaxy clusters. (Boxelaar et al.)')
-parser.add_argument('object',     help='(str) Cluster object name', type=str)
-parser.add_argument('d_file',     help='(str) FITS image location (containing radio halo).', type=str)
-parser.add_argument('-z',          help='(float) cluster redshift', required=True, type=float)
-parser.add_argument('-model',     help='(str) Model to use. choose from (circle, ellipse, rotated_ellipse, skewed). Default: circle', choices=['circle', 'ellipse', 'rotated_ellipse', 'skewed'], default='circle', type=str)
-parser.add_argument('-frame',     help='(str) Coordinate frame. Default: ICRS', default='icrs', type=str)
-parser.add_argument('-loc',       help="(str) Sky coordinates of cluster. provide coordinates of the form: 'hh mm ss.ss -dd mm ss.s' in hourangle units. Default: None and image centre is chosen.", default = None, type=str)
-parser.add_argument('-m',         help='(bool) choose to include mask or not. If True, -maskPath should be specified. Default: True',default=True, type=str2bool)
-parser.add_argument('-m_file',    help='(str) Mask file location. Default: None', default=None, type=str)
-parser.add_argument('-out_path',  help='(str) Path to code output. Default: directory code is in.', default='./', type=str)
-parser.add_argument('-fov',       help='(bool) Declare if image size has to be decreased before MCMC-ing. Amount of decreasement has ben automatically set to 3.5*r_e. Default: True',default=True, type=str2bool)
-parser.add_argument('-spectr_idx',help='(float) Set spectral index of cluster (S ~ nu^alpha). Used to calculate power and extrapolate flux to arbitrary frequencies. Default: -1.2',default=-1.2, type=float)
-parser.add_argument('-walkers',   help='(int) Number of walkers to deploy in the MCMC algorithm. Default: 200',default=200, type=int)
-parser.add_argument('-steps',     help='(int) Number of evauations each walker has to do. Default: 1200',default=1200, type=int)
-parser.add_argument('-burntime',  help='(int) Burn-in time for MCMC walkers. See emcee documentation for info. Default: None. this is 1/4th of the steps.',default=None, type=int)
-parser.add_argument('-max_radius',help='(float) Maximum posiible radius cut-off. Fitted halos cannot have any r > max_radius. In units of kpc. Default: None (implying image_size/2).',default=None, type=float)
-parser.add_argument('-gamma_prior',help='(bool) Wether to use a gamma distribution as a prior for radii. Default is False. For the gamma parameters: shape = 2.5, scale = 120 kpc. Default: False',default=False, type=str2bool)
-parser.add_argument('-k_exp',     help='(bool) Wether to use k exponent to change shape of exponential distribution. Default: False',default=False, type=int)
-parser.add_argument('-s',         help='(bool) Whether to save the mcmc sampler chain in a fits file. Default: True.',default=True, type=str2bool)
-parser.add_argument('-run_mcmc',  help='(bool) Whether to run a MCMC routine or skip it to go straight to processing. can be done if a runned sample already exists in the output path. Default: True',default=True, type=str2bool)
-parser.add_argument('-int_max',   help='(float) Integration radius in r_e units. Default: inf',default=np.inf, type=float)
-parser.add_argument('-freq',      help='(float) frequency in MHz to calculate flux in. When given, the spectral index will be used. Default: image frequency',default=None, type=str)
-
-args = parser.parse_args()
 
 
 def init_logging(args):
@@ -99,25 +75,54 @@ def get_initial_guess(halo):
                r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
     return p0,bounds
 
-loc = args.loc
-if args.freq != None: args.freq *= 1.*u.MHz
-if loc is not None:
-    loc  = SkyCoord(args.loc, unit=(u.hourangle, u.deg), frame=args.frame)
 
-logging = init_logging(args)
-logger  = logging.getLogger(args.object)
-logger.log(logging.INFO, 'Start Process for: '+ args.object)
-logger.log(logging.INFO, 'Run Arguments: \n'+ str(args)+ '\n')
+if __name__=='__main__':
 
 
-halo = FDCA.Radio_Halo(args.object, args.d_file, maskpath=args.m_file, mask=args.m,
+    parser = argparse.ArgumentParser(description='Halo-FDCA: An automated flux density calculator for radio halos in galaxy clusters. (Boxelaar et al.)')
+    parser.add_argument('object',     help='(str) Cluster object name', type=str)
+    parser.add_argument('d_file',     help='(str) FITS image location (containing radio halo).', type=str)
+    parser.add_argument('-z',          help='(float) cluster redshift', required=True, type=float)
+    parser.add_argument('-model',     help='(str) Model to use. choose from (circle, ellipse, rotated_ellipse, skewed). Default: circle', choices=['circle', 'ellipse', 'rotated_ellipse', 'skewed'], default='circle', type=str)
+    parser.add_argument('-frame',     help='(str) Coordinate frame. Default: ICRS', default='icrs', type=str)
+    parser.add_argument('-loc',       help="(str) Sky coordinates of cluster. provide coordinates of the form: 'hh mm ss.ss -dd mm ss.s' in hourangle units. Default: None and image centre is chosen.", default = None, type=str)
+    parser.add_argument('-m',         help='(bool) choose to include mask or not. If True, -maskPath should be specified. Default: True',default=True, type=str2bool)
+    parser.add_argument('-m_file',    help='(str) Mask file location. Default: None', default=None, type=str)
+    parser.add_argument('-out_path',  help='(str) Path to code output. Default: directory code is in.', default='./', type=str)
+    parser.add_argument('-fov',       help='(bool) Declare if image size has to be decreased before MCMC-ing. Amount of decreasement has ben automatically set to 3.5*r_e. Default: True',default=True, type=str2bool)
+    parser.add_argument('-spectr_idx',help='(float) Set spectral index of cluster (S ~ nu^alpha). Used to calculate power and extrapolate flux to arbitrary frequencies. Default: -1.2',default=-1.2, type=float)
+    parser.add_argument('-walkers',   help='(int) Number of walkers to deploy in the MCMC algorithm. Default: 200',default=200, type=int)
+    parser.add_argument('-steps',     help='(int) Number of evauations each walker has to do. Default: 1200',default=1200, type=int)
+    parser.add_argument('-burntime',  help='(int) Burn-in time for MCMC walkers. See emcee documentation for info. Default: None. this is 1/4th of the steps.',default=None, type=int)
+    parser.add_argument('-max_radius',help='(float) Maximum posiible radius cut-off. Fitted halos cannot have any r > max_radius. In units of kpc. Default: None (implying image_size/2).',default=None, type=float)
+    parser.add_argument('-gamma_prior',help='(bool) Wether to use a gamma distribution as a prior for radii. Default is False. For the gamma parameters: shape = 2.5, scale = 120 kpc. Default: False',default=False, type=str2bool)
+    parser.add_argument('-k_exp',     help='(bool) Wether to use k exponent to change shape of exponential distribution. Default: False',default=False, type=int)
+    parser.add_argument('-s',         help='(bool) Whether to save the mcmc sampler chain in a fits file. Default: True.',default=True, type=str2bool)
+    parser.add_argument('-run_mcmc',  help='(bool) Whether to run a MCMC routine or skip it to go straight to processing. can be done if a runned sample already exists in the output path. Default: True',default=True, type=str2bool)
+    parser.add_argument('-int_max',   help='(float) Integration radius in r_e units. Default: inf',default=np.inf, type=float)
+    parser.add_argument('-freq',      help='(float) frequency in MHz to calculate flux in. When given, the spectral index will be used. Default: image frequency',default=None, type=str)
+
+    args = parser.parse_args()
+    loc = args.loc
+
+    if args.freq != None: args.freq *= 1.*u.MHz
+    if loc is not None:
+        loc  = SkyCoord(args.loc, unit=(u.hourangle, u.deg), frame=args.frame)
+
+    logging = init_logging(args)
+    logger  = logging.getLogger(args.object)
+    logger.log(logging.INFO, 'Start Process for: '+ args.object)
+    logger.log(logging.INFO, 'Run Arguments: \n'+ str(args)+ '\n')
+
+
+    halo = FDCA.Radio_Halo(args.object, args.d_file, maskpath=args.m_file, mask=args.m,
                             decreased_fov=args.fov,logger=logger, loc=loc,
                             M500=None, R500=None, z=args.z,
                             outputpath=args.out_path, spectr_index=args.spectr_idx)
-p0, bounds = get_initial_guess(halo)
+    p0, bounds = get_initial_guess(halo)
 
-if args.run_mcmc:
-    fit  = FDCA.markov_chain_monte_carlo.fitting(halo, halo.data_mcmc, args.model, p0,
+    if args.run_mcmc:
+        fit  = FDCA.markov_chain_monte_carlo.fitting(halo, halo.data_mcmc, args.model, p0,
                                                 bounds, walkers=args.walkers,
                                                 steps=args.steps, logger=halo.log,
                                                 burntime=args.burntime,
@@ -125,21 +130,21 @@ if args.run_mcmc:
                                                 max_radius=args.max_radius,
                                                 gamma_prior=args.gamma_prior,
                                                  k_exponent=args.k_exp)
-    fit.__preFit__()
-    fit.__run__(save=args.s)
-else: pass
+        fit.__preFit__()
+        fit.__run__(save=args.s)
+    else: pass
 
 
-processing = FDCA.markov_chain_monte_carlo.processing(halo, halo.data, args.model,
+    processing = FDCA.markov_chain_monte_carlo.processing(halo, halo.data, args.model,
                                                 logger=halo.log,mask=args.m,
                                                 maskpath=args.m_file, save=args.s,
                                                 k_exponent=args.k_exp, offset=False,
                                                 burntime=args.burntime)
-processing.plot_results()
-processing.get_chi2_value()
-processing.get_flux(int_max=args.int_max, freq=args.freq)# error is one sigma (68%).
-processing.get_power(freq=args.freq)
+    processing.plot_results()
+    processing.get_chi2_value()
+    processing.get_flux(int_max=args.int_max, freq=args.freq)# error is one sigma (68%).
+    processing.get_power(freq=args.freq)
 
 
-halo.Close()
-#python3 HaloFitting.py -o Abell2744 -d_file ./ExampleData/A2744_JVLA.image.fits -m_file ./ExampleData/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -model circle
+    halo.Close()
+    #python3 HaloFitting.py -o Abell2744 -d_file ./ExampleData/A2744_JVLA.image.fits -m_file ./ExampleData/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -model circle
