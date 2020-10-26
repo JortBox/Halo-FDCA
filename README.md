@@ -66,13 +66,13 @@ Halo-FDCA is very flexible and has many settings that can be easily set by the u
 
 ```
 usage: HaloFitting.py [-h] [-model {circle,ellipse,rotated_ellipse,skewed}]
-                      [-frame FRAME] [-loc LOC] [-z Z] [-m M] [-m_file M_FILE]
+                      [-frame FRAME] [-loc LOC] [-m M] [-m_file M_FILE]
                       [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
                       [-walkers WALKERS] [-steps STEPS] [-burntime BURNTIME]
                       [-max_radius MAX_RADIUS] [-gamma_prior GAMMA_PRIOR]
                       [-k_exp K_EXP] [-s S] [-run_mcmc RUN_MCMC]
                       [-int_max INT_MAX] [-freq FREQ]
-                      object d_file
+                      object d_file z
 
 Halo-FDCA: An automated flux density calculator for radio halos in galaxy
 clusters. (Boxelaar et al.)
@@ -80,9 +80,9 @@ clusters. (Boxelaar et al.)
 positional arguments:
   object                (str) Cluster object name
   d_file                (str) FITS image location (containing radio halo).
+  z                     (float) cluster redshift
 
 optional arguments:
-
   -h, --help            show this help message and exit
   -model {circle,ellipse,rotated_ellipse,skewed}
                         (str) Model to use. choose from (circle, ellipse,
@@ -91,7 +91,6 @@ optional arguments:
   -loc LOC              (str) Sky coordinates of cluster. provide coordinates
                         of the form: 'hh mm ss.ss -dd mm ss.s' in hourangle
                         units. Default: None and image centre is chosen.
-  -z Z                  (float) cluster redshift
   -m M                  (bool) choose to include mask or not. If True,
                         -maskPath should be specified. Default: True
   -m_file M_FILE        (str) Mask file location. Default: None
@@ -131,7 +130,7 @@ optional arguments:
                         given, the spectral index will be used. Default: image
                         frequency        
 ```
-The keywords `object` and `d_path` are mandatory to give to be able to run the code.
+The keywords `object`, `d_path` and `z` are mandatory to give to be able to run the code.
 
 Note: At this point, the code only works when `HaloFitting.py` is run from its current directory. To get around this problem, the FDCA directory should be placed in your python "site-packages" directory to effectively let it function as a package. 
 
@@ -149,7 +148,7 @@ The recommended way to install prefactor is to download it from github with:
 `git clone https://github.com/JortBox/Halo-FDCA.git`
 This allows for easy updating of the code to include bugfixes or new features. Once downloaded, the installation is complete; to set up a run from the **Example** directory, use the following line included with standard settings:
 ```
-python3 HaloFitting.py Abell2744 ./Example/Data_dir/A2744_JVLA.image.fits -m_file ./Example/Data_dir/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -out_path './Example/Output_dir' -model circle
+python3 HaloFitting.py Abell2744 ./Example/Data_dir/A2744_JVLA.image.fits -z 0.308 -m_file ./Example/Data_dir/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -out_path './Example/Output_dir' -model circle
 ```
 Here, the circular model is fitted and samples/figures are saved to the Example directory. The relevant data is located in **./Example/Data_dir/A2744_JVLA.image.fits** and the mask is in **./Example/Data_dir/A2744halo.reg**.
 
