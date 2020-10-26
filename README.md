@@ -46,9 +46,9 @@ This flowchart gives a general overview of the pipeline. On code level, the pipe
 First, a `Radio_Halo` object must be initiated. When initiating the object, all relevant properties are processed. This class is documented in `HaloObject.py`.
 This class also handles the very first fit such that the image coordinates can be related to sky coordinates without using the header. The `Radio_Halo` class handles steps up to 'Second preliminary fit'. 'Rotating and regridding' is not performed by the class.
 
-The Markov Chain Monte Carlo (MCMC) algorithm is performed in the blue part of the flowchart. This takes place in the `fitting` class in `markov_chain_monte_carlo.py` (see class documentation there and below). This class takes a Radio Halo object as input and from there starts the profile fitting based on the extra settings given as input. 'Chains' that are the result of MCMC are saved in new FITS files (`./Results/Samples/`), settings of the speciffic run are saved in the header. 
+The Markov Chain Monte Carlo (MCMC) algorithm is performed in the blue part of the flowchart. This takes place in the `fitting` class in `markov_chain_monte_carlo.py` (see class documentation there and below). This class takes a Radio Halo object as input and from there starts the profile fitting based on the extra settings given as input. 'Chains' that are the result of MCMC are saved in new FITS files (**./outputpath/Samples/**), settings of the speciffic run are saved in the header. 
 
-The `processing` class in `markov_chain_monte_carlo.py` takes a halo object as input and processes the MCMC results by generating figures, statistical analysis and final flux density and parameter estimations. these results are found in the log files: `./outputpath/log/`.
+The `processing` class in `markov_chain_monte_carlo.py` takes a halo object as input and processes the MCMC results by generating figures, statistical analysis and final flux density and parameter estimations. these results are found in the log files: **./outputpath/log/**.
 
 ### Input
 The code requires very specific input to be able to work properly. 
@@ -136,7 +136,7 @@ The keywords `object` and `d_path` are mandatory to give to be able to run the c
 Note: At this point, the code only works when `HaloFitting.py` is run from its current directory. To get around this problem, the FDCA directory should be placed in your python "site-packages" directory to effectively let it function as a package. 
 
 ### Output
-Samples file in FITS format containing the walker strings and run information (found in **outputpath/Output/Samples**). This file is used to process the routine and retrieve flux denisty and parameter values. All values and their one sigma uncertainties will be printed in the log file after running the pipeline. The figures will be in **outputpath/Output/Plots**. There, all relevant figures will be saved. This includes the corner plot, walker plot and radio image with model overlay for the original and regridded image. 
+Samples file in FITS format containing the walker strings and run information (found in **outputpath/Samples**). This file is used to process the routine and retrieve flux denisty and parameter values. All values and their one sigma uncertainties will be printed in the log file after running the pipeline. The figures will be in **outputpath/Plots**. There, all relevant figures will be saved. This includes the corner plot, walker plot and radio image with model overlay for the original and regridded image. 
 
 ## Example (Abell 2744)
 
@@ -151,5 +151,5 @@ This allows for easy updating of the code to include bugfixes or new features. O
 ```
 python3 HaloFitting.py Abell2744 ./Example/Data_dir/A2744_JVLA.image.fits -m_file ./Example/Data_dir/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -out_path './Example/Output_dir' -model circle
 ```
-Here, the circular model is fitted and samples/figures are saved to the Example directory. The relevant data is located in **./Example/Data/A2744_JVLA.image.fits** and the mask is in **./Example/Data/A2744halo.reg**.
+Here, the circular model is fitted and samples/figures are saved to the Example directory. The relevant data is located in **./Example/Data_dir/A2744_JVLA.image.fits** and the mask is in **./Example/Data_dir/A2744halo.reg**.
 
