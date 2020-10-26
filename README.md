@@ -34,7 +34,9 @@ https://corner.readthedocs.io/en/latest/index.html
 https://scikit-image.org
 
 
-This software will run a multithreaded process by default using the `multiprocessing` module. This requires significant computing power and it is advised to use a dedicated external computing mashine. Multithreading can be turned off but this will increase the run time up to a factor 10 (depending on the settings).  
+This software will run a multithreaded process by default using the `multiprocessing` module. This requires significant computing power and it is advised to use a dedicated external computing mashine. Multithreading can be turned off but this will increase the run time up to a factor 10 (depending on the settings). 
+
+The code is tested on Unix machines using both PYTHON 3.6 and PYTHON 3.8. Please inform us when you run into any issues related toincompatible software versions. 
 
 ## Algorithm Instructions
 ### Overview
