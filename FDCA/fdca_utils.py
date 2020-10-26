@@ -229,34 +229,18 @@ def flatten(f):
 
 def get_rms(hdu,boxsize=1000,niter=200,eps=1e-6,verbose=False):
     hdu = fits.open(hdu)
-    #maskhdu = fits.open(maskhdu)
     data=hdu[0].data
-    #maskdata = maskhdu[0].data
     hdu.close()
-    #maskhdu.close()
     if len(data.shape)==4:
         _,_,ys,xs=data.shape
-        #subim=data[0,0,ys/2-boxsize/2:ys/2+boxsize/2,xs/2-boxsize/2:xs/2+boxsize/2].flatten()
         subim=data[0,0,0:ys,0:xs].flatten()
-        #masksubim=maskdata[0,0,0:ys,0:xs].flatten()
     else:
         ys,xs=data.shape
-        #subim=data[ys/2-boxsize/2:ys/2+boxsize/2,xs/2-boxsize/2:xs/2+boxsize/2].flatten()
-        #subim=data[0:ys/2+boxsize/2,0:xs/2+boxsize/2].flatten()
         subim=data[0:ys,0:xs].flatten()
-        #masksubim=maskdata[0:ys,0:xs].flatten()
     oldrms=1
-    #if verbose:
-    #    print np.std(subim),np.min(subim),np.max(subim),len(subim),len(masksubim)
-    #subim = np.delete(subim,np.where(masksubim > 0))
-    #if verbose:
-    #    print np.std(subim),np.min(subim),np.max(subim),len(subim),len(masksubim)
     subim = np.delete(subim,np.where(np.isnan(subim)))
-    #if verbose:
-    #    print np.std(subim),np.min(subim),np.max(subim),len(subim),len(masksubim)
     for i in range(niter):
         rms=np.std(subim)
-        #if verbose: print len(subim),rms
         if np.abs(oldrms-rms)/rms < eps:
             return rms
         subim=subim[np.abs(subim)<5*rms]

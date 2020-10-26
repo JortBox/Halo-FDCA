@@ -25,13 +25,8 @@ from astroquery.vizier import Vizier
 from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
 
-# Subfiles imports
-#import plotting_fits as plot
-#import markov_chain_monte_carlo
 from . import fdca_utils as utils
 
-#plt.rc('text',usetex=True)
-#plt.rc('font', family='serif')
 np.seterr(divide='ignore', invalid='ignore')
 
 rad2deg    = 180./np.pi
@@ -134,10 +129,6 @@ class Radio_Halo(object):
         self.file     = txt[-1]
         self.dataPath = '/'+'/'.join(txt[:-1])+'/'
 
-        #if not os.path.isdir(self.basedir+'Output/'):
-        #    self.log.log(logging.INFO,'Creating modelling directory')
-        #    os.makedirs(self.basedir+'Output/')
-
         self.plotPath  = self.basedir+'/Plots/'
         self.modelPath = self.basedir+'/'
 
@@ -225,25 +216,16 @@ class Radio_Halo(object):
                 except:
                     self.R500 = 1.*u.Mpc
                     self.user_radius = False
-                #    self.log.log(logging.WARNING,'No R500 key found. setting R500='\
-                #                            +str(self.R500.value)+'Mpc to continue')
             else:
                 self.R500 = 1.*u.Mpc
                 self.z    = 0.1
                 self.user_radius = False
-                #self.log.log(logging.WARNING,'No R500 key found. setting R500='\
-                #                    +str(self.R500.value)+'Mpc as filling to continue. Ignore this message if R500 != None')
-                #self.log.log(logging.WARNING,'No z key found. setting z='\
-                #                    +str(self.z)+'Mpc as filling to continue. Ignore this message if z != None')
+
         except:
             print('catalogue search FAILED')
             self.R500 = 1.*u.Mpc
             self.z    = 0.1
             self.user_radius = False
-            #self.log.log(logging.WARNING,'No R500 key found. setting R500='\
-            #                    +str(self.R500.value)+'Mpc as filling to continue. Ignore this message if R500 != None')
-            #self.log.log(logging.WARNING,'No z key found. setting z='\
-            #                    +str(self.z)+'Mpc as filling to continue. Ignore this message if z500 != None')
 
         if M500 is not None:
             self.M500 = float(M500)*1.e14*u.Msun
@@ -435,7 +417,7 @@ class Radio_Halo(object):
                                 image, p0=(max_flux,centre_pix[0],
                                 centre_pix[1],size), bounds=bounds)
 
-        if (self.user_radius != False and self.radius_real<(3.5*popt[3]*self.pix_size)):# or popt[3]>0.5*image.shape[0]:
+        if (self.user_radius != False and self.radius_real<(3.5*popt[3]*self.pix_size)):
             popt[3]=size
             print('size overwrite')
 

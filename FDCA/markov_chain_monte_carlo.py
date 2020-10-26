@@ -35,10 +35,6 @@ import corner
 from . import fdca_utils as utils
 from . import plotting_fits as plot
 
-#plt.rc('text',usetex=True)
-#plt.rc('font', family='serif')
-#np.seterr(divide='ignore', invalid='ignore')
-
 set_start_method("fork")
 freeze_support()
 
@@ -140,6 +136,7 @@ class fitting(object):
         # set_dictionary is called to create a dictionary with necessary atributes
         # because 'Pool' cannot pickle the fitting object.
         halo_info = set_dictionary(self)
+        
         num_CPU = cpu_count()
         with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(self.walkers, self.dim, lnprob, pool=pool,
@@ -202,21 +199,6 @@ class fitting(object):
             self.log.log(logging.WARNING,'MCMC Too few walkers, nwalkers = {}'.format(self.walkers))
 
         self.image_mask, self.mask = utils.masking(self, mask)
-        '''
-        if mask:
-            if maskpath == '--':
-                self.halo.maskPath = self.halo.basedir+'Output/'+self.halo.target+'.reg'
-            else:
-                self.halo.maskPath = maskpath
-
-            self.find_mask()
-            if self.mask:
-                self.setMask(self.data)
-                self.log.log(logging.INFO,'MCMC Mask set')
-        else:
-            self.log.log(logging.INFO,'MCMC No mask set')
-            self.mask=False
-        '''
 
         if burntime is None:
             self.burntime = int(0.125*self.steps)
@@ -1026,32 +1008,3 @@ class processing(object):
                                         (np.percentile(power, [84])[0]-\
                                         np.percentile(power, [16])[0]).value/2.,
                                         power.unit))
-
-    '''
-    def tableprint(self):
-        cal=0.1
-        sub=0.1
-        file = self.halo.file.replace('.fits','')+'_mcmc_model_ALL.pdf'
-        rms = ((self.rms/self.halo.pix_area).to(uJyarcsec2)).value
-        power = np.copy(self.power.value)/1.e25
-        power16 = np.sqrt((cal*self.power_val.value)**2+sub**2+(self.power_val.value-np.percentile(self.power.value, 16))**2)/1.e25
-        power84 = np.sqrt((cal*self.power_val.value)**2+sub**2+(np.percentile(self.power.value, 84)-self.power_val.value)**2)/1.e25
-        flux16 = (self.flux_val.value-np.percentile(self.flux.value, 16))
-        flux84 = (np.percentile(self.flux.value, 84)-self.flux_val.value)
-
-        if self.dim == 4:
-            print('%s & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f & \\ref{fig:%s} \\vspace{0.05cm}\\\\' % (self.halo.name,
-            self.flux_val.value, flux84,flux16, np.percentile(power,50), power84, power16,
-            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
-            rms, self.chi2_red, self.flux_val/self.flux_err, self.halo.target))
-        elif self.dim==6:
-            print(' & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f& \\vspace{0.05cm}\\\\' % (self.flux_val.value,
-            flux84,flux16, np.percentile(power,50), power84, power16,
-            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
-            rms, self.chi2_red, self.flux_val/self.flux_err))
-        elif self.dim==8:
-            print(' & $%.1f^{+%.1f}_{-%.1f}$ & $%.2f^{+%.2f}_{-%.2f}$ & $%.2f^{+%.2f}_{-%.2f}$ & %.2f & %.f & %.2f& \\vspace{0.1cm}\\\\' % (self.flux_val.value,
-            flux84,flux16, np.percentile(power,50), power84, power16,
-            self.percentiles_units[0,1],self.percentiles_units[0,2]-self.percentiles_units[0,1],self.percentiles_units[0,1]-self.percentiles_units[0,0],
-            rms, self.chi2_red, self.flux_val/self.flux_err))
-    '''

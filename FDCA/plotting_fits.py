@@ -29,20 +29,17 @@ uJyarcsec2 = 1.e-3*u.mJy/(u.arcsec*u.arcsec)
 titlesize = 20
 labelsize = 13
 
-#plt.style.use('classic')
-#plt.rc('text',usetex=True)
-#plt.rc('font', family='serif')
 
 def fit_result(obj, model, data, noise, mask=False, regrid=False):
-    halo      = obj.halo
-    ra        = halo.ra.value
-    dec       = halo.dec.value
-    bmin      = halo.bmin
-    bmaj      = halo.bmaj
-    scale     = 1.
-    xlabel    = 'RA [Deg]'
-    ylabel    = 'DEC [Deg]'
-    scale = 1.
+    halo   = obj.halo
+    ra     = halo.ra.value
+    dec    = halo.dec.value
+    bmin   = halo.bmin
+    bmaj   = halo.bmaj
+    scale  = 1.
+    xlabel = 'RA [Deg]'
+    ylabel = 'DEC [Deg]'
+    scale  = 1.
 
     #if mask:
     image_mask = obj.image_mask
@@ -52,14 +49,14 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         model = utils.regridding(obj.halo,model)
         #if mask:
         image_mask = utils.regridding(obj.halo, obj.image_mask*u.Jy, mask= not obj.halo.cropped).value
-        noise      = utils.findrms(data.value)*u.Jy
-        scale = (np.array((bmin.value,bmaj.value))/halo.pix_size).value
-        bmin  = bmin/(scale[0]*halo.pix_size)
-        bmaj  = bmaj/(scale[1]*halo.pix_size)
-        ra         = np.arange(0,data.shape[1])#halo.ra.value
-        dec        = np.arange(0,data.shape[0])#halo.dec.value
-        xlabel    = 'Pixels'
-        ylabel    = 'Pixels'
+        noise  = utils.findrms(data.value)*u.Jy
+        scale  = (np.array((bmin.value,bmaj.value))/halo.pix_size).value
+        bmin   = bmin/(scale[0]*halo.pix_size)
+        bmaj   = bmaj/(scale[1]*halo.pix_size)
+        ra     = np.arange(0,data.shape[1])#halo.ra.value
+        dec    = np.arange(0,data.shape[0])#halo.dec.value
+        xlabel = 'Pixels'
+        ylabel = 'Pixels'
 
         #plt.imshow(image_mask)
         #plt.show()

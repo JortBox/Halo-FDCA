@@ -13,7 +13,6 @@ from datetime import datetime
 import astropy.units as u
 import numpy as np
 import argparse
-#import multiprocessing
 
 import FDCA
 
@@ -145,6 +144,4 @@ if __name__=='__main__':
     processing.get_flux(int_max=args.int_max, freq=args.freq)# error is one sigma (68%).
     processing.get_power(freq=args.freq)
 
-
     halo.Close()
-    #python3 HaloFitting.py -o Abell2744 -d_file ./ExampleData/A2744_JVLA.image.fits -m_file ./ExampleData/Masks/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -z 0.308 -model circle
