@@ -55,6 +55,7 @@ args = parser.parse_args()
 def init_logging(args):
     path = args.out_path
     now = str(datetime.now())[:19]
+    filename = args.d_file.split('/')[-1]
     if not os.path.exists(path+'/log/'):
         os.makedirs(path+'/log/')
 
@@ -69,7 +70,7 @@ def init_logging(args):
             'handlers': {
             'file': {
                 'class': 'logging.FileHandler',
-                'filename': path+'/log/'+args.object+'_'+now+'.log',
+                'filename': path+'/log/'+filename+'_'+now.replace(' ','_')+'.log',
                 'mode': 'w',
                 'formatter': 'detailed',
             },
