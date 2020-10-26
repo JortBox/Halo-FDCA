@@ -139,7 +139,7 @@ class Radio_Halo(object):
         #    os.makedirs(self.basedir+'Output/')
 
         self.plotPath  = self.basedir+'/Plots/'
-        self.modelPath = self.basedir+'/Samples/'
+        self.modelPath = self.basedir+'/'
 
         if not os.path.isdir(self.modelPath):
             self.log.log(logging.INFO,'Creating modelling directory')
