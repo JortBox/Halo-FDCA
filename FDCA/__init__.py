@@ -11,6 +11,8 @@ import logging.config
 import logging.handlers
 
 from . import HaloObject
+from . import markov_chain_monte_carlo
+from . import fdca_utils as utils
 
 __version__ = '1.0.0'
 
