@@ -104,7 +104,8 @@ if __name__=='__main__':
     args = parser.parse_args()
     loc = args.loc
 
-    if args.freq != None: args.freq *= 1.*u.MHz
+    #if args.freq != None:
+    #    args.freq = args.freq*u.MHz
     if loc is not None:
         loc  = SkyCoord(args.loc, unit=(u.hourangle, u.deg), frame=args.frame)
 
@@ -141,7 +142,8 @@ if __name__=='__main__':
                                                 burntime=args.burntime)
     processing.plot_results()
     processing.get_chi2_value()
-    processing.get_flux(int_max=args.int_max, freq=args.freq)# error is one sigma (68%).
-    processing.get_power(freq=args.freq)
+    frequency = float(args.freq)*u.MHz
+    processing.get_flux(int_max=args.int_max, freq=frequency)# error is one sigma (68%).
+    processing.get_power(freq=frequency)
 
     halo.Close()

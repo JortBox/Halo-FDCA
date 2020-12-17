@@ -136,7 +136,7 @@ class fitting(object):
         # set_dictionary is called to create a dictionary with necessary atributes
         # because 'Pool' cannot pickle the fitting object.
         halo_info = set_dictionary(self)
-        
+
         num_CPU = cpu_count()
         with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(self.walkers, self.dim, lnprob, pool=pool,
@@ -947,6 +947,7 @@ class processing(object):
     def get_flux(self, int_max=np.inf, freq=None):
         if freq is None:
             freq = self.halo.freq
+        print(freq)
 
         a = self.samples[:,3]*self.halo.pix_size
         if self.modelName=='skewed':
@@ -981,7 +982,7 @@ class processing(object):
         self.log.log(logging.INFO,'MCMC Flux at {:.1f} {}: {:.2f} +/- {:.2f} {}'\
                                     .format(freq.value, freq.unit, self.flux_val.value,
                                     self.flux_err.value,flux.unit))
-        self.log.log(logging.INFO,'Integration radius'+str(int_max))
+        self.log.log(logging.INFO,'Integration radius '+str(int_max))
         self.log.log(logging.INFO,'S/N based on flux {:.2f}'\
                                     .format(self.flux_val.value/self.flux_err.value))
 
