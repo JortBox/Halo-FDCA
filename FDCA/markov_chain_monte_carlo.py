@@ -947,7 +947,6 @@ class processing(object):
     def get_flux(self, int_max=np.inf, freq=None):
         if freq is None:
             freq = self.halo.freq
-        print(freq)
 
         a = self.samples[:,3]*self.halo.pix_size
         if self.modelName=='skewed':

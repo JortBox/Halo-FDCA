@@ -33,6 +33,8 @@ https://corner.readthedocs.io/en/latest/index.html
 `skimage` v0.17 <br>
 https://scikit-image.org
 
+`tqdm`<br>
+https://tqdm.github.io/ (this is not a strict requirement, but it is useful if you want to follow the progress of the run)
 
 This software will run a multithreaded process by default using the `multiprocessing` module. This requires significant computing power and it is advised to use a dedicated external computing mashine. Multithreading can be turned off but this will increase the run time up to a factor 10 (depending on the settings). 
 
