@@ -12,7 +12,7 @@ import logging.handlers
 
 from . import HaloObject
 from . import markov_chain_monte_carlo
-#from . import fcda_utils as utils
+from . import fdca_utils as utils
 #from . import plotting_fits
 
 __version__ = '1.0.0'
