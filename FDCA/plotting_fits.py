@@ -88,6 +88,8 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     if regrid:
         NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
     else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
+
+    #Trying two different functions since names were changed in recent matplotlib 3.3 update.
     try:
         Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
     except:
@@ -95,8 +97,8 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
-    #try:
-    LEVEL = np.arange(1,7)*noise
+
+    LEVEL = 2*np.arange(1,7)*noise
     cont1 = axes[0].contour(model,colors='white', levels=LEVEL, alpha=0.6,
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
     cont2 = axes[0].contour(masked_data,colors='lightgreen', levels=np.array([-9999.8]),
@@ -174,8 +176,8 @@ def draw_sizebar(obj,ax, scale, regrid=False):
         length = 0.1/obj.factor.to(u.Mpc/u.deg)
 
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
-    asb = AnchoredSizeBar(ax.transData,length.value,
-                          r"100 kpc",
+    asb = AnchoredSizeBar(ax.transData,length.value*2.5,
+                          r"250 kpc",
                           loc='lower center',
                           pad=0.1, borderpad=0.5, sep=5,
                           frameon=False, color='white')#, fontsize=labelsize)
