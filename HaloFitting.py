@@ -120,6 +120,7 @@ if __name__=='__main__':
                             M500=None, R500=None, z=args.z,
                             outputpath=args.out_path, spectr_index=args.spectr_idx)
     p0, bounds = get_initial_guess(halo)
+    if args.freq is None: args.freq = halo.freq.value
 
     if args.run_mcmc:
         fit  = FDCA.markov_chain_monte_carlo.fitting(halo, halo.data_mcmc, args.model, p0,

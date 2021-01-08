@@ -167,6 +167,7 @@ def masking(obj, mask):
                                     halo.fov_info[0]:halo.fov_info[1],
                                     halo.fov_info[2]:halo.fov_info[3]]
             obj.log.log(logging.INFO,'MCMC Mask set')
+            os.remove(outfile)
     else:
         obj.log.log(logging.INFO,'MCMC No mask set')
         mask=False
