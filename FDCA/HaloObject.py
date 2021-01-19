@@ -125,6 +125,8 @@ class Radio_Halo(object):
 
     def initiatePaths(self, maskpath, outputpath):
         self.basedir  = outputpath
+        if outputpath[-1]=='/': self.basedir = outputpath[:-1]
+        
         txt           = self.path.split('/')
         self.file     = txt[-1]
         self.dataPath = '/'+'/'.join(txt[:-1])+'/'
@@ -402,13 +404,14 @@ class Radio_Halo(object):
         centre_pix = self.find_halo_centre(data, first)
         if not first: size = self.radius/(3.5*self.pix_size)
         else: size = data.shape[1]/4.
+        print(size, first)
         bounds  = ([0.,0.,0.,0.,],
                   [np.inf,data.shape[0],
                           data.shape[1],
                           data.shape[1]/2.])
         if self.user_radius != False:
             size = (self.radius_real/2.)/self.pix_size
-
+        print(size)
         image = data.ravel()
         if self.mask:
             image = data.ravel()[self.image_mask.ravel() == 0]
@@ -425,6 +428,13 @@ class Radio_Halo(object):
         self.radius = 3.5*popt[3]*self.pix_size
         self.centre_pix = np.array([popt[1],popt[2]], dtype=np.int64)
         self.I0 = popt[0]
+        
+        print((max_flux,centre_pix[0],centre_pix[1],size))
+        print(popt)
+        plt.imshow(plotdata)
+        plt.contour( self.circle_model((self.x_pix, self.y_pix), *popt).reshape(plotdata.shape) )
+        plt.savefig('/net/vdesk/data2/bach1/boxelaar/test'+str(first)+'.pdf')
+        plt.show()
 
     def circle_model(self, coords, I0, x0, y0, re):
         x,y = coords

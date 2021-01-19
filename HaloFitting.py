@@ -29,6 +29,7 @@ def str2bool(v):
 
 def init_logging(args):
     path = args.out_path
+    if path[-1]=='/': path = path[:-1]
     now = str(datetime.now())[:19]
     filename = args.d_file.split('/')[-1]
     if not os.path.exists(path+'/log/'):
@@ -81,7 +82,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Halo-FDCA: An automated flux density calculator for radio halos in galaxy clusters. (Boxelaar et al.)')
     parser.add_argument('object',     help='(str) Cluster object name', type=str)
     parser.add_argument('d_file',     help='(str) FITS image location (containing radio halo).', type=str)
-    parser.add_argument('-z',          help='(float) cluster redshift', required=True, type=float)
+    parser.add_argument('-z',         help='(float) cluster redshift', required=True, type=float)
     parser.add_argument('-model',     help='(str) Model to use. choose from (circle, ellipse, rotated_ellipse, skewed). Default: circle', choices=['circle', 'ellipse', 'rotated_ellipse', 'skewed'], default='circle', type=str)
     parser.add_argument('-frame',     help='(str) Coordinate frame. Default: ICRS', default='icrs', type=str)
     parser.add_argument('-loc',       help="(str) Sky coordinates of cluster. provide coordinates of the form: 'hh mm ss.ss -dd mm ss.s' in hourangle units. Default: None and image centre is chosen.", default = None, type=str)
@@ -94,8 +95,9 @@ if __name__=='__main__':
     parser.add_argument('-steps',     help='(int) Number of evauations each walker has to do. Default: 1200',default=1200, type=int)
     parser.add_argument('-burntime',  help='(int) Burn-in time for MCMC walkers. See emcee documentation for info. Default: None. this is 1/4th of the steps.',default=None, type=int)
     parser.add_argument('-max_radius',help='(float) Maximum posiible radius cut-off. Fitted halos cannot have any r > max_radius. In units of kpc. Default: None (implying image_size/2).',default=None, type=float)
-    parser.add_argument('-gamma_prior',help='(bool) Wether to use a gamma distribution as a prior for radii. Default is False. For the gamma parameters: shape = 2.5, scale = 120 kpc. Default: False',default=False, type=str2bool)
-    parser.add_argument('-k_exp',     help='(bool) Wether to use k exponent to change shape of exponential distribution. Default: False',default=False, type=int)
+    parser.add_argument('-gamma_prior',help='(bool) Whether to use a gamma distribution as a prior for radii. Default is False. For the gamma parameters: shape = 2.5, scale = 120 kpc. Default: False',default=False, type=str2bool)
+    parser.add_argument('-k_exp',     help='(bool) Whether to use k exponent to change shape of exponential distribution. Default: False',default=False, type=str2bool)
+    parser.add_argument('-off',       help='(bool) Whether to use an offset in the model (use this when radius is estimated to be too big). Default: False',default=False, type=str2bool)
     parser.add_argument('-s',         help='(bool) Whether to save the mcmc sampler chain in a fits file. Default: True.',default=True, type=str2bool)
     parser.add_argument('-run_mcmc',  help='(bool) Whether to run a MCMC routine or skip it to go straight to processing. can be done if a runned sample already exists in the output path. Default: True',default=True, type=str2bool)
     parser.add_argument('-int_max',   help='(float) Integration radius in r_e units. Default: inf',default=np.inf, type=float)
@@ -130,7 +132,7 @@ if __name__=='__main__':
                                                 mask=args.m, maskpath=args.m_file,
                                                 max_radius=args.max_radius,
                                                 gamma_prior=args.gamma_prior,
-                                                 k_exponent=args.k_exp)
+                                                 k_exponent=args.k_exp, offset=args.off)
         fit.__preFit__()
         fit.__run__(save=args.s)
     else: pass

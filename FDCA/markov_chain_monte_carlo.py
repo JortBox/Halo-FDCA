@@ -117,12 +117,12 @@ class fitting(object):
 
 
     def __preFit__(self):
-        try:
-            self.pre_mcmc_fit(self.halo.data, p0=np.array(self.p0), bounds=np.array(self.bounds))
-        except Exception as e:
-            self.log.log(logging.CRITICAL,'MCMC Failed to execute pre-fit with error message:\n')
-            self.log.log(logging.CRITICAL,e)
-            sys.exit()
+        #try:
+        self.pre_mcmc_fit(self.halo.data, p0=np.array(self.p0), bounds=np.array(self.bounds))
+        #except Exception as e:
+        #    self.log.log(logging.CRITICAL,'MCMC Failed to execute pre-fit with error message:\n')
+        #    self.log.log(logging.CRITICAL,e)
+        #    sys.exit()
 
     def __run__(self, save=False):
         data  = self.set_data_to_use(self.data)
@@ -212,7 +212,7 @@ class fitting(object):
         if max_radius == None:
             self.max_radius = self.data.shape[0]/2.
         else:
-            self.max_radius = max_radius/self.halo.pix2kpc
+            self.max_radius = max_radius/self.halo.pix2kpc.value
 
         filename_append = '_%s' % (self.modelName)
         if self.mask: filename_append += '_mask'
@@ -309,6 +309,11 @@ class fitting(object):
             if self.popt['ang']>=np.pi:
                 self.popt['ang'] -= np.pi
 
+        for r in range(4):
+            r += 1
+            if self.popt['r'+str(r)] > self.max_radius:
+                self.popt['r'+str(r)] = self.max_radius
+
         self.centre_pix = np.array([self.popt['x0'],self.popt['y0']], dtype=np.int64)
         self.centre_wcs = np.array((self.halo.ra.value[self.centre_pix[1]],
                                     self.halo.dec.value[self.centre_pix[0]]))*u.deg
@@ -319,6 +324,7 @@ class fitting(object):
         x = np.arange(0,self.data.shape[1],1)
         y = np.arange(0,self.data.shape[0],1)
         self.x_pix, self.y_pix = np.meshgrid(x,y)
+                 
 
     def plotSampler(self):
         fig, axes = plt.subplots(ncols=1, nrows=self.dim, sharex=True)
