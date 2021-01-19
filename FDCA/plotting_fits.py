@@ -98,7 +98,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
 
-    LEVEL = 2*np.arange(1,7)*noise
+    LEVEL = np.array([1,2,4,8,16,32,64,128,256,512,1024,2048,4096])*noise
     cont1 = axes[0].contour(model,colors='white', levels=LEVEL, alpha=0.6,
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
     cont2 = axes[0].contour(masked_data,colors='lightgreen', levels=np.array([-9999.8]),
