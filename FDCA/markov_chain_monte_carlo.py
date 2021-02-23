@@ -971,7 +971,6 @@ class processing(object):
 
         I0   = u.Jy*self.samples[:,0]/self.halo.pix_area
         flux = (gamma(1./m)*np.pi*I0/(4*m) * factor * gammainc(1./m, int_max**(2*m))\
-
                     *(freq/self.halo.freq)**self.alpha).to(u.mJy)
 
         self.flux      = np.copy(flux)
