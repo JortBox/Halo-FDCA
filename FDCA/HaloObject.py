@@ -402,7 +402,9 @@ class Radio_Halo(object):
         plotdata[self.image_mask==1]=0
         max_flux   = np.max(plotdata)
         centre_pix = self.find_halo_centre(data, first)
-        if not first: size = self.radius/(3.5*self.pix_size)
+        if not first: 
+            size = self.radius/(3.5*self.pix_size)
+            max_flux = self.I0
         else: size = data.shape[1]/4.
         print(size, first)
         bounds  = ([0.,0.,0.,0.,],
