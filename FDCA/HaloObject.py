@@ -168,7 +168,7 @@ class Radio_Halo(object):
             self.log.log(logging.INFO,'- Not giving an approximate location can affect MCMC performance -')
             cent_pix = (np.array([self.original_image.shape])/2).astype(np.int64)
             w        = wcs.WCS(self.header)
-            coord    = w.celestial.wcs_pix2world(cent_pix,0)
+            coord    = w.celestial.wcs_pix2world(cent_pix,1)
             self.loc = SkyCoord(coord[0,0], coord[0,1], unit=u.deg)
             self.user_loc = False
 
@@ -371,7 +371,7 @@ class Radio_Halo(object):
     def pix_to_world(self):
         w = wcs.WCS(self.header)
         centre_pix  = np.array([[self.centre_pix[0],self.centre_pix[1]]])
-        world_coord = w.celestial.wcs_pix2world(centre_pix,0)
+        world_coord = w.celestial.wcs_pix2world(centre_pix,1)
         if world_coord[0,0]<0.: world_coord[0,0] += 360
         if world_coord[0,1]<0.: world_coord[0,1] += 360
 
@@ -386,7 +386,7 @@ class Radio_Halo(object):
         if first or self.original_image.shape == self.data.shape:
             w           = wcs.WCS(self.header)
             centre_wcs  = np.array([[self.loc.ra.deg,self.loc.dec.deg]])
-            world_coord = w.celestial.wcs_world2pix(centre_wcs,0,ra_dec_order=True)
+            world_coord = w.celestial.wcs_world2pix(centre_wcs,1,ra_dec_order=True)
             return np.array([world_coord[0,0],world_coord[0,1]])
         else:
             return np.array((data.shape[1]/2.,data.shape[0]/2.),dtype=np.int64)
