@@ -943,8 +943,10 @@ class processing(object):
                             + np.log(np.sqrt(2*np.pi)*self.rmsregrid))
         self.AIC  = 2*(self.dim-self.ln_likelihood)
 
+        self.log.log(logging.INFO,'chi^2: {}'.format(chi2))
+        self.log.log(logging.INFO,'effective DoF: {}'.format(binned_dof))
         self.log.log(logging.INFO,'chi^2_red: {}'.format(self.chi2_red))
-        self.log.log(logging.INFO,'AIC: {}'.format(self.AIC))
+        #self.log.log(logging.INFO,'AIC: {}'.format(self.AIC))
 
         x = np.arange(0,self.data.shape[1],1)
         y = np.arange(0,self.data.shape[0],1)
