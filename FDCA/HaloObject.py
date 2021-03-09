@@ -248,7 +248,7 @@ class Radio_Halo(object):
     def set_image_characteristics(self, decrease_img_size):
         self.rmsnoise,self.imagenoise = u.Jy*self.get_noise(self.data*self.beam2pix)/self.beam2pix
         self.log.log(logging.INFO,'rms noise %f microJansky/beam' % (1.e6*(self.rmsnoise*self.beam2pix).value))
-        self.log.log(logging.INFO,'rms noise %f microJansky/arcsec2' % (1.e6*(self.rmsnoise/self.pix_area).to(u.arcsec*u.acrsec).value))
+        self.log.log(logging.INFO,'rms noise %f microJansky/arcsec2' % (1.e6*(self.rmsnoise/self.pix_area).to(u.Jy/u.arcsec**2.).value))
         if decrease_img_size:
             self.decrease_fov(self.data)
             x = np.arange(0, np.shape(self.data.value)[1], step=1, dtype='float')
