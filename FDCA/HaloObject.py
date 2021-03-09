@@ -433,12 +433,6 @@ class Radio_Halo(object):
         self.centre_pix = np.array([popt[1],popt[2]], dtype=np.int64)
         self.I0 = popt[0]
         
-        print((max_flux,centre_pix[0],centre_pix[1],size))
-        print(popt)
-        plt.imshow(plotdata)
-        plt.contour( self.circle_model((self.x_pix, self.y_pix), *popt).reshape(plotdata.shape) )
-        plt.savefig('/net/vdesk/data2/bach1/boxelaar/test'+str(first)+'.pdf')
-        plt.show()
 
     def circle_model(self, coords, I0, x0, y0, re):
         x,y = coords
