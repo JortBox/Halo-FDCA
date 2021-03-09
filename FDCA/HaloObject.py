@@ -149,24 +149,27 @@ class Radio_Halo(object):
     def get_object_location(self, loc):
         if loc is not None:
             self.loc = loc
-        elif self.target[:4] == 'MCXC':
-            coord    = str(self.table[self.cat]['RAJ2000'][0])+' '\
-                        + str(self.table[self.cat]['DEJ2000'][0])
-            self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
-        elif self.target[:5] == 'Abell':
-            coord    = str(self.table[self.cat]['_RA.icrs'][0])+' '\
-                        + str(self.table[self.cat]['_DE.icrs'][0])
-            self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
-        elif self.target[:4] == 'PSZ2':
-            coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
-            self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
-        elif self.target[:3] == 'WHL':
-            coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
-            self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
+            '''
+            elif self.target[:4] == 'MCXC':
+                coord    = str(self.table[self.cat]['RAJ2000'][0])+' '\
+                            + str(self.table[self.cat]['DEJ2000'][0])
+                self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
+            elif self.target[:5] == 'Abell':
+                coord    = str(self.table[self.cat]['_RA.icrs'][0])+' '\
+                            + str(self.table[self.cat]['_DE.icrs'][0])
+                self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
+            elif self.target[:4] == 'PSZ2':
+                coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
+                self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
+            elif self.target[:3] == 'WHL':
+                coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
+                self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
+            '''
         else:
             self.log.log(logging.WARNING,'No halo sky location given. Assuming image centre.')
             self.log.log(logging.INFO,'- Not giving an approximate location can affect MCMC performance -')
-            cent_pix = (np.array([self.original_image.shape])/2).astype(np.int64)
+            #cent_pix = (np.array([self.original_image.shape])/2).astype(np.int64)
+            cent_pix = np.asarray(self.original_image.shape, dtype=np.float64).reshape(1,2)/2.
             w        = wcs.WCS(self.header)
             coord    = w.celestial.wcs_pix2world(cent_pix,1)
             self.loc = SkyCoord(coord[0,0], coord[0,1], unit=u.deg)
@@ -373,7 +376,7 @@ class Radio_Halo(object):
         centre_pix  = np.array([[self.centre_pix[0],self.centre_pix[1]]])
         world_coord = w.celestial.wcs_pix2world(centre_pix,1)
         if world_coord[0,0]<0.: world_coord[0,0] += 360
-        if world_coord[0,1]<0.: world_coord[0,1] += 360
+        #if world_coord[0,1]<0.: world_coord[0,1] += 360
 
         self.centre_wcs = (np.array([world_coord[0,0],world_coord[0,1]])*u.deg)
 
