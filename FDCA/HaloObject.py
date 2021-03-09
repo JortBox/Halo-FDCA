@@ -408,14 +408,12 @@ class Radio_Halo(object):
             size = self.radius/(3.5*self.pix_size)
             max_flux = self.I0
         else: size = data.shape[1]/4.
-        print(size, first)
         bounds  = ([0.,0.,0.,0.,],
                   [np.inf,data.shape[0],
                           data.shape[1],
                           data.shape[1]/2.])
         if self.user_radius != False:
             size = (self.radius_real/2.)/self.pix_size
-        print(size)
         image = data.ravel()
         if self.mask:
             image = data.ravel()[self.image_mask.ravel() == 0]
