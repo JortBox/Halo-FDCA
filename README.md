@@ -8,9 +8,9 @@ This software is open source and still in development. Suggestions, remarks, bug
 
 ### Citation
 If you make use of this code in its original form or portions of it, please cite:<br>
-Boxelaar et al., 2020 (in prep.), Astronomy and Computing
+Boxelaar et al., 2021 (submitted), Astronomy and Computing
 
-Also available on the arXiv: t.b.a.
+Also available on the arXiv: https://arxiv.org/abs/2103.08554
 
 ## Requirements
 
