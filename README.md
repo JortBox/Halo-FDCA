@@ -8,7 +8,7 @@ This software is open source and still in development. Suggestions, remarks, bug
 
 ### Citation
 If you make use of this code in its original form or portions of it, please cite:<br>
-Boxelaar J.M. et al., A robust model for flux density calculations of radio halos in galaxy clusters: Halo-FDCA, Astronomy and Computing, Volume 35, 2021, 100464, ISSN 2213-1337, https://doi.org/10.1016/j.ascom.2021.100464.
+_Boxelaar J.M. et al., A robust model for flux density calculations of radio halos in galaxy clusters: Halo-FDCA, Astronomy and Computing, Volume 35, 2021, 100464, ISSN 2213-1337, https://doi.org/10.1016/j.ascom.2021.100464._
 
 Also available on the arXiv: https://arxiv.org/abs/2103.08554
 
