@@ -132,6 +132,7 @@ optional arguments:
   -freq FREQ            (float) frequency in MHz to calculate flux in. When
                         given, the spectral index will be used. Default: image
                         frequency  
+  -rms                  (float) Set manual rms noise level to be used by the code in uJy/beam Default: rms calculated by code
 ```
 The keywords `object`, `d_path` and `z` are mandatory to give to be able to run the code.
 
