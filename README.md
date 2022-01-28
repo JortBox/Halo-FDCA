@@ -27,7 +27,7 @@ https://www.scipy.org/docs.html
 `emcee` v3.0 and up<br>
 https://emcee.readthedocs.io/en/stable/ 
 
-`corner`<br>
+`corner` v2.1 <br>
 https://corner.readthedocs.io/en/latest/index.html 
 
 `skimage` v0.17 <br>
