@@ -2,10 +2,11 @@
 *.pyc
 __pycache__/
 
-# Mac junk
+# Mac
 *.DS_Store
 *.AppleDouble
 *.LSOverride
 *.icloud
 
 *.ipynb_checkpoints
+*.ipynb_checkpoints/
