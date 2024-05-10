@@ -102,6 +102,7 @@ if __name__=='__main__':
     parser.add_argument('-run_mcmc',  help='(bool) Whether to run a MCMC routine or skip it to go straight to processing. can be done if a runned sample already exists in the output path. Default: True',default=True, type=str2bool)
     parser.add_argument('-int_max',   help='(float) Integration radius in r_e units. Default: inf',default=np.inf, type=float)
     parser.add_argument('-freq',      help='(float) frequency in MHz to calculate flux in. When given, the spectral index will be used. Default: image frequency',default=None, type=str)
+    parser.add_argument('-rms',      help='(float) Set manual rms noise level to be used by the code in uJy/beam Default: rms calculated by code',default=0., type=float)
 
     args = parser.parse_args()
     loc = args.loc
@@ -120,7 +121,7 @@ if __name__=='__main__':
     halo = FDCA.Radio_Halo(args.object, args.d_file, maskpath=args.m_file, mask=args.m,
                             decreased_fov=args.fov,logger=logger, loc=loc,
                             M500=None, R500=None, z=args.z,
-                            outputpath=args.out_path, spectr_index=args.spectr_idx)
+                            outputpath=args.out_path, spectr_index=args.spectr_idx, rms=args.rms)
     p0, bounds = get_initial_guess(halo)
     if args.freq is None: args.freq = halo.freq.value
 

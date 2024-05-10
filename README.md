@@ -8,9 +8,9 @@ This software is open source and still in development. Suggestions, remarks, bug
 
 ### Citation
 If you make use of this code in its original form or portions of it, please cite:<br>
-Boxelaar et al., 2020 (in prep.), Astronomy and Computing
+_Boxelaar J.M. et al., A robust model for flux density calculations of radio halos in galaxy clusters: Halo-FDCA, Astronomy and Computing, Volume 35, 2021, 100464, ISSN 2213-1337, https://doi.org/10.1016/j.ascom.2021.100464._
 
-Also available on the arXiv: t.b.a.
+Also available on the arXiv: https://arxiv.org/abs/2103.08554
 
 ## Requirements
 
@@ -27,7 +27,7 @@ https://www.scipy.org/docs.html
 `emcee` v3.0 and up<br>
 https://emcee.readthedocs.io/en/stable/ 
 
-`corner`<br>
+`corner` v2.2 <br>
 https://corner.readthedocs.io/en/latest/index.html 
 
 `skimage` v0.17 <br>
@@ -132,6 +132,7 @@ optional arguments:
   -freq FREQ            (float) frequency in MHz to calculate flux in. When
                         given, the spectral index will be used. Default: image
                         frequency  
+  -rms                  (float) Set manual rms noise level to be used by the code in uJy/beam Default: rms calculated by code
 ```
 The keywords `object`, `d_path` and `z` are mandatory to give to be able to run the code.
 

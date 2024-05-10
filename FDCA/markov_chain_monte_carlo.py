@@ -451,7 +451,7 @@ def regrid_to_beamsize(info, img, accuracy=100.):
     orig_scale = (np.array(pseudo_array.shape)/np.array(img.shape)).astype(np.int64)
     elements   = np.prod(np.array(orig_scale,dtype='float64'))
 
-    if accuracy is 1:
+    if accuracy == 1:
         pseudo_array = np.copy(img)
     else:
         for j in range(img.shape[0]):
@@ -765,10 +765,10 @@ class processing(object):
 
     def cornerplot(self):
         try:
-            fig = corner.corner(self.samples_units,labels=self.labels_units,truths=self.popt_units,
+            fig = corner.corner(self.samples_units,labels=self.labels_units,truths=self.popt_units[self.params],
                         quantiles=[0.160, 0.5, 0.840], show_titles=True, max_n_ticks=3, title_fmt=self.fmt)
         except:
-            fig = corner.corner(self.samples_units,labels=self.labels_units,truths=self.popt_units,
+            fig = corner.corner(self.samples_units,labels=self.labels_units,truths=self.popt_units[self.params],
                         quantiles=[0.160, 0.5, 0.840], show_titles=True, max_n_ticks=3, title_fmt='1.2g')
         if self.save:
             plt.savefig(self.halo.plotPath+self.halo.file.replace('.fits','')+'_cornerplot'+self.filename_append+'.pdf')
@@ -943,8 +943,10 @@ class processing(object):
                             + np.log(np.sqrt(2*np.pi)*self.rmsregrid))
         self.AIC  = 2*(self.dim-self.ln_likelihood)
 
+        self.log.log(logging.INFO,'chi^2: {}'.format(chi2))
+        self.log.log(logging.INFO,'effective DoF: {}'.format(binned_dof))
         self.log.log(logging.INFO,'chi^2_red: {}'.format(self.chi2_red))
-        self.log.log(logging.INFO,'AIC: {}'.format(self.AIC))
+        #self.log.log(logging.INFO,'AIC: {}'.format(self.AIC))
 
         x = np.arange(0,self.data.shape[1],1)
         y = np.arange(0,self.data.shape[0],1)
@@ -971,7 +973,6 @@ class processing(object):
 
         I0   = u.Jy*self.samples[:,0]/self.halo.pix_area
         flux = (gamma(1./m)*np.pi*I0/(4*m) * factor * gammainc(1./m, int_max**(2*m))\
-
                     *(freq/self.halo.freq)**self.alpha).to(u.mJy)
 
         self.flux      = np.copy(flux)

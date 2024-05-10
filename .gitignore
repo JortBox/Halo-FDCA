@@ -7,3 +7,5 @@ __pycache__/
 *.AppleDouble
 *.LSOverride
 *.icloud
+
+*.ipynb_checkpoints

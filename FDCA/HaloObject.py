@@ -71,8 +71,9 @@ class Radio_Halo(object):
     '''
     def __init__(self, object, path, decreased_fov=False, maskpath=None, mask=False,
                 logger=logging, loc=None, M500=None, R500=None, z=None,
-                outputpath='./', spectr_index=-1.2):
-
+                outputpath='./', spectr_index=-1.2, rms=0):
+        
+        self.rmsnoise = rms #manual noise level mJy/beam
         self.user_radius = R500
         self.user_loc    = loc
         self.log = logger
@@ -149,26 +150,29 @@ class Radio_Halo(object):
     def get_object_location(self, loc):
         if loc is not None:
             self.loc = loc
-        elif self.target[:4] == 'MCXC':
-            coord    = str(self.table[self.cat]['RAJ2000'][0])+' '\
-                        + str(self.table[self.cat]['DEJ2000'][0])
-            self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
-        elif self.target[:5] == 'Abell':
-            coord    = str(self.table[self.cat]['_RA.icrs'][0])+' '\
-                        + str(self.table[self.cat]['_DE.icrs'][0])
-            self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
-        elif self.target[:4] == 'PSZ2':
-            coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
-            self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
-        elif self.target[:3] == 'WHL':
-            coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
-            self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
+            '''
+            elif self.target[:4] == 'MCXC':
+                coord    = str(self.table[self.cat]['RAJ2000'][0])+' '\
+                            + str(self.table[self.cat]['DEJ2000'][0])
+                self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
+            elif self.target[:5] == 'Abell':
+                coord    = str(self.table[self.cat]['_RA.icrs'][0])+' '\
+                            + str(self.table[self.cat]['_DE.icrs'][0])
+                self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
+            elif self.target[:4] == 'PSZ2':
+                coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
+                self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
+            elif self.target[:3] == 'WHL':
+                coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
+                self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
+            '''
         else:
             self.log.log(logging.WARNING,'No halo sky location given. Assuming image centre.')
             self.log.log(logging.INFO,'- Not giving an approximate location can affect MCMC performance -')
-            cent_pix = (np.array([self.original_image.shape])/2).astype(np.int64)
+            #cent_pix = (np.array([self.original_image.shape])/2).astype(np.int64)
+            cent_pix = np.asarray(self.original_image.shape, dtype=np.float64).reshape(1,2)/2.
             w        = wcs.WCS(self.header)
-            coord    = w.celestial.wcs_pix2world(cent_pix,0)
+            coord    = w.celestial.wcs_pix2world(cent_pix,1)
             self.loc = SkyCoord(coord[0,0], coord[0,1], unit=u.deg)
             self.user_loc = False
 
@@ -246,7 +250,14 @@ class Radio_Halo(object):
         self.freq        = (self.header['CRVAL3']*u.Hz).to(u.MHz)
 
     def set_image_characteristics(self, decrease_img_size):
-        self.rmsnoise,self.imagenoise = u.Jy*self.get_noise(self.data*self.beam2pix)/self.beam2pix
+        if self.rmsnoise != 0.:
+            self.rmsnoise,self.imagenoise = u.Jy*self.get_noise(self.data*self.beam2pix)/self.beam2pix
+        else: 
+            self.rmsnoise = 1.e-6*(self.rmsnoise/self.beam2pix)*u.Jy
+            self.imagenoise = 0.
+        
+        self.log.log(logging.INFO,'rms noise %f microJansky/beam' % (1.e6*(self.rmsnoise*self.beam2pix).value))
+        self.log.log(logging.INFO,'rms noise %f microJansky/arcsec2' % (1.e6*(self.rmsnoise/self.pix_area).to(u.Jy/u.arcsec**2.).value))
         if decrease_img_size:
             self.decrease_fov(self.data)
             x = np.arange(0, np.shape(self.data.value)[1], step=1, dtype='float')
@@ -369,9 +380,9 @@ class Radio_Halo(object):
     def pix_to_world(self):
         w = wcs.WCS(self.header)
         centre_pix  = np.array([[self.centre_pix[0],self.centre_pix[1]]])
-        world_coord = w.celestial.wcs_pix2world(centre_pix,0)
+        world_coord = w.celestial.wcs_pix2world(centre_pix,1)
         if world_coord[0,0]<0.: world_coord[0,0] += 360
-        if world_coord[0,1]<0.: world_coord[0,1] += 360
+        #if world_coord[0,1]<0.: world_coord[0,1] += 360
 
         self.centre_wcs = (np.array([world_coord[0,0],world_coord[0,1]])*u.deg)
 
@@ -384,7 +395,7 @@ class Radio_Halo(object):
         if first or self.original_image.shape == self.data.shape:
             w           = wcs.WCS(self.header)
             centre_wcs  = np.array([[self.loc.ra.deg,self.loc.dec.deg]])
-            world_coord = w.celestial.wcs_world2pix(centre_wcs,0,ra_dec_order=True)
+            world_coord = w.celestial.wcs_world2pix(centre_wcs,1,ra_dec_order=True)
             return np.array([world_coord[0,0],world_coord[0,1]])
         else:
             return np.array((data.shape[1]/2.,data.shape[0]/2.),dtype=np.int64)
@@ -402,16 +413,16 @@ class Radio_Halo(object):
         plotdata[self.image_mask==1]=0
         max_flux   = np.max(plotdata)
         centre_pix = self.find_halo_centre(data, first)
-        if not first: size = self.radius/(3.5*self.pix_size)
+        if not first: 
+            size = self.radius/(3.5*self.pix_size)
+            max_flux = self.I0
         else: size = data.shape[1]/4.
-        print(size, first)
         bounds  = ([0.,0.,0.,0.,],
                   [np.inf,data.shape[0],
                           data.shape[1],
                           data.shape[1]/2.])
         if self.user_radius != False:
             size = (self.radius_real/2.)/self.pix_size
-        print(size)
         image = data.ravel()
         if self.mask:
             image = data.ravel()[self.image_mask.ravel() == 0]
@@ -429,12 +440,6 @@ class Radio_Halo(object):
         self.centre_pix = np.array([popt[1],popt[2]], dtype=np.int64)
         self.I0 = popt[0]
         
-        print((max_flux,centre_pix[0],centre_pix[1],size))
-        print(popt)
-        plt.imshow(plotdata)
-        plt.contour( self.circle_model((self.x_pix, self.y_pix), *popt).reshape(plotdata.shape) )
-        plt.savefig('/net/vdesk/data2/bach1/boxelaar/test'+str(first)+'.pdf')
-        plt.show()
 
     def circle_model(self, coords, I0, x0, y0, re):
         x,y = coords
