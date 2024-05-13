@@ -6,8 +6,6 @@ Author: J.M. Boxelaar
 '''
 
 from __future__ import division
-import sys
-import time
 import os
 import logging
 import pyregion
@@ -17,8 +15,6 @@ import pandas as pd
 from scipy.optimize import curve_fit
 from scipy import ndimage
 from skimage.measure import block_reduce
-from skimage.transform import rescale
-import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from mpl_toolkits.mplot3d import Axes3D
 from astropy.io import fits
@@ -34,7 +30,20 @@ deg2rad=np.pi/180.
 Jydeg2     = u.Jy/(u.deg*u.deg)
 mJyarcsec2 = u.mJy/(u.arcsec*u.arcsec)
 
-def add_parameter_labels(obj, array):
+def get_initial_guess(halo):
+    r_guess = halo.radius/(3.5*halo.pix_size)
+    r_bound = halo.data.shape[0]/2.
+    if r_guess >= halo.data.shape[1]/2.: r_guess = halo.data.shape[1]/4.
+
+    diff   = np.abs(halo.margin)
+    p0     = [halo.I0, halo.centre_pix[0]+diff[0],
+              halo.centre_pix[1]+diff[2], r_guess,r_guess,r_guess,r_guess,0.,0.,0.]
+    bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf, 0., -np.inf],
+              [np.inf,halo.data.shape[0],halo.data.shape[1],
+               r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
+    return p0,bounds
+
+def add_parameter_labels(obj, array) -> pd.Series|pd.DataFrame:
     full_array = np.zeros(obj.params.shape)
     full_array[obj.params] = np.array(array)
     parameterised_array = pd.DataFrame.from_dict({'params': full_array},
