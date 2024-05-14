@@ -159,5 +159,5 @@ if __name__=='__main__':
     processing.get_flux(int_max=args.int_max, freq=frequency)# error is one sigma (68%).
     processing.get_power(freq=frequency)
 
-
+    print(processing.popt_units)
     #Halo.Close()

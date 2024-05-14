@@ -354,6 +354,8 @@ def gamma_dist(x, shape, scale):
 
 
 def transform_units(obj, params):
+    params[1] = params[1] + obj.halo.fov_info_mcmc[2]
+    params[2] = params[2] + obj.halo.fov_info_mcmc[0]
     param_sky = wcs.utils.pixel_to_skycoord(
         params[1], params[2], wcs.WCS(obj.halo.header), origin=1
     )

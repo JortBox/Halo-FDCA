@@ -1,0 +1,30 @@
+2024-05-14 17:30:27,414 Abell2744    MainProcess INFO     Start Process for: Abell2744
+2024-05-14 17:30:27,414 Abell2744    MainProcess INFO     Run Arguments: 
+Namespace(object='Abell2744', path_in='./Example/Data_dir/A2744_JVLA.image.fits', redshift=0.308, model='circle', frame='icrs', loc=None, m=True, m_file='./Example/Data_dir/A2744halo.reg', path_out='./Example/Output_dir', fov=True, spectr_idx=-1.2, walkers=200, steps=1200, burntime=None, max_radius=None, gamma_prior=False, k_exp=False, off=False, s=True, run_mcmc=False, int_max=inf, freq=None, rms=0.0)
+
+2024-05-14 17:30:27,442 Abell2744    MainProcess WARNING  No manual location given, searching for Abell2744 in NED.
+2024-05-14 17:30:27,476 Abell2744    MainProcess INFO     Custom redshift set
+2024-05-14 17:30:27,597 Abell2744    MainProcess INFO     MCMC Mask set
+2024-05-14 17:30:29,834 Abell2744    MainProcess INFO     rms noise 18.102064 microJansky/beam
+2024-05-14 17:30:29,834 Abell2744    MainProcess INFO     rms noise 0.091225 microJansky/arcsec2
+2024-05-14 17:30:29,989 Abell2744    MainProcess INFO     MCMC Mask set
+2024-05-14 17:30:31,236 Abell2744    MainProcess INFO     Model name: circle
+2024-05-14 17:30:31,440 Abell2744    MainProcess INFO     MCMC Mask set
+2024-05-14 17:30:31,593 Abell2744    MainProcess INFO     
+ Parameters: 
+I0      2.596752
+x0      3.707817
+y0    -30.493614
+r1    255.108539
+Name: params, dtype: float64 
+One sigma parameter uncertainties (lower, upper):                                     
+[2.91534538e-02 1.70471578e-04 1.53629341e-04 2.32933086e+00] 
+[2.86414394e-02 1.72584346e-04 1.51085512e-04 2.37117774e+00] 
+In Units: ['$\\mu$Jy arcsec$^{-2}$' 'deg' 'deg' 'kpc']
+2024-05-14 17:30:34,017 Abell2744    MainProcess INFO     chi^2: 2613.189048770013
+2024-05-14 17:30:34,017 Abell2744    MainProcess INFO     effective DoF: 2018
+2024-05-14 17:30:34,017 Abell2744    MainProcess INFO     chi^2_red: 1.29494006381071
+2024-05-14 17:30:34,024 Abell2744    MainProcess INFO     MCMC Flux at 1518.7 MHz: 51.61 +/- 0.57 mJy
+2024-05-14 17:30:34,024 Abell2744    MainProcess INFO     Integration radius inf
+2024-05-14 17:30:34,024 Abell2744    MainProcess INFO     S/N based on flux 90.54
+2024-05-14 17:30:34,034 Abell2744    MainProcess INFO     Power at 1518.7 MHz: (1.67e+25 +/- 1.84e+23) W / Hz
