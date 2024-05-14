@@ -383,8 +383,8 @@ class RadioHalo(object):
         
     def get_beam_area(self):
         try:
-            self.bmaj = self.header["BMIN"] * u.deg
-            self.bmin = self.header["BMAJ"] * u.deg
+            self.bmaj = self.header["BMAJ"] * u.deg
+            self.bmin = self.header["BMIN"] * u.deg
             self.bpa = self.header["BPA"] * u.deg
         except KeyError:
             string = str(self.header["HISTORY"])
