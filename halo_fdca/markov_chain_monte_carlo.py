@@ -10,29 +10,32 @@ from __future__ import division
 import sys
 import os
 import logging
-from multiprocessing import Pool, cpu_count, freeze_support, set_start_method
-
-import numpy as np
-import pandas as pd
-from scipy.optimize import curve_fit
-import scipy.stats as stats
-from scipy import ndimage
-from scipy.special import gammainc, gamma
-import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize, LogNorm
-from skimage.measure import block_reduce
-from astropy.convolution import Gaussian2DKernel
-from astropy.convolution import convolve
-from astropy.io import fits
-from astropy import units as u
-from astropy import wcs
-from astropy.coordinates import SkyCoord
 import emcee
 import corner
 
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+import matplotlib.pyplot as plt
+
+from multiprocessing import Pool, cpu_count, freeze_support, set_start_method
+from scipy import ndimage
+from scipy.optimize import curve_fit
+from scipy.special import gammainc, gamma
+from matplotlib.colors import Normalize, LogNorm
+from skimage.measure import block_reduce
+from astropy import wcs
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy.cosmology import FlatLambdaCDM
+from astropy.convolution import Gaussian2DKernel
+from astropy.convolution import convolve
+from astropy.io import fits
+
+
 # Subfile imports
-from . import fdca_utils as utils
 from . import plot_fits
+from . import fdca_utils as utils
 from .halo_object import RadioHalo
 
 set_start_method("fork")
@@ -102,7 +105,7 @@ class Fitting(object):
     ):
         assert model in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
         
-        if data is None: self.data = _parent_.data
+        if data is None: self.data = _parent_.data_mcmc
         else: self.data = data
 
         if logger is None: self.log = _parent_.log
@@ -130,8 +133,8 @@ class Fitting(object):
         self.gamma_prior = gamma_prior
 
         self.check_settings(model, walkers, mask, burntime, max_radius)
-        x = np.arange(0, _parent_.data.shape[1], 1)
-        y = np.arange(0, _parent_.data.shape[0], 1)
+        x = np.arange(0, self.data.shape[1], 1)
+        y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
         self.dof = len(self.data.value.flat) - self.dim
@@ -140,7 +143,7 @@ class Fitting(object):
     def pre_fit(self):
         # try:
         popt = self.pre_mcmc_fit(
-            self.halo.data, p0=np.array(self.p0), bounds=np.array(self.bounds)
+            self.data, p0=np.array(self.p0), bounds=np.array(self.bounds)
         )
         return popt
         # except Exception as e:
@@ -158,16 +161,19 @@ class Fitting(object):
             self.popt = self.pre_fit()
         else:
             self.popt = pre_fit_guess
+            
+        #sys.exit()
         
         self.mcmc_noise = utils.findrms(data)
         pos = [
             self.popt[self.params] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
             for i in range(self.walkers)
         ]
-
+        
         # set_dictionary is called to create a dictionary with necessary atributes
         # because 'Pool' cannot pickle the fitting object.
         halo_info = set_dictionary(self)
+
 
         num_CPU = cpu_count()
         with Pool(num_CPU) as pool:
@@ -296,7 +302,11 @@ class Fitting(object):
                 "MCMC Too few walkers, nwalkers = {}".format(self.walkers),
             )
 
-        self.image_mask, self.mask = utils.masking(self, mask)
+        self.image_mask, self.mask = utils.masking(self, mask, full_size=True)
+        self.image_mask = self.image_mask[
+            self.halo.fov_info_mcmc[0] : self.halo.fov_info_mcmc[1],
+            self.halo.fov_info_mcmc[2] : self.halo.fov_info_mcmc[3],
+        ]
 
         if burntime is None:
             self.burntime = int(0.125 * self.steps)
@@ -331,8 +341,8 @@ class Fitting(object):
         else:
             self.mask = False
             self.log.log(logging.ERROR, "No regionfile found,continueing without mask")
-
-    def setMask(self, data):
+    '''
+    def set_mask(self):
         regionpath = self.halo.maskPath
         outfile = self.halo.basedir + "Data/Masks/" + self.halo.target + "_mask.fits"
         utils.mask_region(self.halo.path, regionpath, outfile)
@@ -346,20 +356,26 @@ class Fitting(object):
             self.halo.fov_info[0] : self.halo.fov_info[1],
             self.halo.fov_info[2] : self.halo.fov_info[3],
         ]
-
+    '''
     def at(self, parameter):
         par = np.array(self.paramNames)[self.params]
         return np.where(par == parameter)[0][0]
 
     def set_data_to_use(self, data):
         if self.rebin:
-            binned_data = utils.regridding(self.halo, data, decrease_fov=True)
+            binned_data = utils.regridding(self.halo, data, decrease_fov=self.halo.cropped)
             if not self.mask:
-                self.image_mask = np.zeros(self.halo.data.shape)
+                self.image_mask = np.zeros(self.data.shape)
+                
             self.binned_image_mask = utils.regridding(
-                self.halo, self.image_mask * u.Jy, mask=not self.halo.cropped
+                self.halo, 
+                self.image_mask * u.Jy, 
+                decrease_fov=self.halo.cropped, 
+                mask=True
             ).value
             use = binned_data.value
+        
+            
             return use.ravel()[
                 self.binned_image_mask.ravel()
                 <= self.mask_treshold * self.binned_image_mask.max()
@@ -380,8 +396,9 @@ class Fitting(object):
 
     def pre_mcmc_fit(self, image, p0, bounds) -> pd.Series|pd.DataFrame:
         data = image.ravel()
-        p0[1] -= self.halo.margin[2]
-        p0[2] -= self.halo.margin[0]
+
+        #p0[1] -= self.halo.margin[2]
+        #p0[2] -= self.halo.margin[0]
         if self.mask:
             data = data[self.image_mask.ravel() == 0]
 
@@ -392,8 +409,8 @@ class Fitting(object):
         perr = np.sqrt(np.diag(pcov))
 
 
-        popt[1] += self.halo.margin[2]
-        popt[2] += self.halo.margin[0]
+        #popt[1] += self.halo.margin[2]
+        #popt[2] += self.halo.margin[0]
         popt = utils.add_parameter_labels(self, popt)
 
         if not self.k_exponent:
@@ -430,7 +447,7 @@ class Fitting(object):
         self.centre_pix = np.array([popt["x0"], popt["y0"]], dtype=np.int64)
         self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], wcs.WCS(self.halo.header), origin=1)
         
-        popt_units = self.transform_units(np.copy(popt))
+        popt_units = utils.transform_units(self, np.copy(popt))
         popt_units = utils.add_parameter_labels(self, popt_units[self.params])
         self.log.log(
             logging.INFO,
@@ -489,25 +506,6 @@ class Fitting(object):
         )
         plt.clf()
         plt.close(fig)
-
-    def transform_units(self, params):
-        params[0] = ((u.Jy * params[0] / self.halo.pix_area).to(uJyarcsec2)).value
-        params[1] = (
-            params[1] - self.centre_pix[0]
-        ) * self.halo.pix_size.value + self.centre_wcs.ra.deg
-        params[2] = (
-            params[2] - self.centre_pix[1]
-        ) * self.halo.pix_size.value + self.centre_wcs.dec.deg
-        params[3] = ((params[3] * self.halo.pix2kpc).to(u.kpc)).value
-        if self.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
-            params[4] = ((params[4] * self.halo.pix2kpc).to(u.kpc)).value
-
-        if self.modelName == "skewed":
-            params[5] = ((params[5] * self.halo.pix2kpc).to(u.kpc)).value
-            params[6] = ((params[6] * self.halo.pix2kpc).to(u.kpc)).value
-        if self.modelName in ["rotated_ellipse", "skewed"]:
-            params[self.at("ang")] = params[self.at("ang")]
-        return params
 
     def set_sampler_header(self):
         self.hdu.header["nwalkers"] = self.walkers
@@ -842,7 +840,7 @@ class Processing(object):
         offset=False,
         burntime=None,
     ):
-        assert model not in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
+        assert model in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
 
         if data is None:
             self.data = _parent_.data
@@ -854,8 +852,8 @@ class Processing(object):
         else:
             self.log = logger
         
-        x = np.arange(0, data.shape[1], 1)
-        y = np.arange(0, data.shape[0], 1)
+        x = np.arange(0, self.data.shape[1], 1)
+        y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
         self.log.log(logging.INFO, "Model name: {}".format(model))
@@ -1176,11 +1174,11 @@ class Processing(object):
         for i in range(self.dim):
             samples_list.append(samples_units[:, i])
 
-        transformed = self.transform_units(samples_list)
+        transformed = utils.transform_units(self, samples_list)
         for i in range(self.dim):
             self.samples_units[:, i] = transformed[i]
 
-        self.popt_units = self.transform_units(np.copy(self.popt))
+        self.popt_units = utils.transform_units(self, np.copy(self.popt))
         self.percentiles_units = self.get_percentiles(self.samples_units)
         self.params_units = utils.add_parameter_labels(
             self, self.percentiles_units[:, 1].reshape(self.dim)
@@ -1199,25 +1197,6 @@ class Processing(object):
                 str(self.units),
             ),
         )
-
-    def transform_units(self, params):
-        params[0] = ((u.Jy * params[0] / self.halo.pix_area).to(uJyarcsec2)).value
-        params[1] = (
-            params[1] - self.centre_pix[0]
-        ) * self.halo.pix_size.value + self.centre_wcs.ra.deg
-        params[2] = (
-            params[2] - self.centre_pix[1]
-        ) * self.halo.pix_size.value + self.centre_wcs.dec.deg
-        params[3] = ((params[3] * self.halo.pix2kpc).to(u.kpc)).value
-        if self.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
-            params[4] = ((params[4] * self.halo.pix2kpc).to(u.kpc)).value
-
-        if self.modelName == "skewed":
-            params[5] = ((params[5] * self.halo.pix2kpc).to(u.kpc)).value
-            params[6] = ((params[6] * self.halo.pix2kpc).to(u.kpc)).value
-        if self.modelName in ["rotated_ellipse", "skewed"]:
-            params[self.at("ang")] = params[self.at("ang")]
-        return params
 
     def get_units(self):
         labels = ["$I_0$", "$x_0$", "$y_0$"]
@@ -1431,7 +1410,8 @@ class Processing(object):
         if freq is None:
             freq = self.halo.freq
 
-        d_L = self.halo.cosmology.luminosity_distance(self.halo.z)
+        cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        d_L = cosmology.luminosity_distance(self.halo.z)
         power = (
             4
             * np.pi

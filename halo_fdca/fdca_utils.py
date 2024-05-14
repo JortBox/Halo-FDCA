@@ -25,10 +25,11 @@ from astropy.convolution import convolve
 
 np.seterr(divide='ignore', invalid='ignore')
 
-rad2deg=180./np.pi
-deg2rad=np.pi/180.
-Jydeg2     = u.Jy/(u.deg*u.deg)
-mJyarcsec2 = u.mJy/(u.arcsec*u.arcsec)
+rad2deg = 180.0 / np.pi
+deg2rad = np.pi / 180.0
+Jydeg2 = u.Jy / (u.deg * u.deg)
+mJyarcsec2 = u.mJy / (u.arcsec * u.arcsec)
+uJyarcsec2 = 1.0e-3 * u.mJy / (u.arcsec * u.arcsec)
 
 def get_initial_guess(halo):
     r_guess = halo.radius/(3.5*halo.pix_size)
@@ -55,7 +56,7 @@ def convolve_model(halo, Ir, rotate):
         Ir = rotate_image(halo,Ir,decrease_fov=True)
     return convolve_with_gaussian(halo, Ir).ravel()
 
-def gauss(x,mu,sigma,A):
+def gauss(x,mu,sigma, A):
     return A*np.exp(-1./2*((x-mu)/sigma)**2.)
 
 def convolve_with_gaussian(obj, data):
@@ -114,6 +115,7 @@ def noise_characterisation(obj, data):
     #mask[obj.data.value>2*obj.rmsnoise.value]=np.nan
 
     nbin = 100
+    
     bins = np.linspace(-5*obj.rmsnoise.value,
                             8*obj.rmsnoise.value, nbin)
     x    = np.linspace(-5*obj.rmsnoise.value,
@@ -122,7 +124,7 @@ def noise_characterisation(obj, data):
 
     hist_data, data_bins = np.histogram(mask.ravel(), bins=bins)
     popt, pcov = curve_fit(gauss, xdata=binscenters, ydata=hist_data,
-                            p0=(0,0.000003,5000))
+                            p0=(0,0.000003, 5000))
     return popt
 
 def advanced_noise_modeling(obj,seed=False):
@@ -150,7 +152,7 @@ def export_fits(data, path, header=None):
     hdul = fits.HDUList([hdu])
     hdul.writeto(path, overwrite=True)
 
-def masking(obj, mask):
+def masking(obj, mask, full_size=False):
     try: halo = obj.halo
     except: halo = obj
 
@@ -172,9 +174,12 @@ def masking(obj, mask):
             '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
                is made wrt the entire image. fov_info makes the mask the same shape as
                the image and overlays it'''
-            image_mask = fits.open(outfile)[0].data[0,0,
-                                    halo.fov_info[0]:halo.fov_info[1],
-                                    halo.fov_info[2]:halo.fov_info[3]]
+            if full_size:
+                image_mask = fits.open(outfile)[0].data[0,0,:,:]
+            else:
+                image_mask = fits.open(outfile)[0].data[
+                    0,0,halo.fov_info[0]:halo.fov_info[1],halo.fov_info[2]:halo.fov_info[3]
+                ]
             obj.log.log(logging.INFO,'MCMC Mask set')
             os.remove(outfile)
     else:
@@ -182,8 +187,7 @@ def masking(obj, mask):
         mask=False
 
     if mask==False:
-        image_mask = np.zeros_like(halo.original_image[halo.fov_info[0]:halo.fov_info[1],
-                                                       halo.fov_info[2]:halo.fov_info[3]])
+        image_mask = np.zeros_like(obj.data)
     return image_mask, mask
 
 
@@ -347,3 +351,29 @@ def regrid_to_beamsize(obj, img, accuracy=100.):
 def gamma_dist(x, shape, scale):
     from scipy.special import gamma
     return (x**(shape-1.)*np.exp(-x/scale))/(gamma(shape)*(scale**shape))
+
+
+def transform_units(obj, params):
+    param_sky = wcs.utils.pixel_to_skycoord(
+        params[1], params[2], wcs.WCS(obj.halo.header), origin=1
+    )
+    params[1] = param_sky.ra.deg
+    params[2] = param_sky.dec.deg
+    
+    params[0] = ((u.Jy * params[0] / obj.halo.pix_area).to(uJyarcsec2)).value
+    #params[1] = (
+    #    params[1] - self.centre_pix[0]
+    #) * self.halo.pix_size.value + self.centre_wcs.ra.deg
+    #params[2] = (
+    #    params[2] - self.centre_pix[1]
+    #) * self.halo.pix_size.value + self.centre_wcs.dec.deg
+    params[3] = ((params[3] * obj.halo.pix2kpc).to(u.kpc)).value
+    if obj.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
+        params[4] = ((params[4] * obj.halo.pix2kpc).to(u.kpc)).value
+
+    if obj.modelName == "skewed":
+        params[5] = ((params[5] * obj.halo.pix2kpc).to(u.kpc)).value
+        params[6] = ((params[6] * obj.halo.pix2kpc).to(u.kpc)).value
+    if obj.modelName in ["rotated_ellipse", "skewed"]:
+        params[obj.at("ang")] = params[obj.at("ang")]
+    return params

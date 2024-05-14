@@ -135,6 +135,8 @@ class RadioHalo(object):
             mask = True
         else:
             mask = False
+        self.cropped = False
+
 
         self.rmsnoise = rms  # manual noise level mJy/beam
         self.user_radius = R500
@@ -326,7 +328,7 @@ class RadioHalo(object):
         self.freq = (self.header["CRVAL3"] * u.Hz).to(u.MHz)
 
     def set_image_characteristics(self, decrease_img_size):
-        if self.rmsnoise != 0.0:
+        if self.rmsnoise == 0.0:
             self.rmsnoise, self.imagenoise = (
                 u.Jy * self.get_noise(self.data * self.beam2pix) / self.beam2pix
             )
@@ -375,9 +377,10 @@ class RadioHalo(object):
             self.ra = self.ra[self.fov_info[2] : self.fov_info[3]]
             self.dec = self.dec[self.fov_info[0] : self.fov_info[1]]
 
-        self.noise_char = utils.noise_characterisation(self, self.data.value)
+        #self.noise_char = utils.noise_characterisation(self, self.data.value)
         self.pix2kpc = self.pix_size * self.factor.to(u.kpc / u.deg)
-
+        
+        
     def get_beam_area(self):
         try:
             self.bmaj = self.header["BMIN"] * u.deg
@@ -435,7 +438,7 @@ class RadioHalo(object):
     def decrease_fov(self, data, width=2):
         """Function decreases image size based on first fit in exponentialFit.
         Slightly bigger image is used in MCMC. data is stored in self.data_mcmc"""
-        self.cropped = False
+        
         error = False
         image_width = width * self.radius / self.pix_size
         test_fov = [
@@ -487,8 +490,12 @@ class RadioHalo(object):
         self.data = data[
             self.fov_info[0] : self.fov_info[1], self.fov_info[2] : self.fov_info[3]
         ]
-        self.ra = self.ra[self.fov_info[2] : self.fov_info[3]]
-        self.dec = self.dec[self.fov_info[0] : self.fov_info[1]]
+        self.ra = self.ra[
+            self.fov_info[0] : self.fov_info[1], self.fov_info[2] : self.fov_info[3]
+        ]
+        self.dec = self.dec[
+            self.fov_info[0] : self.fov_info[1], self.fov_info[2] : self.fov_info[3]
+        ]
         # plt.imshow(self.data.value)
         # plt.show()
 
@@ -500,8 +507,8 @@ class RadioHalo(object):
         flat_y = self.y_pix.flatten()
 
         coords = wcs.utils.pixel_to_skycoord(flat_x, flat_y, w, origin=1)
-        self.ra = coords.ra.deg.reshape(self.x_pix.shape)
-        self.dec = coords.dec.deg.reshape(self.y_pix.shape)
+        self.ra = coords.ra.deg.reshape(self.x_pix.shape)*u.deg
+        self.dec = coords.dec.deg.reshape(self.y_pix.shape)*u.deg
 
 
     def pre_mcmc_func(self, obj, *theta):
@@ -515,13 +522,11 @@ class RadioHalo(object):
     def exponentialFit(self, data, first=False):
         plotdata = np.copy(data)
         plotdata[self.image_mask == 1] = 0
-        max_flux = np.max(plotdata)
+        
         if first:
             centre_pix = np.asarray(wcs.utils.skycoord_to_pixel(self.loc, wcs.WCS(self.header), origin=1))
-        
-            print(centre_pix, 'cp 1')
-            print(self.loc, 'loc')
             size = data.shape[1] / 4.0
+            max_flux = np.max(plotdata)
         else:
             centre_pix = self.centre_pix
             size = self.radius / (3.5 * self.pix_size)
@@ -534,7 +539,7 @@ class RadioHalo(object):
         if self.user_radius != False:
             size = (self.radius_real / 2.0) / self.pix_size
             
-        image = data.ravel()
+        image = data.ravel()#/max_flux # Normalise image for better fitting results
         if self.mask:
             image = data.ravel()[self.image_mask.ravel() == 0]
 
@@ -542,7 +547,7 @@ class RadioHalo(object):
             self.pre_mcmc_func,
             self,
             image,
-            p0=(max_flux, centre_pix[0], centre_pix[1], size),
+            p0=(1., centre_pix[0], centre_pix[1], size),
             bounds=bounds,
         )
 
@@ -555,7 +560,7 @@ class RadioHalo(object):
         # if first:
         self.radius = 3.5 * popt[3] * self.pix_size
         self.centre_pix = np.round(np.array([popt[1], popt[2]])).astype(np.int64)
-        self.I0 = popt[0]
+        self.I0 = popt[0] #* max_flux # scale max flux back to original
 
     def circle_model(self, coords, I0, x0, y0, re):
         x, y = coords

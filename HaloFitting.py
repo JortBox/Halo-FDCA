@@ -95,8 +95,12 @@ def get_initial_guess(halo):
     if r_guess >= halo.data.shape[1]/2.: r_guess = halo.data.shape[1]/4.
 
     diff   = np.abs(halo.margin)
-    p0     = [halo.I0, halo.centre_pix[0]+diff[0],
-              halo.centre_pix[1]+diff[2], r_guess,r_guess,r_guess,r_guess,0.,0.,0.]
+    p0     = [
+        halo.I0, 
+        Halo.centre_pix[0]-Halo.fov_info_mcmc[2], 
+        Halo.centre_pix[1]-Halo.fov_info_mcmc[0], 
+        r_guess,r_guess,r_guess,r_guess,0.,0.,0.
+    ]
     bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf, 0., -np.inf],
               [np.inf,halo.data.shape[0],halo.data.shape[1],
                r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
@@ -120,13 +124,9 @@ if __name__=='__main__':
                             decreased_fov=args.fov,logger=logger, loc=loc,
                             M500=None, R500=None, z=args.redshift,
                             output_path=args.path_out, spectr_index=args.spectr_idx, rms=args.rms)
-    
-    print(Halo.centre_wcs)
-    print(Halo.centre_pix)
-    print(Halo.ra)
-    sys.exit()
-    
+
     p0, bounds = get_initial_guess(Halo)
+    
     if args.freq is None: 
         args.freq = Halo.freq.value
 
@@ -145,17 +145,19 @@ if __name__=='__main__':
 
 
     processing = halo_fdca.Processing(
-        Halo, args.model,mask=args.m,
+        Halo, model=args.model,mask=args.m,
         maskpath=args.m_file, save=args.s,
         k_exponent=args.k_exp, offset=False,
         burntime=args.burntime
     )
     
+
     
-    processing.plot_results()
+    processing.plot()
     processing.get_chi2_value()
     frequency = float(args.freq)*u.MHz
     processing.get_flux(int_max=args.int_max, freq=frequency)# error is one sigma (68%).
     processing.get_power(freq=frequency)
 
-    Halo.Close()
+
+    #Halo.Close()
