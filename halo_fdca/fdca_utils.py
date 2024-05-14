@@ -206,7 +206,7 @@ def flatten(f):
     naxis=f[0].header['NAXIS']
     if naxis<2:
         raise RadioError('Can\'t make map from this')
-    if naxis is 2:
+    if naxis == 2:
         return fits.PrimaryHDU(header=f[0].header,data=f[0].data)
 
     w  = wcs.WCS(f[0].header)
@@ -295,9 +295,9 @@ def rotate_image(obj,img, decrease_fov=False, mask=False):
     else: cval=0
 
     if not decrease_fov:
-        if np.array(img.shape)[0]%2 is 0:
+        if np.array(img.shape)[0]%2 == 0:
             img = np.delete(img, 0, 0)
-        if np.array(img.shape)[1]%2 is 0:
+        if np.array(img.shape)[1]%2 == 0:
             img = np.delete(img, 0, 1)
 
         pivot = (np.array(img.shape)/2).astype(np.int64)
@@ -328,7 +328,7 @@ def regrid_to_beamsize(obj, img, accuracy=100.):
     orig_scale = (np.array(pseudo_array.shape)/np.array(img.shape)).astype(np.int64)
     elements   = np.prod(np.array(orig_scale,dtype='float64'))
 
-    if accuracy is 1:
+    if accuracy == 1:
         pseudo_array = np.copy(img)
     else:
         for j in range(img.shape[0]):

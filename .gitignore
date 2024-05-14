@@ -9,3 +9,5 @@ __pycache__/
 *.icloud
 
 *.ipynb_checkpoints
+
+*.vscode

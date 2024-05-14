@@ -25,6 +25,7 @@ from astropy.convolution import Gaussian2DKernel
 from astropy.convolution import convolve
 from astropy.io import fits
 from astropy import units as u
+from astropy import wcs
 from astropy.coordinates import SkyCoord
 import emcee
 import corner
@@ -32,7 +33,7 @@ import corner
 # Subfile imports
 from . import fdca_utils as utils
 from . import plot_fits
-from .halo_object import Radio_Halo
+from .halo_object import RadioHalo
 
 set_start_method("fork")
 freeze_support()
@@ -83,7 +84,7 @@ class Fitting(object):
 
     def __init__(
         self,
-        _parent_: Radio_Halo,
+        _parent_: RadioHalo,
         p0: list = None,
         bounds: tuple[list, list] = None,
         data = None,
@@ -99,7 +100,7 @@ class Fitting(object):
         k_exponent=False,
         offset=False,
     ):
-        assert model not in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
+        assert model in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
         
         if data is None: self.data = _parent_.data
         else: self.data = data
@@ -134,7 +135,7 @@ class Fitting(object):
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
         self.dof = len(self.data.value.flat) - self.dim
-        return self
+        return
 
     def pre_fit(self):
         # try:
@@ -427,15 +428,8 @@ class Fitting(object):
                 popt["r" + str(r)] = self.max_radius
 
         self.centre_pix = np.array([popt["x0"], popt["y0"]], dtype=np.int64)
-        self.centre_wcs = (
-            np.array(
-                (
-                    self.halo.ra.value[self.centre_pix[1]],
-                    self.halo.dec.value[self.centre_pix[0]],
-                )
-            )
-            * u.deg
-        )
+        self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], wcs.WCS(self.halo.header), origin=1)
+        
         popt_units = self.transform_units(np.copy(popt))
         popt_units = utils.add_parameter_labels(self, popt_units[self.params])
         self.log.log(
@@ -500,10 +494,10 @@ class Fitting(object):
         params[0] = ((u.Jy * params[0] / self.halo.pix_area).to(uJyarcsec2)).value
         params[1] = (
             params[1] - self.centre_pix[0]
-        ) * self.halo.pix_size.value + self.centre_wcs[0].value
+        ) * self.halo.pix_size.value + self.centre_wcs.ra.deg
         params[2] = (
             params[2] - self.centre_pix[1]
-        ) * self.halo.pix_size.value + self.centre_wcs[1].value
+        ) * self.halo.pix_size.value + self.centre_wcs.dec.deg
         params[3] = ((params[3] * self.halo.pix2kpc).to(u.kpc)).value
         if self.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
             params[4] = ((params[4] * self.halo.pix2kpc).to(u.kpc)).value
@@ -836,7 +830,7 @@ class Processing(object):
 
     def __init__(
         self,
-        _parent_: Radio_Halo,
+        _parent_: RadioHalo,
         data = None,
         model="circle",
         logger=None,
@@ -1177,15 +1171,7 @@ class Processing(object):
             self.halo.margin[0]
         )
         self.centre_pix = np.array([x0, y0], dtype=np.int64)
-        self.centre_wcs = (
-            np.array(
-                (
-                    self.halo.ra.value[self.centre_pix[1]],
-                    self.halo.dec.value[self.centre_pix[0]],
-                )
-            )
-            * u.deg
-        )
+        self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], wcs.WCS(self.halo.header), origin=1)
 
         for i in range(self.dim):
             samples_list.append(samples_units[:, i])
@@ -1218,10 +1204,10 @@ class Processing(object):
         params[0] = ((u.Jy * params[0] / self.halo.pix_area).to(uJyarcsec2)).value
         params[1] = (
             params[1] - self.centre_pix[0]
-        ) * self.halo.pix_size.value + self.centre_wcs[0].value
+        ) * self.halo.pix_size.value + self.centre_wcs.ra.deg
         params[2] = (
             params[2] - self.centre_pix[1]
-        ) * self.halo.pix_size.value + self.centre_wcs[1].value
+        ) * self.halo.pix_size.value + self.centre_wcs.dec.deg
         params[3] = ((params[3] * self.halo.pix2kpc).to(u.kpc)).value
         if self.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
             params[4] = ((params[4] * self.halo.pix2kpc).to(u.kpc)).value

@@ -115,7 +115,7 @@ class RadioHalo(object):
         mask_path: None | str = None,
         mask: bool = False,
         logger=None,
-        loc=None,
+        loc: SkyCoord=None,
         M500=None,
         R500=None,
         z=None,
@@ -124,8 +124,8 @@ class RadioHalo(object):
         rms: float = 0,
     ):
         if logger is None:
-            logging = init_logger(output_path, path)
-            logger = logging.getLogger(object)
+            #logging = init_logger(output_path, path)
+            logger = init_logger(output_path, path).getLogger(object)
             logger.log(logging.INFO, "Logger initiated for: " + object)
             self.log = logger
         else:
@@ -138,7 +138,6 @@ class RadioHalo(object):
 
         self.rmsnoise = rms  # manual noise level mJy/beam
         self.user_radius = R500
-        self.user_loc = loc
 
         if object[:4] == "MCXC":
             self.cat = "J/A+A/534/A109/mcxc"
@@ -162,20 +161,21 @@ class RadioHalo(object):
         self.name = self.target.replace("PSZ2", "PSZ2 ")
         self.name = self.target.replace("Abell", "Abell ")
         self.name = self.target.replace("WHL", "")
-        self.cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
-        self.table = Vizier.query_object(self.name, catalog=self.cat)
+        
+        
 
         self.initiatePaths(mask_path, output_path)
-        data = self.unpack_File()
-        self.get_beam_area()
+        data, hader = self.load_data()
         self.original_image = np.copy(data)
+        self.header = hader
 
+        self.get_beam_area()
+        self.get_object_location(loc)
+        self.extract_object_info(M500, R500, z)
+        
         x = np.arange(0, data.shape[1], step=1, dtype="float")
         y = np.arange(0, data.shape[0], step=1, dtype="float")
         self.x_pix, self.y_pix = np.meshgrid(x, y)
-
-        self.get_object_location(loc)
-        self.extract_object_info(M500, R500, z)
 
         self.fov_info = [0, data.shape[0], 0, data.shape[1]]
         self.image_mask, self.mask = utils.masking(self, mask)
@@ -192,6 +192,7 @@ class RadioHalo(object):
 
         self.pix_to_world()
         self.set_image_characteristics(decreased_fov)
+
 
     def initiatePaths(self, maskpath, outputpath):
         self.basedir = outputpath
@@ -219,45 +220,37 @@ class RadioHalo(object):
 
     def get_object_location(self, loc):
         if loc is not None:
-            self.loc = loc
-            """
-            elif self.target[:4] == 'MCXC':
-                coord    = str(self.table[self.cat]['RAJ2000'][0])+' '\
-                            + str(self.table[self.cat]['DEJ2000'][0])
-                self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
-            elif self.target[:5] == 'Abell':
-                coord    = str(self.table[self.cat]['_RA.icrs'][0])+' '\
-                            + str(self.table[self.cat]['_DE.icrs'][0])
-                self.loc = SkyCoord(coord, unit=(u.hourangle,u.deg))
-            elif self.target[:4] == 'PSZ2':
-                coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
-                self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
-            elif self.target[:3] == 'WHL':
-                coord    = [self.table[self.cat]['RAJ2000'][0],self.table[self.cat]['DEJ2000'][0]]
-                self.loc = SkyCoord(coord[0], coord[1], unit=u.deg)
-            """
+            if type(loc) == SkyCoord:
+                self.loc = loc
+            else:
+                self.log.log(
+                    logging.ERROR,
+                    "Location given is not a SkyCoord object. Please provide a valid SkyCoord object",
+                )
+                sys.exit()
         else:
-            self.log.log(
-                logging.WARNING, "No halo sky location given. Assuming image centre."
-            )
-            self.log.log(
-                logging.INFO,
-                "- Not giving an approximate location can affect MCMC performance -",
-            )
-            # cent_pix = (np.array([self.original_image.shape])/2).astype(np.int64)
-            cent_pix = (
-                np.asarray(self.original_image.shape, dtype=np.float64).reshape(1, 2)
-                / 2.0
-            )
-            w = wcs.WCS(self.header)
-            coord = w.celestial.wcs_pix2world(cent_pix, 1)
-            self.loc = SkyCoord(coord[0, 0], coord[0, 1], unit=u.deg)
-            self.user_loc = False
+            from astroquery.ipac.ned import Ned
+            try:
+                self.log.log(
+                    logging.WARNING, 
+                    f"No manual location given, searching for {self.name} in NED."
+                )
+                table = Ned.query_object(self.name)
+                self.loc = SkyCoord(table["RA"][0], table["DEC"][0], unit=u.deg)
+            except:
+                self.log.log(
+                    logging.WARNING, f"{self.name} not found by NED. Assuming image centre."
+                )
+                cent_pix = np.asarray(self.original_image.shape, dtype=np.float64)//2.
+                self.loc = wcs.utils.pixel_to_skycoord(cent_pix[0], cent_pix[1], wcs.WCS(self.header), origin=1)
+
 
     def extract_object_info(self, M500, R500, z):
         """Written for MCXC catalogue. Information is gathered from there. If custom
         parameters are given, these will be used. if nothing is found, filling
         values are set. This is only a problem if you try to calculate radio power."""
+        self.table = Vizier.query_object(self.name, catalog=self.cat)
+        
         try:
             if self.target[:4] == "MCXC":
                 self.M500 = float(self.table[self.cat]["M500"][0]) * 1.0e14 * u.Msun
@@ -327,7 +320,8 @@ class RadioHalo(object):
             self.z = float(z)
             self.log.log(logging.INFO, "Custom redshift set")
 
-        self.factor = self.cosmology.kpc_proper_per_arcmin(self.z).to(u.Mpc / u.deg)
+        cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        self.factor = cosmology.kpc_proper_per_arcmin(self.z).to(u.Mpc / u.deg)
         self.radius_real = self.R500 / self.factor
         self.freq = (self.header["CRVAL3"] * u.Hz).to(u.MHz)
 
@@ -404,15 +398,16 @@ class RadioHalo(object):
         self.beam_area = 2.0 * np.pi * 1.0 * beammaj * beammin
         self.beam2pix = self.beam_area / self.pix_area
 
-    def unpack_File(self):
-        self.hdul = fits.open(self.path)
+    def load_data(self):
+        hdul = fits.open(self.path)
         try:
-            data = self.hdul[0].data[0, 0, :, :]
+            data = hdul[0].data[0, 0, :, :]
         except:
-            data = self.hdul[0].data
-        self.header = self.hdul[0].header
+            data = hdul[0].data
+        header = hdul[0].header
+        hdul.close()
         data[np.isnan(data)] = 0
-        return data
+        return data, header
 
     def findstring(self, string, key):
         string = string.split("\n")
@@ -499,27 +494,15 @@ class RadioHalo(object):
 
     def pix_to_world(self):
         w = wcs.WCS(self.header)
-        centre_pix = np.array([[self.centre_pix[0], self.centre_pix[1]]])
-        world_coord = w.celestial.wcs_pix2world(centre_pix, 1)
-        if world_coord[0, 0] < 0.0:
-            world_coord[0, 0] += 360
-        # if world_coord[0,1]<0.: world_coord[0,1] += 360
+        self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], w, origin=1)
 
-        self.centre_wcs = np.array([world_coord[0, 0], world_coord[0, 1]]) * u.deg
+        flat_x = self.x_pix.flatten()
+        flat_y = self.y_pix.flatten()
 
-        self.ra = np.arange(0, len(self.x_pix)) * self.pix_size
-        self.dec = np.arange(0, len(self.y_pix)) * self.pix_size
-        self.ra -= self.ra[self.centre_pix[0]] - self.centre_wcs[0]
-        self.dec -= self.dec[self.centre_pix[1]] - self.centre_wcs[1]
+        coords = wcs.utils.pixel_to_skycoord(flat_x, flat_y, w, origin=1)
+        self.ra = coords.ra.deg.reshape(self.x_pix.shape)
+        self.dec = coords.dec.deg.reshape(self.y_pix.shape)
 
-    def find_halo_centre(self, data, first):
-        if first or self.original_image.shape == self.data.shape:
-            w = wcs.WCS(self.header)
-            centre_wcs = np.array([[self.loc.ra.deg, self.loc.dec.deg]])
-            world_coord = w.celestial.wcs_world2pix(centre_wcs, 1, ra_dec_order=True)
-            return np.array([world_coord[0, 0], world_coord[0, 1]])
-        else:
-            return np.array((data.shape[1] / 2.0, data.shape[0] / 2.0), dtype=np.int64)
 
     def pre_mcmc_func(self, obj, *theta):
         I0, x0, y0, re = theta
@@ -533,23 +516,24 @@ class RadioHalo(object):
         plotdata = np.copy(data)
         plotdata[self.image_mask == 1] = 0
         max_flux = np.max(plotdata)
-        centre_pix = self.find_halo_centre(data, first)
-        if not first:
+        if first:
+            centre_pix = np.asarray(wcs.utils.skycoord_to_pixel(self.loc, wcs.WCS(self.header), origin=1))
+        
+            print(centre_pix, 'cp 1')
+            print(self.loc, 'loc')
+            size = data.shape[1] / 4.0
+        else:
+            centre_pix = self.centre_pix
             size = self.radius / (3.5 * self.pix_size)
             max_flux = self.I0
-        else:
-            size = data.shape[1] / 4.0
+            
         bounds = (
-            [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
+            [0.0,0.0,0.0,0.0],
             [np.inf, data.shape[0], data.shape[1], data.shape[1] / 2.0],
         )
         if self.user_radius != False:
             size = (self.radius_real / 2.0) / self.pix_size
+            
         image = data.ravel()
         if self.mask:
             image = data.ravel()[self.image_mask.ravel() == 0]
@@ -570,7 +554,7 @@ class RadioHalo(object):
 
         # if first:
         self.radius = 3.5 * popt[3] * self.pix_size
-        self.centre_pix = np.array([popt[1], popt[2]], dtype=np.int64)
+        self.centre_pix = np.round(np.array([popt[1], popt[2]])).astype(np.int64)
         self.I0 = popt[0]
 
     def circle_model(self, coords, I0, x0, y0, re):
@@ -580,5 +564,5 @@ class RadioHalo(object):
         return Ir.ravel()
 
     def Close(self):
-        self.hdul.close()
+        #self.hdul.close()
         self.log.log(logging.INFO, "closed Halo object {}".format(self.target))

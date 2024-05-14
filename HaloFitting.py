@@ -8,7 +8,7 @@ Version: October 2020
 
 from astropy.coordinates import SkyCoord
 import logging
-import os
+import os, sys
 from datetime import datetime
 import astropy.units as u
 import numpy as np
@@ -42,8 +42,6 @@ def arguments():
     parser.add_argument('-freq',      help='(float) frequency in MHz to calculate flux in. When given, the spectral index will be used. Default: image frequency',default=None, type=str)
     parser.add_argument('-rms',      help='(float) Set manual rms noise level to be used by the code in uJy/beam Default: rms calculated by code',default=0., type=float)
     return parser.parse_args()
-    
-    
     
 def str2bool(v):
     if isinstance(v, bool):
@@ -109,9 +107,6 @@ if __name__=='__main__':
     args = arguments()
     
     loc = args.loc
-
-    #if args.freq != None:
-    #    args.freq = args.freq*u.MHz
     if loc is not None:
         loc  = SkyCoord(args.loc, unit=(u.hourangle, u.deg), frame=args.frame)
 
@@ -121,10 +116,15 @@ if __name__=='__main__':
     logger.log(logging.INFO, 'Run Arguments: \n'+ str(args)+ '\n')
 
 
-    Halo = halo_fdca.Radio_Halo(args.object, args.path_in, maskpath=args.m_file, mask=args.m,
+    Halo = halo_fdca.RadioHalo(args.object, args.path_in, mask_path=args.m_file, mask=args.m,
                             decreased_fov=args.fov,logger=logger, loc=loc,
-                            M500=None, R500=None, z=args.z,
-                            outputpath=args.path_out, spectr_index=args.spectr_idx, rms=args.rms)
+                            M500=None, R500=None, z=args.redshift,
+                            output_path=args.path_out, spectr_index=args.spectr_idx, rms=args.rms)
+    
+    print(Halo.centre_wcs)
+    print(Halo.centre_pix)
+    print(Halo.ra)
+    sys.exit()
     
     p0, bounds = get_initial_guess(Halo)
     if args.freq is None: 
