@@ -1,0 +1,6 @@
+2024-05-16 16:25:13,068 G166+43      MainProcess INFO     Start Process for: G166+43
+2024-05-16 16:25:13,068 G166+43      MainProcess INFO     Run Arguments: 
+Namespace(object='G166+43', path_in='./G166.09+43/allbands/tap20/final_sub_20-MFS-image.fits', redshift=0.217, model='circle', frame='icrs', loc=None, m=True, m_file=None, path_out='./G166.09+43/allbands/tap20', fov=True, spectr_idx=-1.2, walkers=200, steps=1200, burntime=None, max_radius=None, gamma_prior=False, k_exp=False, off=False, s=True, run_mcmc=True, int_max=inf, freq=None, rms=0.0)
+
+2024-05-16 16:25:13,068 G166+43      MainProcess ERROR    Unknown what catalogue to use. If no costum values are given, filling values will be used
+2024-05-16 16:25:13,068 G166+43      MainProcess INFO     Creating plotting directory

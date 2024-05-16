@@ -89,23 +89,6 @@ def init_logging(args):
     logging.config.dictConfig(d)
     return logging
 
-def get_initial_guess(halo):
-    r_guess = halo.radius/(3.5*halo.pix_size)
-    r_bound = halo.data.shape[0]/2.
-    if r_guess >= halo.data.shape[1]/2.: r_guess = halo.data.shape[1]/4.
-
-    diff   = np.abs(halo.margin)
-    p0     = [
-        halo.I0, 
-        halo.centre_pix[0]-halo.fov_info_mcmc[2], 
-        halo.centre_pix[1]-halo.fov_info_mcmc[0], 
-        r_guess,r_guess,r_guess,r_guess,0.,0.,0.
-    ]
-    bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf, 0., -np.inf],
-              [np.inf,halo.data.shape[0],halo.data.shape[1],
-               r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
-    return p0,bounds
-
 
 if __name__=='__main__':
     args = arguments()
@@ -125,11 +108,19 @@ if __name__=='__main__':
                             M500=None, R500=None, z=args.redshift,
                             output_path=args.path_out, spectr_index=args.spectr_idx, rms=args.rms)
 
-    p0, bounds = get_initial_guess(Halo)
+    p0, bounds = halo_fdca.utils.get_initial_guess(Halo)
     
     if args.freq is None: 
         args.freq = Halo.freq.value
-
+    '''
+    print(Halo.centre_pix)
+    print(Halo.fov_info_mcmc) 
+    print(Halo.fov_info)
+    print(Halo.data.shape)
+    print(Halo.original_image.shape)
+    print(Halo.data_mcmc.shape)   
+    print(p0, 'p0')
+    '''
     if args.run_mcmc:
         fit  = halo_fdca.Fitting(
             Halo, p0, bounds, model=args.model,walkers=args.walkers,steps=args.steps,

@@ -112,7 +112,7 @@ class RadioHalo(object):
         object: str,
         path: str,
         decreased_fov: bool = False,
-        mask_path: None | str = None,
+        mask_path = None,
         mask: bool = False,
         logger=None,
         loc: SkyCoord=None,

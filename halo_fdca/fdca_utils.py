@@ -36,7 +36,6 @@ def get_initial_guess(halo):
     r_bound = halo.data.shape[0]/2.
     if r_guess >= halo.data.shape[1]/2.: r_guess = halo.data.shape[1]/4.
 
-    diff   = np.abs(halo.margin)
     p0     = [
         halo.I0, 
         halo.centre_pix[0]+halo.margin[2], 
@@ -46,13 +45,9 @@ def get_initial_guess(halo):
     bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf, 0., -np.inf],
               [np.inf,halo.data.shape[0],halo.data.shape[1],
                r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
-    print("initial guess")
-    print(halo.centre_pix, halo.margin)
-    print(p0)
-    print()
     return p0,bounds
 
-def add_parameter_labels(obj, array) -> pd.Series|pd.DataFrame:
+def add_parameter_labels(obj, array):
     full_array = np.zeros(obj.params.shape)
     full_array[obj.params] = np.array(array)
     parameterised_array = pd.DataFrame.from_dict({'params': full_array},

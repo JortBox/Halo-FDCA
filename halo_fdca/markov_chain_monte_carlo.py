@@ -395,7 +395,7 @@ class Fitting(object):
         else:
             return model
 
-    def pre_mcmc_fit(self, image, p0, bounds) -> pd.Series|pd.DataFrame:
+    def pre_mcmc_fit(self, image, p0, bounds):
         data = image.ravel()
 
         #p0[1] -= self.halo.margin[2]
