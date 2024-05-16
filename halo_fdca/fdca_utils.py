@@ -37,11 +37,19 @@ def get_initial_guess(halo):
     if r_guess >= halo.data.shape[1]/2.: r_guess = halo.data.shape[1]/4.
 
     diff   = np.abs(halo.margin)
-    p0     = [halo.I0, halo.centre_pix[0]+diff[0],
-              halo.centre_pix[1]+diff[2], r_guess,r_guess,r_guess,r_guess,0.,0.,0.]
+    p0     = [
+        halo.I0, 
+        halo.centre_pix[0]+halo.margin[2], 
+        halo.centre_pix[1]+halo.margin[0], 
+        r_guess,r_guess,r_guess,r_guess,0.,0.,0.
+    ]
     bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf, 0., -np.inf],
               [np.inf,halo.data.shape[0],halo.data.shape[1],
                r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
+    print("initial guess")
+    print(halo.centre_pix, halo.margin)
+    print(p0)
+    print()
     return p0,bounds
 
 def add_parameter_labels(obj, array) -> pd.Series|pd.DataFrame:
@@ -294,6 +302,18 @@ def regridding(obj, data, decrease_fov=False, mask=False):
     regrid   = regrid_to_beamsize(obj, data_rot)*data.unit
     return regrid
 
+def pad_image(img):
+    pivot = ((np.sqrt(2.0) / 2.0 - 0.5) * np.array(img.shape)).astype(
+        np.int64
+    )
+    padX = [pivot[0], pivot[0]]
+    padY = [pivot[1], pivot[1]]
+    padded_img = np.pad(img, [padY, padX], "constant")
+    fov_info = [
+        -pivot[0],img.shape[0] + pivot[0],-pivot[1],img.shape[1] + pivot[1]
+    ]
+    return padded_img, fov_info
+
 def rotate_image(obj,img, decrease_fov=False, mask=False):
     if mask: cval=1
     else: cval=0
@@ -353,23 +373,23 @@ def gamma_dist(x, shape, scale):
     return (x**(shape-1.)*np.exp(-x/scale))/(gamma(shape)*(scale**shape))
 
 
-def transform_units(obj, params):
-    params[1] = params[1] + obj.halo.fov_info_mcmc[2]
-    params[2] = params[2] + obj.halo.fov_info_mcmc[0]
-    param_sky = wcs.utils.pixel_to_skycoord(
-        params[1], params[2], wcs.WCS(obj.halo.header), origin=1
-    )
-    params[1] = param_sky.ra.deg
-    params[2] = param_sky.dec.deg
+def transform_units(obj, params, err=False):
+    if err:
+        params[1] *= obj.halo.pix_size.to(u.deg).value
+        params[2] *= obj.halo.pix_size.to(u.deg).value
+    else:
+        params[1] += obj.halo.fov_info_mcmc[2]
+        params[2] += obj.halo.fov_info_mcmc[0]
+        param_sky = wcs.utils.pixel_to_skycoord(
+            params[1], params[2], wcs.WCS(obj.halo.header), origin=1
+        )
+        params[1] = param_sky.ra.deg
+        params[2] = param_sky.dec.deg
     
     params[0] = ((u.Jy * params[0] / obj.halo.pix_area).to(uJyarcsec2)).value
-    #params[1] = (
-    #    params[1] - self.centre_pix[0]
-    #) * self.halo.pix_size.value + self.centre_wcs.ra.deg
-    #params[2] = (
-    #    params[2] - self.centre_pix[1]
-    #) * self.halo.pix_size.value + self.centre_wcs.dec.deg
+    
     params[3] = ((params[3] * obj.halo.pix2kpc).to(u.kpc)).value
+    
     if obj.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
         params[4] = ((params[4] * obj.halo.pix2kpc).to(u.kpc)).value
 

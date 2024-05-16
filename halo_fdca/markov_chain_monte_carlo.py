@@ -120,6 +120,7 @@ class Fitting(object):
         if bounds is None: self.bounds = bounds_temp
         else: self.bounds = bounds
         
+        mask = _parent_.mask
         self.orig_shape = _parent_.data.shape
         self.rebin = rebin
         self.halo = _parent_
@@ -141,15 +142,11 @@ class Fitting(object):
         return
 
     def pre_fit(self):
-        # try:
-        popt = self.pre_mcmc_fit(
+        popt, perr = self.pre_mcmc_fit(
             self.data, p0=np.array(self.p0), bounds=np.array(self.bounds)
         )
-        return popt
-        # except Exception as e:
-        #    self.log.log(logging.CRITICAL,'MCMC Failed to execute pre-fit with error message:\n')
-        #    self.log.log(logging.CRITICAL,e)
-        #    sys.exit()
+        return popt, perr
+
 
     def run(self, pre_fit_guess=None, save=False):
         data = self.set_data_to_use(self.data)
@@ -158,7 +155,7 @@ class Fitting(object):
         coord = np.meshgrid(x, y)
         
         if pre_fit_guess is None:
-            self.popt = self.pre_fit()
+            self.popt, __ = self.pre_fit()
         else:
             self.popt = pre_fit_guess
             
@@ -303,10 +300,14 @@ class Fitting(object):
             )
 
         self.image_mask, self.mask = utils.masking(self, mask, full_size=True)
-        self.image_mask = self.image_mask[
-            self.halo.fov_info_mcmc[0] : self.halo.fov_info_mcmc[1],
-            self.halo.fov_info_mcmc[2] : self.halo.fov_info_mcmc[3],
-        ]
+        
+        if np.any(np.asarray(self.halo.fov_info_mcmc) < 0):
+            self.image_mask, fov_info = utils.pad_image(self.image_mask)
+        else:
+            self.image_mask = self.image_mask[
+                self.halo.fov_info_mcmc[0] : self.halo.fov_info_mcmc[1],
+                self.halo.fov_info_mcmc[2] : self.halo.fov_info_mcmc[3],
+            ]
 
         if burntime is None:
             self.burntime = int(0.125 * self.steps)
@@ -412,6 +413,7 @@ class Fitting(object):
         #popt[1] += self.halo.margin[2]
         #popt[2] += self.halo.margin[0]
         popt = utils.add_parameter_labels(self, popt)
+        perr = utils.add_parameter_labels(self, perr)
 
         if not self.k_exponent:
             popt["k_exp"] = 0.5
@@ -460,7 +462,7 @@ class Fitting(object):
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
         
-        return popt
+        return popt, perr
 
     def plotSampler(self):
         fig, axes = plt.subplots(ncols=1, nrows=self.dim, sharex=True)
@@ -865,6 +867,7 @@ class Processing(object):
         self.k_exponent = k_exponent
         self.offset = offset
         self.mask_treshold = 0.5
+        mask = _parent_.mask
 
         self.check_settings(model, mask)
         self.extract_chain_file(rebin)
@@ -872,6 +875,37 @@ class Processing(object):
         self.set_labels_and_units()
 
         self.dof = len(self.data.value.flat) - self.dim
+        
+    def __repr__(self) -> str:
+        
+        uncertainties1 = self.percentiles_units[:, 1] - self.percentiles_units[:, 0]
+        uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]
+
+
+        param_string = ""
+        for param in range(len(self.params[self.params])):
+            param_string += f"{self.paramNames[param]}:   {self.params_units[param]:.5f} ({self.units[param]})\n    "
+        
+        run_details = f"""
+Run information for object {self.halo.name}:
+    RMS noise: {self.rms}
+    Model: {self.modelName}
+    Walkers: {self.walkers}
+    Steps: {self.steps}
+    Burntime: {self.burntime}
+    Mask: {self.mask}
+    Rebin: {self.rebin}
+    K_exponent: {self.k_exponent}
+    Offset: {self.offset}
+
+Fit results:
+    Reduced chi-squared: {self.get_chi2_value()}
+    {param_string}
+    Uncertainties (lower, upper):
+        {uncertainties1}
+        {uncertainties2}
+    """
+        return run_details
 
     def plot(self):
         plot_fits.fit_result(
@@ -1186,17 +1220,22 @@ class Processing(object):
         self.get_units()
         uncertainties1 = self.percentiles_units[:, 1] - self.percentiles_units[:, 0]
         uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]
-        self.log.log(
-            logging.INFO,
-            "\n Parameters: \n%s \nOne sigma parameter uncertainties (lower, upper): \
-                                    \n%s \n%s \nIn Units: %s"
-            % (
+        '''
+        string_to_print = "\n Parameters: \n%s \nOne sigma parameter uncertainties (lower, upper): \
+                                    \n%s \n%s \nIn Units: %s" % (
                 str(self.params_units[self.params]),
                 str(uncertainties1),
                 str(uncertainties2),
                 str(self.units),
-            ),
-        )
+            )
+        '''                         
+        string_to_print = f"\n Parameters: \n{str(self.params_units[self.params])} \
+            \nOne sigma parameter uncertainties (lower, upper): \
+            \n{str(uncertainties1)} \n{str(uncertainties2)} \
+            \nIn Units: {str(self.units)}" 
+                                    
+        self.log.log(logging.INFO, string_to_print)
+        return string_to_print
 
     def get_units(self):
         labels = ["$I_0$", "$x_0$", "$y_0$"]
@@ -1345,6 +1384,7 @@ class Processing(object):
         x = np.arange(0, self.data.shape[1], 1)
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
+        return self.chi2_red
 
     def get_flux(self, int_max=np.inf, freq=None):
         if freq is None:

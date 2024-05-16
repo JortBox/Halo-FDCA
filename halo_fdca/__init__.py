@@ -11,6 +11,7 @@ import logging.handlers
 
 from .halo_object import RadioHalo
 from .markov_chain_monte_carlo import *
+from .multi_freq_fitting import MultiWavelengthFitting
 from . import fdca_utils as utils
 #from . import plotting_fits
 

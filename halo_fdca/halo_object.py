@@ -164,7 +164,6 @@ class RadioHalo(object):
         self.name = self.target.replace("Abell", "Abell ")
         self.name = self.target.replace("WHL", "")
         
-        
 
         self.initiatePaths(mask_path, output_path)
         data, hader = self.load_data()
@@ -175,14 +174,6 @@ class RadioHalo(object):
         self.get_object_location(loc)
         self.extract_object_info(M500, R500, z)
         
-        x = np.arange(0, data.shape[1], step=1, dtype="float")
-        y = np.arange(0, data.shape[0], step=1, dtype="float")
-        self.x_pix, self.y_pix = np.meshgrid(x, y)
-
-        self.fov_info = [0, data.shape[0], 0, data.shape[1]]
-        self.image_mask, self.mask = utils.masking(self, mask)
-        self.exponentialFit(data, first=True)  # Find centre of the image centre_pix
-
         if self.header["BUNIT"] == "JY/BEAM" or self.header["BUNIT"] == "Jy/beam":
             self.data = data * (u.Jy / self.beam2pix)
         else:
@@ -191,6 +182,16 @@ class RadioHalo(object):
                 "Possibly other units than jy/beam, CHECK HEADER UNITS!",
             )
             sys.exit()
+        
+        x = np.arange(0, data.shape[1], step=1, dtype="float")
+        y = np.arange(0, data.shape[0], step=1, dtype="float")
+        self.x_pix, self.y_pix = np.meshgrid(x, y)
+
+        self.fov_info = [0, data.shape[0], 0, data.shape[1]]
+        self.image_mask, self.mask = utils.masking(self, mask)
+        self.exponentialFit(data, first=True)  # Find centre of the image centre_pix
+
+        
 
         self.pix_to_world()
         self.set_image_characteristics(decreased_fov)
@@ -357,18 +358,8 @@ class RadioHalo(object):
             self.image_mask, self.mask = utils.masking(self, self.mask)
             self.exponentialFit(self.data.value)
         else:
-            pivot = ((np.sqrt(2.0) / 2.0 - 0.5) * np.array(self.data.shape)).astype(
-                np.int64
-            )
-            padX = [pivot[0], pivot[0]]
-            padY = [pivot[1], pivot[1]]
-            self.data_mcmc = np.pad(self.data, [padY, padX], "constant")
-            self.fov_info_mcmc = [
-                -pivot[0],
-                self.data.shape[0] + pivot[0],
-                -pivot[1],
-                self.data.shape[1] + pivot[1],
-            ]
+            self.data_mcmc, self.fov_info_mcmc = utils.pad_image(self.data)
+            
             self.fov_info = [0, self.data.shape[0], 0, self.data.shape[1]]
             self.margin = np.array(self.fov_info) - np.array(self.fov_info_mcmc)
             self.data = self.data[
@@ -528,7 +519,10 @@ class RadioHalo(object):
             size = data.shape[1] / 4.0
             max_flux = np.max(plotdata)
         else:
-            centre_pix = self.centre_pix
+            if self.cropped:
+                centre_pix = [self.centre_pix[0] - self.fov_info[2], self.centre_pix[1] - self.fov_info[0]]
+            else:
+                centre_pix = self.centre_pix
             size = self.radius / (3.5 * self.pix_size)
             max_flux = self.I0
             

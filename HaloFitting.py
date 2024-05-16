@@ -97,8 +97,8 @@ def get_initial_guess(halo):
     diff   = np.abs(halo.margin)
     p0     = [
         halo.I0, 
-        Halo.centre_pix[0]-Halo.fov_info_mcmc[2], 
-        Halo.centre_pix[1]-Halo.fov_info_mcmc[0], 
+        halo.centre_pix[0]-halo.fov_info_mcmc[2], 
+        halo.centre_pix[1]-halo.fov_info_mcmc[0], 
         r_guess,r_guess,r_guess,r_guess,0.,0.,0.
     ]
     bounds = ([0.,0.,0.,0.,0.,0.,0.,-np.inf, 0., -np.inf],
@@ -159,5 +159,5 @@ if __name__=='__main__':
     processing.get_flux(int_max=args.int_max, freq=frequency)# error is one sigma (68%).
     processing.get_power(freq=frequency)
 
-    print(processing.popt_units)
+    print(processing)
     #Halo.Close()
