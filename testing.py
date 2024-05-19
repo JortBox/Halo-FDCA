@@ -21,6 +21,6 @@ fit = fdca.Fitting(Halo_high, model="skewed")
 fit.run()
 
 multiFit = fdca.MultiWavelengthFitting([Halo_low, Halo_high])
-multiFit.run()
+multiFit.run(save=True)
 
 #fdca.Fitting(Halo_low).run(save=True)

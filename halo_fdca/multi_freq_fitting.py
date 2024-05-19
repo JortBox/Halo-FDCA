@@ -250,11 +250,12 @@ class MultiWavelengthFitting(object):
         return popt
 
     def save(self):
-        path = "%s%s_mcmc_samples%s.fits" % (
-            self.halo.modelPath,
-            self.halo.file.replace(".fits", ""),
-            self.filename_append,
-        )
+        path = f"{self.halos[0].name}_multi_mcmc_samples.fits"
+        #path = "%s%s_multi_mcmc_samples%s.fits" % (
+        #    self.halo.modelPath,
+        #    self.halo.file.replace(".fits", ""),
+        #    self.filename_append,
+        #)
         self.hdu = fits.PrimaryHDU()
         self.hdu.data = self.sampler_chain
         self.set_sampler_header()
