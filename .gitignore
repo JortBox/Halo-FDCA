@@ -9,4 +9,11 @@ __pycache__/
 *.icloud
 
 *.ipynb_checkpoints
+<<<<<<< HEAD
 *.ipynb_checkpoints/
+=======
+
+*.vscode
+
+/Example/data_dir_test
+>>>>>>> 60c6d81c6c17ece03b4552520a2187fae51637ee
