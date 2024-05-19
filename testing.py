@@ -14,11 +14,11 @@ Halo_high = fdca.RadioHalo(
     output_path='Example/Output_dir', 
     z=0.1220, 
     mask_path='Example/data_dir_test/A1033halo_hba.reg',
-    #decreased_fov=True
+    decreased_fov=True
 )
 
-fit = fdca.Fitting(Halo_high, model="skewed")
-fit.run()
+#fit = fdca.Fitting(Halo_high, model="skewed")
+#fit.run()
 
 multiFit = fdca.MultiWavelengthFitting([Halo_low, Halo_high])
 multiFit.run(save=True)

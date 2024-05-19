@@ -105,6 +105,7 @@ class MultiWavelengthFitting(object):
             
         self.walkers = self.fits[0].walkers
         self.steps = self.fits[0].steps
+        self.burntime = self.fits[0].burntime
     
             
     def run(self, save=False):
@@ -138,15 +139,6 @@ class MultiWavelengthFitting(object):
             parameters_to_use * (1.0 + 1.0e-3 * np.random.randn(self.dim))
             for _ in range(self.walkers)
         ])
-        
-        #print([fit.binned_image_mask.shape for fit in self.fits], "binned_image_mask pre")
-        sampler = emcee.EnsembleSampler(
-                self.walkers, 
-                self.dim, 
-                lnprob_multi,
-                args=[data, coord, halo_info]
-            )
-        sampler.run_mcmc(pos, self.steps, progress=True)
     
         
         num_CPU = cpu_count()
@@ -311,8 +303,8 @@ class MultiWavelengthFitting(object):
         self.hdu.header["steps"] = self.steps
         self.hdu.header["dim"] = self.dim
         self.hdu.header["burntime"] = self.burntime
-        self.hdu.header["OBJECT"] = (self.halo.name, "Object which was fitted")
-        self.hdu.header["IMAGE"] = self.halo.file
+        self.hdu.header["OBJECT"] = (self.halos[0].name, "Object which was fitted")
+        self.hdu.header["IMAGE"] = " - ".join([halo.file for halo in self.halos])
         self.hdu.header["UNIT_0"] = ("JY/PIX", "unit of fit parameter")
         self.hdu.header["UNIT_1"] = ("PIX", "unit of fit parameter")
         self.hdu.header["UNIT_2"] = ("PIX", "unit of fit parameter")
@@ -334,4 +326,4 @@ class MultiWavelengthFitting(object):
                 "MCMC initial guess",
             )
 
-        self.hdu.header["MASK"] = (self.mask, "was the data masked during fitting")
+        self.hdu.header["MASK"] = (" - ".join([str(halo.mask) for halo in self.halos]), "was the data masked during fitting")
