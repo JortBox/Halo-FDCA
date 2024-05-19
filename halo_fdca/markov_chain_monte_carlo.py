@@ -824,7 +824,7 @@ def lnprior8(theta, shape, info):
 
 
 def lnprob(theta, data, coord, info):
-    time1 = time.time()
+    #time1 = time.time()
     theta = add_parameter_labels(info["params"], info["paramNames"], theta)
     if info["modelName"] == "skewed":
         lp = lnprior8(theta, coord[0].shape, info)
@@ -835,13 +835,13 @@ def lnprob(theta, data, coord, info):
     
     
     likelihood = lnL(theta, data, coord, info) + lp
-    time2 = time.time()
-    print(f"Time to expand model parameters:", time2 - time1, coord[0].shape)
+    #time2 = time.time()
+    #print(f"Time to expand model parameters:", time2 - time1, coord[0].shape)
     return likelihood
 
 
 def lnprob_multi(theta, data, coord, info):
-    time1 = time.time()
+    #time1 = time.time()
     num_halos = int(len(data))
     theta_split = expand_model_params(theta, info)
     
@@ -861,8 +861,8 @@ def lnprob_multi(theta, data, coord, info):
         
         
         likelihood += lnL(theta, data[i], coord[i], info[i])
-    time2 = time.time()
-    print(f"Time to expand model parameters:", time2 - time1)
+    #time2 = time.time()
+    #print(f"Time to expand model parameters:", time2 - time1)
     
     return likelihood + lp
 

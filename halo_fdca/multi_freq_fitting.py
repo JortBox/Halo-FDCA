@@ -130,8 +130,6 @@ class MultiWavelengthFitting(object):
             # set_dictionary is called to create a dictionary with necessary atributes
             # because 'Pool' cannot pickle the fitting object.
             halo_info.append(set_dictionary(fit))
-            
-            print(fit.data.shape, "data pre flat")
         
         parameters_to_use = self.popt[self.params][:5] #hardcoded
         self.dim = len(parameters_to_use)
