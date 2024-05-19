@@ -169,6 +169,7 @@ class RadioHalo(object):
         data, hader = self.load_data()
         self.original_image = np.copy(data)
         self.header = hader
+        self.wcs = wcs.WCS(self.header)
 
         self.get_beam_area()
         self.get_object_location(loc)
@@ -245,7 +246,7 @@ class RadioHalo(object):
                     logging.WARNING, f"{self.name} not found by NED. Assuming image centre."
                 )
                 cent_pix = np.asarray(self.original_image.shape, dtype=np.float64)//2.
-                self.loc = wcs.utils.pixel_to_skycoord(cent_pix[0], cent_pix[1], wcs.WCS(self.header), origin=1)
+                self.loc = wcs.utils.pixel_to_skycoord(cent_pix[0], cent_pix[1], self.wcs, origin=1)
 
 
     def extract_object_info(self, M500, R500, z):
@@ -491,13 +492,12 @@ class RadioHalo(object):
         # plt.show()
 
     def pix_to_world(self):
-        w = wcs.WCS(self.header)
-        self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], w, origin=1)
+        self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], self.wcs, origin=1)
 
         flat_x = self.x_pix.flatten()
         flat_y = self.y_pix.flatten()
 
-        coords = wcs.utils.pixel_to_skycoord(flat_x, flat_y, w, origin=1)
+        coords = wcs.utils.pixel_to_skycoord(flat_x, flat_y, self.wcs, origin=1)
         self.ra = coords.ra.deg.reshape(self.x_pix.shape)*u.deg
         self.dec = coords.dec.deg.reshape(self.y_pix.shape)*u.deg
 
@@ -515,7 +515,7 @@ class RadioHalo(object):
         plotdata[self.image_mask == 1] = 0
         
         if first:
-            centre_pix = np.asarray(wcs.utils.skycoord_to_pixel(self.loc, wcs.WCS(self.header), origin=1))
+            centre_pix = np.asarray(wcs.utils.skycoord_to_pixel(self.loc, self.wcs, origin=1))
             size = data.shape[1] / 4.0
             max_flux = np.max(plotdata)
         else:

@@ -131,6 +131,7 @@ if __name__=='__main__':
             k_exponent=args.k_exp, offset=args.off
         )
         #pre_fit_guess = fit.pre_fit()
+        
         fit.run(save=args.s)
     else: pass
 

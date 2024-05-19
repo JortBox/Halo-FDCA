@@ -12,6 +12,7 @@ import os
 import logging
 import emcee
 import corner
+import time
 
 import numpy as np
 import pandas as pd
@@ -170,12 +171,18 @@ class Fitting(object):
         # set_dictionary is called to create a dictionary with necessary atributes
         # because 'Pool' cannot pickle the fitting object.
         halo_info = set_dictionary(self)
-
+        
+        #print(self.data.shape, "data pre flat")
+        #print(self.binned_image_mask.shape, "binned_image_mask pre")
 
         num_CPU = cpu_count()
         with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(
-                self.walkers, self.dim, lnprob, pool=pool, args=[data, coord, halo_info]
+                self.walkers, 
+                self.dim, 
+                lnprob, 
+                pool=pool, 
+                args=[data, coord, halo_info]
             )
             sampler.run_mcmc(pos, self.steps, progress=True)
 
@@ -375,6 +382,7 @@ class Fitting(object):
                 mask=True
             ).value
             use = binned_data.value
+            #print(binned_data.shape, "binned_data (data)")
         
             
             return use.ravel()[
@@ -561,12 +569,18 @@ def set_dictionary(obj):
         "params": obj.params,
         "paramNames": obj.paramNames,
         "gamma_prior": obj.gamma_prior,
+        "fov_info_mcmc": obj.halo.fov_info_mcmc,
+        "wcs": obj.halo.wcs,
+        "cropped": obj.halo.cropped,
     }
     return halo_info
 
 
 def set_model_to_use(info, data):
+    #print(data.shape,"data")
     binned_data = regrid_to_beamsize(info, data.value)
+    #print(binned_data.shape, "binned_data (model)")
+    #print(info["binned_image_mask"].shape, "binned_image_mask")
     return binned_data.ravel()[
         info["binned_image_mask"].ravel()
         <= info["mask_treshold"] * info["binned_image_mask"].max()
@@ -574,13 +588,34 @@ def set_model_to_use(info, data):
 
 
 def rotate_image(info, img, decrease_fov=False):
-    margin = info["margin"]
-    img_rot = ndimage.rotate(img, -info["bpa"].value, reshape=False)
-    f = img_rot[margin[2] : margin[3], margin[0] : margin[1]]
-    # plt.imshow(f)
-    # plt.show()
-    return f
+    if info["mask"]: cval=1
+    else: cval=0
 
+    if decrease_fov:
+        img_rot = ndimage.rotate(
+            img, -info["bpa"].value, reshape=False,mode='constant',cval=cval
+        )
+        f = img_rot[
+            info["margin"][2]:info["margin"][3], 
+            info["margin"][0]:info["margin"][1]
+        ]
+        return f
+    else:
+        if np.array(img.shape)[0]%2 == 0:
+            img = np.delete(img, 0, 0)
+        if np.array(img.shape)[1]%2 == 0:
+            img = np.delete(img, 0, 1)
+
+        pivot = (np.array(img.shape)/2).astype(np.int64)
+        padX = [int(img.shape[1]) - pivot[0], pivot[0]]
+        padY = [int(img.shape[0]) - pivot[1], pivot[1]]
+        img_pad = np.pad(img, [padY, padX], 'constant', constant_values=(cval))
+        img_rot = ndimage.rotate(
+            img_pad, -info["bpa"].value, reshape=False,mode='constant',cval=cval
+        )
+        return img_rot[padY[0]:-padY[1], padX[0]:-padX[1]]
+    
+        
 
 def regrid_to_beamsize(info, img, accuracy=100.0):
     x_scale = np.sqrt(np.pi / (4 * np.log(2.0))) * info["bmaj"].value
@@ -607,19 +642,23 @@ def regrid_to_beamsize(info, img, accuracy=100.0):
                 ] = (
                     img[i, j] / elements
                 )
-
+                
+    #print(pseudo_array.shape, "pseudo")
+    #print(scale, "scale")
+    #print(np.array(pseudo_array.shape)/scale, "pseudo/scale")
     f = block_reduce(pseudo_array, block_size=tuple(scale), func=np.sum, cval=0) #type:ignore
     f = np.delete(f, -1, axis=0)
     f = np.delete(f, -1, axis=1)
     # plt.imshow(f)
     # plt.show()
     # print(pseudo_array.shape, scale, f.shape)
+    #print(f.shape, "f")
     return f
 
 
 def convolve_with_gaussian(info, data, rotate):
     if rotate:
-        data = rotate_image(info, data, decrease_fov=True)
+        data = rotate_image(info, data, decrease_fov=info["cropped"])
 
     sigma1 = (info["bmaj"] / info["pix_size"]) / np.sqrt(8 * np.log(2.0))
     sigma2 = (info["bmin"] / info["pix_size"]) / np.sqrt(8 * np.log(2.0))
@@ -632,6 +671,7 @@ def circle_model(info, coords, theta, rotate=False):
     x, y = coords
     G = ((x - theta["x0"]) ** 2 + (y - theta["y0"]) ** 2) / theta["r1"] ** 2
     Ir = theta["I0"] * np.exp(-(G ** (0.5 + theta["k_exp"]))) + theta["off"]
+    #print(Ir.shape, "Ir")
     return convolve_with_gaussian(info, Ir, rotate)
 
 
@@ -724,19 +764,20 @@ def G(x, y, I0, x0, y0, re_x, re_y, ang, sign_x, sign_y):
 def lnL(theta, data, coord, info):
     kwargs = {"rotate": True}
     raw_model = info["_func_"](info, coord, theta, **kwargs) * u.Jy
+    
+    #print(raw_model.shape, "raw_model")
+    
+    #print(data.shape, raw_model.shape)
     model = set_model_to_use(info, raw_model)
-    return -np.sum(
-        ((data - model) ** 2.0) / (2 * info["sigma"] ** 2.0)
-        + np.log(np.sqrt(2 * np.pi) * info["sigma"])
-    )
-
+    #print(model.shape, "model")
+    return -0.5 * np.sum(0.5 * ((data - model) / info["sigma"])**2.0) - len(data) * np.log(np.sqrt(2 * np.pi) * info["sigma"])
 
 def lnprior(theta, shape, info):
     prior = -np.inf
     if (theta["I0"] > 0) and (-0.4 < theta["k_exp"] < 19):
         if (0 <= theta["x0"] < shape[1]) and (0 <= theta["y0"] < shape[0]):
             if 0 < theta["r1"] < info["max_radius"]:
-                if -np.pi / 4.0 < theta["ang"] < 5 * np.pi / 4.0:
+                if -np.pi * 0.25 < theta["ang"] < 5 * np.pi * 0.25:
                     prior = 0.0
                 if not (0 <= theta["r2"] <= theta["r1"]):
                     prior = -np.inf
@@ -769,7 +810,7 @@ def lnprior8(theta, shape, info):
             if (0.0 < (theta["r3"] + theta["r4"]) <= (theta["r1"] + theta["r2"])) and (
                 (theta["r1"] + theta["r2"]) < info["max_radius"] * 2.0
             ):
-                if -np.pi / 4.0 < theta["ang"] < 5 * np.pi / 4.0:
+                if -np.pi * 0.25 < theta["ang"] < 5 * np.pi * 0.25:
                     prior = 0.0
 
     if prior != -np.inf and info["gamma_prior"]:
@@ -783,6 +824,7 @@ def lnprior8(theta, shape, info):
 
 
 def lnprob(theta, data, coord, info):
+    time1 = time.time()
     theta = add_parameter_labels(info["params"], info["paramNames"], theta)
     if info["modelName"] == "skewed":
         lp = lnprior8(theta, coord[0].shape, info)
@@ -790,8 +832,83 @@ def lnprob(theta, data, coord, info):
         lp = lnprior(theta, coord[0].shape, info)
     if not np.isfinite(lp):
         return -np.inf
-    return lnL(theta, data, coord, info) + lp
+    
+    
+    likelihood = lnL(theta, data, coord, info) + lp
+    time2 = time.time()
+    print(f"Time to expand model parameters:", time2 - time1, coord[0].shape)
+    return likelihood
 
+
+def lnprob_multi(theta, data, coord, info):
+    time1 = time.time()
+    num_halos = int(len(data))
+    theta_split = expand_model_params(theta, info)
+    
+    likelihood = 0.0
+    
+    for i in range(num_halos):
+        theta = add_parameter_labels(
+            info[i]["params"], info[i]["paramNames"], theta_split[i]
+        )
+        
+        if info[i]["modelName"] == "skewed":
+            lp = lnprior8(theta, coord[i][0].shape, info[i])
+        else:
+            lp = lnprior(theta, coord[i][0].shape, info[i])
+        if not np.isfinite(lp):
+            return -np.inf
+        
+        
+        likelihood += lnL(theta, data[i], coord[i], info[i])
+    time2 = time.time()
+    print(f"Time to expand model parameters:", time2 - time1)
+    
+    return likelihood + lp
+
+def expand_model_params(theta, info):
+    constant_parameters = ["x0", "y0", "r1"] # hardcoded
+    pars = np.array(info[0]["paramNames"])[info[0]["params"]]
+    n_params = len(pars)
+    
+    final_theta = np.zeros((len(info), n_params))
+    final_theta[0] = theta[:n_params]
+    
+    
+    compare = np.ones(len(pars), dtype=bool)
+    for i in range(len(compare)):
+        if pars[i] in constant_parameters:
+            compare[i] = False
+            
+    
+    for i in range(len(info)-1):
+        for par in range(len(compare)):
+            if compare[par]:
+                final_theta[i+1, par] = theta[n_params + par]
+            else:
+                final_theta[i+1, par] = theta[par]
+    
+    for i, fit in enumerate(info):
+        theta = final_theta[i]
+        param_sky = wcs.utils.skycoord_to_pixel(
+            SkyCoord(theta[1], theta[2], unit=u.deg), 
+            fit["wcs"], 
+            origin=1
+        )
+        theta[1] = param_sky[0] - fit["fov_info_mcmc"][2]
+        theta[2] = param_sky[1] - fit["fov_info_mcmc"][0]
+        
+        kpc_scale = 1. / fit["pix2kpc"].to(u.kpc).value
+        theta[3] = theta[3] * kpc_scale
+        
+        if fit["modelName"] in ["ellipse", "rotated_ellipse", "skewed"]:
+            theta[4] = theta[4] * kpc_scale
+
+        if fit["modelName"] == "skewed":
+            theta[5] = theta[5] * kpc_scale
+            theta[6] = theta[6] * kpc_scale 
+    
+    return final_theta
 
 def add_parameter_labels(params, paramNames, array):
     full_array = np.zeros(params.shape)
@@ -899,6 +1016,7 @@ Run information for object {self.halo.name}:
     Offset: {self.offset}
 
 Fit results:
+    Flux density: {self.get_flux()}
     Reduced chi-squared: {self.get_chi2_value()}
     {param_string}
     Uncertainties (lower, upper):
