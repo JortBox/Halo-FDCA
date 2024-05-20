@@ -1,7 +1,0 @@
-2024-05-19 21:38:55,235 A1033        MainProcess INFO     Logger initiated for: A1033
-2024-05-19 21:38:55,235 A1033        MainProcess ERROR    Unknown what catalogue to use. If no costum values are given, filling values will be used
-2024-05-19 21:38:55,278 A1033        MainProcess WARNING  No manual location given, searching for A1033 in NED.
-2024-05-19 21:38:56,653 A1033        MainProcess INFO     Custom redshift set
-2024-05-19 21:38:57,053 A1033        MainProcess INFO     MCMC Mask set
-2024-05-19 21:38:57,351 A1033        MainProcess INFO     rms noise 1891.959226 microJansky/beam
-2024-05-19 21:38:57,352 A1033        MainProcess INFO     rms noise 2.557092 microJansky/arcsec2

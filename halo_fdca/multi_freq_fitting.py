@@ -106,6 +106,15 @@ class MultiWavelengthFitting(object):
         self.walkers = self.fits[0].walkers
         self.steps = self.fits[0].steps
         self.burntime = self.fits[0].burntime
+        
+        filename_append = "_%s" % (self.fits[0].modelName)
+        if self.fits[0].mask:
+            filename_append += "_mask"
+        if self.fits[0].k_exponent:
+            filename_append += "_exp"
+        if self.fits[0].offset:
+            filename_append += "_offset"
+        self.filename_append = filename_append
     
             
     def run(self, save=False):
@@ -271,7 +280,7 @@ class MultiWavelengthFitting(object):
 
         plt.savefig(
             "%s%s_walkers%s.pdf"
-            % (self.halo.plotPath, self.halo.target, self.filename_append),
+            % (self.halos[0].plotPath, self.halos[0].target, self.filename_append),
             dpi=300,
         )
         plt.clf()
@@ -292,7 +301,7 @@ class MultiWavelengthFitting(object):
 
         plt.savefig(
             "%s%s_cornerplot%s.pdf"
-            % (self.halo.plotPath, self.halo.target, self.filename_append),
+            % (self.halos[0].plotPath, self.halos[0].target, self.filename_append),
             dpi=300,
         )
         plt.clf()
@@ -327,3 +336,113 @@ class MultiWavelengthFitting(object):
             )
 
         self.hdu.header["MASK"] = (" - ".join([str(halo.mask) for halo in self.halos]), "was the data masked during fitting")
+
+
+class MultiWavaelenghtProcessing(object):
+    def __init__(
+            self, 
+            fits: MultiWavelengthFitting,
+            rebin = True,
+            model = 'circle'
+        ):
+        self.halos = fits.halos
+        self.n_halos = len(fits.halos)
+        self.results = list()
+        #for halo in halos:
+        #    self.results.append(Processing(halo))
+        
+        self.modelName = fits.fits[0].modelName
+        self.paramNames = fits.fits[0].paramNames
+        self.params = fits.fits[0].params
+        
+        
+        self.extract_chain_file(rebin)
+        
+        
+        expanded_samples = self.expand_model_params(self.sampler.T)
+        
+        pars = np.array(self.paramNames)[self.params]
+        n_params = len(pars)
+        
+        for i, halo in enumerate(self.halos):
+            info = self.info.copy()
+            for j in range(n_params * self.n_halos):
+                del info["INIT_" + str(j)]
+            
+            for j in range(n_params):
+                info["INIT_" + str(j)] = self.info["INIT_" + str(n_params * i + j)]
+                
+            param_sky = wcs.utils.skycoord_to_pixel(
+                SkyCoord(info["INIT_1"], info["INIT_2"], unit=u.deg), 
+                halo.wcs, 
+                origin=1
+            )
+            info["INIT_1"] = param_sky[0] - halo.fov_info_mcmc[2]
+            info["INIT_2"] = param_sky[1] - halo.fov_info_mcmc[0]
+            info["INIT_3"] /= halo.pix2kpc.to(u.kpc).value
+            
+            self.results.append(Processing(halo, model=model, sampler=expanded_samples[i].T, info=info))
+        
+        
+        #self.retreive_mcmc_params()
+        #self.plotSampler()
+        
+        
+    def expand_model_params(self, samples):
+        constant_parameters = ["x0", "y0", "r1"] # hardcoded
+        pars = np.array(self.paramNames)[self.params]
+        n_params = len(pars)
+        
+        final_theta = np.zeros(tuple([self.n_halos, n_params]) + samples.shape[1:])
+        final_theta[0] = samples[:n_params]
+        
+        print(final_theta.shape)
+        
+        compare = np.ones(len(pars), dtype=bool)
+        for i in range(len(compare)):
+            if pars[i] in constant_parameters:
+                compare[i] = False
+                
+        
+        for i in range(self.n_halos-1):
+            for par in range(len(compare)):
+                if compare[par]:
+                    final_theta[i+1, par] = samples[n_params + par]
+                else:
+                    final_theta[i+1, par] = samples[par]
+        
+        
+        for i, halo in enumerate(self.halos):
+            theta = final_theta[i]
+            param_sky = wcs.utils.skycoord_to_pixel(
+                SkyCoord(theta[1], theta[2], unit=u.deg), 
+                halo.wcs, 
+                origin=1
+            )
+            theta[1] = param_sky[0] - halo.fov_info_mcmc[2]
+            theta[2] = param_sky[1] - halo.fov_info_mcmc[0]
+            
+            kpc_scale = 1. / halo.pix2kpc.to(u.kpc).value
+            theta[3] = theta[3] * kpc_scale
+            
+            if self.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
+                theta[4] = theta[4] * kpc_scale
+
+            if self.modelName == "skewed":
+                theta[5] = theta[5] * kpc_scale
+                theta[6] = theta[6] * kpc_scale 
+        
+        return final_theta
+        
+        
+        
+        
+    def extract_chain_file(self, rebin):
+        self.rebin = rebin
+        path = f"{self.halos[0].modelPath}{self.halos[0].name}_multi_mcmc_samples.fits"
+        sampler_chain = fits.open(path)
+
+        self.sampler = sampler_chain[0].data
+        self.info = sampler_chain[0].header
+        
+  

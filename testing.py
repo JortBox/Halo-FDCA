@@ -17,10 +17,17 @@ Halo_high = fdca.RadioHalo(
     decreased_fov=True
 )
 
-#fit = fdca.Fitting(Halo_high, model="skewed")
-#fit.run()
+
 
 multiFit = fdca.MultiWavelengthFitting([Halo_low, Halo_high])
-multiFit.run(save=True)
+#multiFit.run(save=True)
 
-#fdca.Fitting(Halo_low).run(save=True)
+results = fdca.MultiWavaelenghtProcessing(multiFit)
+
+for processing in results.results:
+    processing.plot()
+    processing.get_chi2_value()
+    processing.get_flux()# error is one sigma (68%).
+    processing.get_power()
+
+    print(processing)

@@ -958,6 +958,8 @@ class Processing(object):
         k_exponent=False,
         offset=False,
         burntime=None,
+        sampler=None,
+        info=None,
     ):
         assert model in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
 
@@ -987,7 +989,7 @@ class Processing(object):
         mask = _parent_.mask
 
         self.check_settings(model, mask)
-        self.extract_chain_file(rebin)
+        self.extract_chain_file(rebin, sampler, info)
         self.retreive_mcmc_params()
         self.set_labels_and_units()
 
@@ -998,10 +1000,11 @@ class Processing(object):
         uncertainties1 = self.percentiles_units[:, 1] - self.percentiles_units[:, 0]
         uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]
 
+        flux, flux_err = self.get_flux()
 
         param_string = ""
         for param in range(len(self.params[self.params])):
-            param_string += f"{self.paramNames[param]}:   {self.params_units[param]:.5f} ({self.units[param]})\n    "
+            param_string += f"{self.paramNames[param]}:   {self.params_units[self.params][param]:.5f} ({self.units[param]})\n    "
         
         run_details = f"""
 Run information for object {self.halo.name}:
@@ -1016,7 +1019,7 @@ Run information for object {self.halo.name}:
     Offset: {self.offset}
 
 Fit results:
-    Flux density: {self.get_flux()}
+    Flux density at {self.halo.freq:.1f}: {flux:.5f} +/- {flux_err:.5f}
     Reduced chi-squared: {self.get_chi2_value()}
     {param_string}
     Uncertainties (lower, upper):
@@ -1045,8 +1048,8 @@ Fit results:
         self.plotSampler()
         self.cornerplot()
 
-    def check_settings(self, dim, mask):
-        self.modelName = dim
+    def check_settings(self, model, mask):
+        self.modelName = model
         self.paramNames = [
             "I0",
             "x0",
@@ -1059,7 +1062,7 @@ Fit results:
             "k_exp",
             "off",
         ]
-        if dim == "circle":
+        if model == "circle":
             self._func_ = utils.circle_model
             self.AppliedParameters = [
                 True,
@@ -1073,7 +1076,7 @@ Fit results:
                 False,
                 False,
             ]
-        elif dim == "ellipse":
+        elif model == "ellipse":
             self._func_ = utils.ellipse_model
             self.AppliedParameters = [
                 True,
@@ -1087,7 +1090,7 @@ Fit results:
                 False,
                 False,
             ]
-        elif dim == "rotated_ellipse":
+        elif model == "rotated_ellipse":
             self._func_ = utils.rotated_ellipse_model
             self.AppliedParameters = [
                 True,
@@ -1101,7 +1104,7 @@ Fit results:
                 False,
                 False,
             ]
-        elif dim == "skewed":
+        elif model == "skewed":
             self._func_ = utils.skewed_model
             self.AppliedParameters = [
                 True,
@@ -1148,7 +1151,7 @@ Fit results:
             self.mask=False
         """
 
-    def extract_chain_file(self, rebin):
+    def extract_chain_file(self, rebin, sampler, info):
         filename_append = "_{}".format(self.modelName)
         if self.mask:
             filename_append += "_mask"
@@ -1160,16 +1163,24 @@ Fit results:
         self.filename_append = filename_append
 
         self.rebin = rebin
-        sampler_chain = fits.open(
-            self.halo.modelPath
-            + self.halo.file.replace(".fits", "")
-            + "_mcmc_samples"
-            + self.filename_append
-            + ".fits"
-        )
+        
+        if sampler is not None and info is not None:
+            self.sampler = sampler
+            self.info = info
+            
+        else:
+            sampler_chain = fits.open(
+                self.halo.modelPath
+                + self.halo.file.replace(".fits", "")
+                + "_mcmc_samples"
+                + self.filename_append
+                + ".fits"
+            )
 
-        self.sampler = sampler_chain[0].data
-        self.info = sampler_chain[0].header
+            self.sampler = sampler_chain[0].data
+            self.info = sampler_chain[0].header
+            
+
 
     def at(self, parameter):
         par = np.array(self.paramNames)[self.params]
@@ -1563,6 +1574,8 @@ Fit results:
                 self.flux_val.value / self.flux_err.value
             ),
         )
+        
+        return self.flux_val, self.flux_err
 
     def get_power(self, freq=None):
         if freq is None:
