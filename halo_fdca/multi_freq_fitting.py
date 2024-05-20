@@ -242,7 +242,7 @@ class MultiWavelengthFitting(object):
         return popt
 
     def save(self):
-        path = f"{self.halos[0].name}_multi_mcmc_samples.fits"
+        path = f"{self.halos[0].modelPath}{self.halos[0].name}_multi_mcmc_samples.fits"
         #path = "%s%s_multi_mcmc_samples%s.fits" % (
         #    self.halo.modelPath,
         #    self.halo.file.replace(".fits", ""),
