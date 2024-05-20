@@ -39,8 +39,12 @@ from . import plot_fits
 from . import fdca_utils as utils
 from .halo_object import RadioHalo
 
-set_start_method("fork")
-freeze_support()
+try:
+    set_start_method("fork")
+    freeze_support()
+except RuntimeError:
+    pass
+
 
 rad2deg = 180.0 / np.pi
 deg2rad = np.pi / 180.0
