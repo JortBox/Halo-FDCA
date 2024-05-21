@@ -374,11 +374,13 @@ def transform_units(obj, params, err=False):
         params[1] *= obj.halo.pix_size.to(u.deg).value
         params[2] *= obj.halo.pix_size.to(u.deg).value
     else:
-        params[1] += obj.halo.fov_info_mcmc[2]
-        params[2] += obj.halo.fov_info_mcmc[0]
+        params[1] += obj.halo.fov_info[2]
+        params[2] += obj.halo.fov_info[0]
+        
         param_sky = wcs.utils.pixel_to_skycoord(
             params[1], params[2], wcs.WCS(obj.halo.header), origin=1
         )
+        
         params[1] = param_sky.ra.deg
         params[2] = param_sky.dec.deg
     

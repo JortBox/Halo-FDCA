@@ -1005,7 +1005,7 @@ class Processing(object):
         uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]
 
         flux, flux_err = self.get_flux()
-
+        
         param_string = ""
         for param in range(len(self.params[self.params])):
             param_string += f"{self.paramNames[param]}:   {self.params_units[self.params][param]:.5f} ({self.units[param]})\n    "
@@ -1329,19 +1329,18 @@ Fit results:
         samples_units = self.samples.copy()
         samples_list = list()
 
-        x0 = np.percentile(self.samples.real[:, 1], [16, 50, 84])[1] - abs(
-            self.halo.margin[1]
-        )
-        y0 = np.percentile(self.samples.real[:, 2], [16, 50, 84])[1] - abs(
-            self.halo.margin[0]
-        )
+        x0 = np.percentile(self.samples.real[:, 1], [16, 50, 84])[1] + self.halo.fov_info_mcmc[2]
+        y0 = np.percentile(self.samples.real[:, 2], [16, 50, 84])[1] + self.halo.fov_info_mcmc[0]
+        
         self.centre_pix = np.array([x0, y0], dtype=np.int64)
         self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], wcs.WCS(self.halo.header), origin=1)
 
-        for i in range(self.dim):
-            samples_list.append(samples_units[:, i])
 
-        transformed = utils.transform_units(self, samples_list)
+
+        samples_list = np.asarray([samples_units[:, i]for i 
+                                   in range(self.dim)])
+
+        transformed = utils.transform_units(self, np.copy(samples_list))
         for i in range(self.dim):
             self.samples_units[:, i] = transformed[i]
 
@@ -1350,6 +1349,7 @@ Fit results:
         self.params_units = utils.add_parameter_labels(
             self, self.percentiles_units[:, 1].reshape(self.dim)
         )
+        
         self.get_units()
         uncertainties1 = self.percentiles_units[:, 1] - self.percentiles_units[:, 0]
         uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]

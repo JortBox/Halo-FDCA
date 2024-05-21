@@ -358,9 +358,9 @@ class MultiWavaelenghtProcessing(object):
         
         self.extract_chain_file(rebin)
         
-        
+        print(self.sampler[-1,-1,:])
         expanded_samples = self.expand_model_params(self.sampler.T)
-        
+        print(expanded_samples[:,:,-1,-1])
         pars = np.array(self.paramNames)[self.params]
         n_params = len(pars)
         
