@@ -7,36 +7,23 @@ Version: 08 June 2020
 """
 
 from __future__ import division
-import sys
-import os
-import logging
 import emcee
 import corner
 
 import numpy as np
-import pandas as pd
-import scipy.stats as stats
 import matplotlib.pyplot as plt
 
-from multiprocessing import Pool, cpu_count, freeze_support, set_start_method
-from scipy import ndimage
-from scipy.optimize import curve_fit
-from scipy.special import gammainc, gamma
-from matplotlib.colors import Normalize, LogNorm
-from skimage.measure import block_reduce
+from multiprocessing import Pool, cpu_count
 from astropy import wcs
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from astropy.cosmology import FlatLambdaCDM
-from astropy.convolution import Gaussian2DKernel
-from astropy.convolution import convolve
 from astropy.io import fits
 
 
 # Subfile imports
-from . import plot_fits
 from . import fdca_utils as utils
-from .markov_chain_monte_carlo import *
+from .mcmc_fitting import *
+from .mcmc_processing import Processing
 from .halo_object import RadioHalo
 
 rad2deg = 180.0 / np.pi
@@ -88,6 +75,7 @@ class MultiWavelengthFitting(object):
         halos: list[RadioHalo],
         p0: list[list] = None,
         bounds: list[tuple[list, list]] = None,
+        model: str = "circle",
         **kwargs
     ):  
         if p0 is None:
@@ -98,6 +86,8 @@ class MultiWavelengthFitting(object):
         self.halos = halos    
         self.fits: list[Fitting] = list()
         
+        assert model == "circle", "For now, only the circular model is supported in multi frequency mode"
+        
         for i, halo in enumerate(halos):
             assert isinstance(halo, RadioHalo), "Provide valid RadioHalo object"
             self.fits.append(Fitting(halo, p0=p0[i], bounds=bounds[i], **kwargs))
@@ -107,7 +97,7 @@ class MultiWavelengthFitting(object):
         self.steps = self.fits[0].steps
         self.burntime = self.fits[0].burntime
         
-        filename_append = "_%s" % (self.fits[0].modelName)
+        filename_append = "_%s" % (self.fits[0].model_name)
         if self.fits[0].mask:
             filename_append += "_mask"
         if self.fits[0].k_exponent:
@@ -201,14 +191,13 @@ class MultiWavelengthFitting(object):
         popt[:,2] = params_best[2]
         popt[:,3] = params_best[3]
         
-        if fit.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
+        if fit.model_name in ["ellipse", "rotated_ellipse", "skewed"]:
             popt[:,4] = params_best[4]
 
-        if fit.modelName == "skewed":
+        if fit.model_name == "skewed":
             popt[:,5] = params_best[5]
             popt[:,6] = params_best[6]   
         return popt
-        #return self.align_params(popt, perr)
     
     
     def align_params(self, popt: np.ndarray, noise):
@@ -241,10 +230,10 @@ class MultiWavelengthFitting(object):
             kpc_scale = 1. / fit.halo.pix2kpc.to(u.kpc).value
             popt[i,3] = params_best[3] * kpc_scale
             
-            if fit.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
+            if fit.model_name in ["ellipse", "rotated_ellipse", "skewed"]:
                 popt[i,4] = params_best[4] * kpc_scale
 
-            if fit.modelName == "skewed":
+            if fit.model_name == "skewed":
                 popt[i,5] = params_best[5] * kpc_scale
                 popt[i,6] = params_best[6] * kpc_scale     
                  
@@ -252,11 +241,6 @@ class MultiWavelengthFitting(object):
 
     def save(self):
         path = f"{self.halos[0].modelPath}{self.halos[0].name}_multi_mcmc_samples.fits"
-        #path = "%s%s_multi_mcmc_samples%s.fits" % (
-        #    self.halo.modelPath,
-        #    self.halo.file.replace(".fits", ""),
-        #    self.filename_append,
-        #)
         self.hdu = fits.PrimaryHDU()
         self.hdu.data = self.sampler_chain
         self.set_sampler_header()
@@ -343,15 +327,12 @@ class MultiWavaelenghtProcessing(object):
             self, 
             fits: MultiWavelengthFitting,
             rebin = True,
-            model = 'circle'
         ):
         self.halos = fits.halos
         self.n_halos = len(fits.halos)
-        self.results = list()
-        #for halo in halos:
-        #    self.results.append(Processing(halo))
+        self.results: list[Processing] = list()
         
-        self.modelName = fits.fits[0].modelName
+        self.model_name = fits.fits[0].model_name
         self.paramNames = fits.fits[0].paramNames
         self.params = fits.fits[0].params
         
@@ -365,12 +346,12 @@ class MultiWavaelenghtProcessing(object):
         n_params = len(pars)
         
         for i, halo in enumerate(self.halos):
-            info = self.info.copy()
+            info = self.sample_info.copy()
             for j in range(n_params * self.n_halos):
                 del info["INIT_" + str(j)]
             
             for j in range(n_params):
-                info["INIT_" + str(j)] = self.info["INIT_" + str(n_params * i + j)]
+                info["INIT_" + str(j)] = self.sample_info["INIT_" + str(n_params * i + j)]
                 
             param_sky = wcs.utils.skycoord_to_pixel(
                 SkyCoord(info["INIT_1"], info["INIT_2"], unit=u.deg), 
@@ -381,11 +362,8 @@ class MultiWavaelenghtProcessing(object):
             info["INIT_2"] = param_sky[1] - halo.fov_info_mcmc[0]
             info["INIT_3"] /= halo.pix2kpc.to(u.kpc).value
             
-            self.results.append(Processing(halo, model=model, sampler=expanded_samples[i].T, info=info))
-        
-        
-        #self.retreive_mcmc_params()
-        #self.plotSampler()
+            self.results.append(Processing(fits.fits[i], sampler=expanded_samples[i].T, sample_info=info))
+
         
         
     def expand_model_params(self, samples):
@@ -425,17 +403,14 @@ class MultiWavaelenghtProcessing(object):
             kpc_scale = 1. / halo.pix2kpc.to(u.kpc).value
             theta[3] = theta[3] * kpc_scale
             
-            if self.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
+            if self.model_name in ["ellipse", "rotated_ellipse", "skewed"]:
                 theta[4] = theta[4] * kpc_scale
 
-            if self.modelName == "skewed":
+            if self.model_name == "skewed":
                 theta[5] = theta[5] * kpc_scale
                 theta[6] = theta[6] * kpc_scale 
         
         return final_theta
-        
-        
-        
         
     def extract_chain_file(self, rebin):
         self.rebin = rebin
@@ -443,6 +418,6 @@ class MultiWavaelenghtProcessing(object):
         sampler_chain = fits.open(path)
 
         self.sampler = sampler_chain[0].data
-        self.info = sampler_chain[0].header
+        self.sample_info = sampler_chain[0].header
         
   

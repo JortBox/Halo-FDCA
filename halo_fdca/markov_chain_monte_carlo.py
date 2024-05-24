@@ -23,7 +23,6 @@ from multiprocessing import Pool, cpu_count, freeze_support, set_start_method
 from scipy import ndimage
 from scipy.optimize import curve_fit
 from scipy.special import gammainc, gamma
-from matplotlib.colors import Normalize, LogNorm
 from skimage.measure import block_reduce
 from astropy import wcs
 from astropy import units as u
@@ -300,6 +299,7 @@ class Fitting(object):
             {"params": self.AppliedParameters}, orient="index", columns=self.paramNames
         ).loc["params"]
         self.dim = len(self.params[self.params == True])
+        self.image_mask, self.mask = utils.masking(self, mask, full_size=True)
 
         if walkers >= 2 * self.dim:
             self.walkers = int(walkers)

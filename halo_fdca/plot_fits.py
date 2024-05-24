@@ -7,20 +7,13 @@ Author: J.M. Boxelaar
 
 import numpy as np
 import astropy.units as u
-import sys
-import scipy.stats as stats
-from astropy.coordinates import SkyCoord
+import corner
 import matplotlib.pyplot as plt
-import os
-#import aplpy
-from scipy.optimize import curve_fit
 import matplotlib.colors as mplc
-from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import ScalarFormatter
-from scipy import ndimage
-from scipy import signal
 
 from . import fdca_utils as utils
+from .markov_chain_monte_carlo import Processing
 
 Jydeg2     = u.Jy/(u.deg*u.deg)
 mJyarcsec2 = u.mJy/(u.arcsec*u.arcsec)
@@ -30,7 +23,78 @@ titlesize = 20
 labelsize = 13
 
 
-def fit_result(obj, model, data, noise, mask=False, regrid=False):
+
+def samplerplot(obj):
+    fig, axes = plt.subplots(ncols=1, nrows=obj.dim, sharex=True)
+    axes[0].set_title("Number of walkers: " + str(obj.walkers), fontsize=25)
+    for axi in axes.flat:
+        axi.yaxis.set_major_locator(plt.MaxNLocator(3))
+        fig.set_size_inches(2 * 10, 15)
+
+    for i in range(obj.dim):
+        axes[i].plot(
+            obj.sampler[:, :, i].transpose(), color="black", alpha=0.3, lw=0.5
+        )
+        axes[i].set_ylabel(obj.labels[i], fontsize=20)
+        axes[-1].set_xlabel("steps", fontsize=20)
+        axes[i].axvline(0.3 * obj.sampler.shape[1], ls="dashed", color="red")
+        axes[i].tick_params(labelsize=20)
+        plt.xlim(0, obj.sampler.shape[1])
+
+    if obj.save:
+        plt.savefig(
+            obj.halo.plotPath
+            + obj.halo.file.replace(".fits", "")
+            + "_walkers"
+            + obj.filename_append
+            + ".pdf"
+        )
+        plt.clf()
+        plt.close(fig)
+    else:
+        plt.show()
+        
+def cornerplot(obj):
+    try:
+        fig = corner.corner(
+            obj.samples_units,
+            labels=obj.labels_units,
+            truths=obj.popt_units[obj.params],
+            quantiles=[0.160, 0.5, 0.840],
+            show_titles=True,
+            max_n_ticks=3,
+            title_fmt="1.2g",
+        )
+    except:
+        labels = list()
+        for i in range(obj.dim):
+            labels.append("Param " + str(i + 1))
+            
+        fig = corner.corner(
+            obj.samples,
+            labels=labels,
+            quantiles=[0.160, 0.5, 0.840],
+            truths=np.asarray(obj.popt[obj.params]),
+            show_titles=True,
+            title_fmt=".5f",
+        )
+    if obj.save:
+        plt.savefig(
+            obj.halo.plotPath
+            + obj.halo.file.replace(".fits", "")
+            + "_cornerplot"
+            + obj.filename_append
+            + ".pdf"
+        )
+        plt.clf()
+        plt.close(fig)
+    else:
+        plt.show()        
+        
+        
+
+
+def fit_result(obj: Processing, model, data, noise, mask=False, regrid=False):
     halo   = obj.halo
     ra     = halo.ra.value
     dec    = halo.dec.value
@@ -47,8 +111,8 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     image_mask = obj.image_mask
 
     if regrid:
-        data  = utils.regridding(obj.halo,data, decrease_fov=True)
-        model = utils.regridding(obj.halo,model)
+        data  = utils.regridding(obj.halo, data, decrease_fov=obj.halo.cropped)
+        model = utils.regridding(obj.halo, model)
         #if mask:
         image_mask = utils.regridding(obj.halo, obj.image_mask*u.Jy, mask= not obj.halo.cropped).value
         noise  = utils.findrms(data.value)*u.Jy
@@ -59,6 +123,16 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         dec    = np.arange(0,data.shape[0])#halo.dec.value
         xlabel = 'Pixels'
         ylabel = 'Pixels'
+        
+        # Unity regrid test
+        unity_map = np.ones(model.shape, dtype=np.float64)
+        unity_regrid = utils.regridding(obj.halo, unity_map)
+        plt.imshow(unity_regrid, cmap="infferno", origin="lower")
+        plt.title(f"total flux original: {np.sum(unity_map)} \n total flux regridded: {np.sum(unity_regrid)}")
+        plt.colorbar()
+        plt.savefig(halo.plotPath +halo.file.replace('.fits','')+'unity_regrid_test.pdf')
+        plt.clf()
+         
 
         #plt.imshow(image_mask)
         #plt.show()

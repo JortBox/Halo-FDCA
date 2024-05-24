@@ -192,8 +192,6 @@ class RadioHalo(object):
         self.image_mask, self.mask = utils.masking(self, mask)
         self.exponentialFit(data, first=True)  # Find centre of the image centre_pix
 
-        
-
         self.pix_to_world()
         self.set_image_characteristics(decreased_fov)
 

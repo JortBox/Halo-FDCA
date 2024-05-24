@@ -54,60 +54,9 @@ def add_parameter_labels(obj, array):
                             orient='index',columns=obj.paramNames).loc['params']
     return parameterised_array
 
-def convolve_model(halo, Ir, rotate):
-    if rotate:
-        Ir = rotate_image(halo,Ir,decrease_fov=True)
-    return convolve_with_gaussian(halo, Ir).ravel()
 
 def gauss(x,mu,sigma, A):
     return A*np.exp(-1./2*((x-mu)/sigma)**2.)
-
-def convolve_with_gaussian(obj, data):
-    sigma1 = (obj.bmaj/obj.pix_size)/np.sqrt(8*np.log(2.))
-    sigma2 = (obj.bmin/obj.pix_size)/np.sqrt(8*np.log(2.))
-    kernel = Gaussian2DKernel(sigma1, sigma2, obj.bpa.to(u.rad))
-    try:
-        astropy_conv = convolve(data.value,kernel,boundary='extend',normalize_kernel=True)
-    except:
-        astropy_conv = convolve(data,kernel,boundary='extend',normalize_kernel=True)
-    return astropy_conv
-
-def circle_model(obj, theta, rotate=False):
-    G   = ((obj.x_pix-theta['x0'])**2+(obj.y_pix-theta['y0'])**2)/theta['r1']**2
-    Ir  = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
-    return convolve_model(obj.halo, Ir, rotate).ravel()
-
-def ellipse_model(obj, theta, rotate=False):
-    G  = ((obj.x_pix-theta['x0'])/theta['r1'])**2+((obj.y_pix-theta['y0'])/theta['r2'])**2
-    Ir = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
-    return convolve_model(obj.halo, Ir, rotate).ravel()
-
-def rotated_ellipse_model(obj, theta, rotate=False):
-    x  = (obj.x_pix-theta['x0'])*np.cos(theta['ang']) + (obj.y_pix-theta['y0'])*np.sin(theta['ang'])
-    y  = -(obj.x_pix-theta['x0'])*np.sin(theta['ang']) + (obj.y_pix-theta['y0'])*np.cos(theta['ang'])
-    G  = (x/theta['r1'])**2.+(y/theta['r2'])**2.
-    Ir = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
-    return convolve_model(obj.halo, Ir, rotate).ravel()
-
-def skewed_model(obj, theta, rotate=False):
-    G_pp = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r1'],theta['r3'],theta['ang'],  1.,  1.)
-    G_mm = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r2'],theta['r4'],theta['ang'], -1., -1.)
-    G_pm = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r1'],theta['r4'],theta['ang'],  1., -1.)
-    G_mp = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r2'],theta['r3'],theta['ang'], -1.,  1.)
-
-    Ir = theta['I0']*(G_pp+G_pm+G_mm+G_mp)
-    return convolve_model(obj.halo, Ir, rotate).ravel()
-
-def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
-    x_rot =  (x-x0)*np.cos(ang)+(y-y0)*np.sin(ang)
-    y_rot = -(x-x0)*np.sin(ang)+(y-y0)*np.cos(ang)
-    func  = (np.sqrt(sign_x * x_rot)**4.)/(re_x**2.) +\
-            (np.sqrt(sign_y * y_rot)**4.)/(re_y**2.)
-
-    exponent = np.exp(-np.sqrt(func))
-    exponent[np.where(np.isnan(exponent))]=0.
-    return exponent
-
 
 def noise_modelling(obj):
     noise = 15.*(np.random.randn(len(obj.halo.x_pix),len(obj.halo.y_pix))-0.030)*u.Jy
@@ -212,7 +161,7 @@ def flatten(f):
 
     naxis=f[0].header['NAXIS']
     if naxis<2:
-        raise RadioError('Can\'t make map from this')
+        raise RadioError('Can\'t make map from this') # type: ignore
     if naxis == 2:
         return fits.PrimaryHDU(header=f[0].header,data=f[0].data)
 
@@ -397,3 +346,61 @@ def transform_units(obj, params, err=False):
     if obj.modelName in ["rotated_ellipse", "skewed"]:
         params[obj.at("ang")] = params[obj.at("ang")]
     return params
+
+
+
+
+
+
+def convolve_with_gaussian(obj, data):
+    sigma1 = (obj.bmaj/obj.pix_size)/np.sqrt(8*np.log(2.))
+    sigma2 = (obj.bmin/obj.pix_size)/np.sqrt(8*np.log(2.))
+    kernel = Gaussian2DKernel(sigma1, sigma2, obj.bpa.to(u.rad))
+    try:
+        astropy_conv = convolve(data.value,kernel,boundary='extend',normalize_kernel=True)
+    except:
+        astropy_conv = convolve(data,kernel,boundary='extend',normalize_kernel=True)
+    return astropy_conv
+
+
+def convolve_model(halo, Ir, rotate):
+    if rotate:
+        Ir = rotate_image(halo,Ir,decrease_fov=True)
+    return convolve_with_gaussian(halo, Ir).ravel()
+
+def circle_model(obj, theta, rotate=False):
+    G   = ((obj.x_pix-theta['x0'])**2+(obj.y_pix-theta['y0'])**2)/theta['r1']**2
+    Ir  = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_model(obj.halo, Ir, rotate).ravel()
+
+def ellipse_model(obj, theta, rotate=False):
+    G  = ((obj.x_pix-theta['x0'])/theta['r1'])**2+((obj.y_pix-theta['y0'])/theta['r2'])**2
+    Ir = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_model(obj.halo, Ir, rotate).ravel()
+
+def rotated_ellipse_model(obj, theta, rotate=False):
+    x  = (obj.x_pix-theta['x0'])*np.cos(theta['ang']) + (obj.y_pix-theta['y0'])*np.sin(theta['ang'])
+    y  = -(obj.x_pix-theta['x0'])*np.sin(theta['ang']) + (obj.y_pix-theta['y0'])*np.cos(theta['ang'])
+    G  = (x/theta['r1'])**2.+(y/theta['r2'])**2.
+    Ir = theta['I0']*np.exp(-G**(0.5+theta['k_exp']))+theta['off']
+    return convolve_model(obj.halo, Ir, rotate).ravel()
+
+def skewed_model(obj, theta, rotate=False):
+    G_pp = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r1'],theta['r3'],theta['ang'],  1.,  1.)
+    G_mm = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r2'],theta['r4'],theta['ang'], -1., -1.)
+    G_pm = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r1'],theta['r4'],theta['ang'],  1., -1.)
+    G_mp = G(obj.x_pix, obj.y_pix, theta['I0'],theta['x0'],theta['y0'],theta['r2'],theta['r3'],theta['ang'], -1.,  1.)
+
+    Ir = theta['I0']*(G_pp+G_pm+G_mm+G_mp)
+    return convolve_model(obj.halo, Ir, rotate).ravel()
+
+def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
+    x_rot =  (x-x0)*np.cos(ang)+(y-y0)*np.sin(ang)
+    y_rot = -(x-x0)*np.sin(ang)+(y-y0)*np.cos(ang)
+    func  = (np.sqrt(sign_x * x_rot)**4.)/(re_x**2.) +\
+            (np.sqrt(sign_y * y_rot)**4.)/(re_y**2.)
+
+    exponent = np.exp(-np.sqrt(func))
+    exponent[np.where(np.isnan(exponent))]=0.
+    return exponent
+

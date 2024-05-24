@@ -112,15 +112,7 @@ if __name__=='__main__':
     
     if args.freq is None: 
         args.freq = Halo.freq.value
-    '''
-    print(Halo.centre_pix)
-    print(Halo.fov_info_mcmc) 
-    print(Halo.fov_info)
-    print(Halo.data.shape)
-    print(Halo.original_image.shape)
-    print(Halo.data_mcmc.shape)   
-    print(p0, 'p0')
-    '''
+
     if args.run_mcmc:
         fit  = halo_fdca.Fitting(
             Halo, p0, bounds, model=args.model,walkers=args.walkers,steps=args.steps,
