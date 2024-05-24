@@ -1044,7 +1044,7 @@ Fit results:
         plot_fits.fit_result(
             self,
             self.model,
-            self.halo.data_mcmc,
+            self.halo.data,
             self.halo.rmsnoise,
             mask=self.mask,
             regrid=True,

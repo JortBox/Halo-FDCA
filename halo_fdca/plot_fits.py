@@ -13,7 +13,7 @@ import matplotlib.colors as mplc
 from matplotlib.ticker import ScalarFormatter
 
 from . import fdca_utils as utils
-from .markov_chain_monte_carlo import Processing
+#from .markov_chain_monte_carlo import Processing
 
 Jydeg2     = u.Jy/(u.deg*u.deg)
 mJyarcsec2 = u.mJy/(u.arcsec*u.arcsec)
@@ -94,7 +94,7 @@ def cornerplot(obj):
         
 
 
-def fit_result(obj: Processing, model, data, noise, mask=False, regrid=False):
+def fit_result(obj, model, data, noise, mask=False, regrid=False):
     halo   = obj.halo
     ra     = halo.ra.value
     dec    = halo.dec.value
@@ -110,8 +110,9 @@ def fit_result(obj: Processing, model, data, noise, mask=False, regrid=False):
     #if mask:
     image_mask = obj.image_mask
 
+
     if regrid:
-        data  = utils.regridding(obj.halo, data, decrease_fov=obj.halo.cropped)
+        data  = utils.regridding(obj.halo, data)
         model = utils.regridding(obj.halo, model)
         #if mask:
         image_mask = utils.regridding(obj.halo, obj.image_mask*u.Jy, mask= not obj.halo.cropped).value
@@ -124,15 +125,16 @@ def fit_result(obj: Processing, model, data, noise, mask=False, regrid=False):
         xlabel = 'Pixels'
         ylabel = 'Pixels'
         
+        """
         # Unity regrid test
         unity_map = np.ones(model.shape, dtype=np.float64)
-        unity_regrid = utils.regridding(obj.halo, unity_map)
-        plt.imshow(unity_regrid, cmap="infferno", origin="lower")
+        unity_regrid = utils.regridding(obj.halo, unity_map * u.Jy)
+        plt.imshow(unity_regrid.value, cmap="inferno", origin="lower")
         plt.title(f"total flux original: {np.sum(unity_map)} \n total flux regridded: {np.sum(unity_regrid)}")
         plt.colorbar()
         plt.savefig(halo.plotPath +halo.file.replace('.fits','')+'unity_regrid_test.pdf')
         plt.clf()
-         
+        """ 
 
         #plt.imshow(image_mask)
         #plt.show()
@@ -160,6 +162,9 @@ def fit_result(obj: Processing, model, data, noise, mask=False, regrid=False):
         masked_data[image_mask > obj.mask_treshold*image_mask.max()] =-10000.
     else:
         masked_data[image_mask==1]= -10000.
+
+    
+
 
     if regrid:
         NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())

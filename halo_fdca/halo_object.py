@@ -353,6 +353,11 @@ class RadioHalo(object):
             x = np.arange(0, np.shape(self.data.value)[1], step=1, dtype="float")
             y = np.arange(0, np.shape(self.data.value)[0], step=1, dtype="float")
             self.x_pix, self.y_pix = np.meshgrid(x, y)
+            
+            self.log.log(
+                logging.INFO,
+                "Decreased FoV to "+str(self.data.shape)
+            )
 
             self.image_mask, self.mask = utils.masking(self, self.mask)
             self.exponentialFit(self.data.value)

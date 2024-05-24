@@ -114,6 +114,8 @@ if __name__=='__main__':
         args.freq = Halo.freq.value
 
     if args.run_mcmc:
+        logger.log(logging.INFO, 'Start MCMC routine')
+        logger.log(logging.INFO, "MCMC data shape: "+str(Halo.data_mcmc.shape))
         fit  = halo_fdca.Fitting(
             Halo, p0, bounds, model=args.model,walkers=args.walkers,steps=args.steps,
             burntime=args.burntime,
