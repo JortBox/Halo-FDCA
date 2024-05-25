@@ -449,9 +449,6 @@ class Fitting(object):
             r += 1
             if popt["r" + str(r)] > self.max_radius:
                 popt["r" + str(r)] = self.max_radius
-
-        self.centre_pix = np.array([popt["x0"], popt["y0"]], dtype=np.int64)
-        self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], wcs.WCS(self.halo.header), origin=1)
         
         popt_units = utils.transform_units(self, np.copy(popt))
         popt_units = utils.add_parameter_labels(self, popt_units[self.params])

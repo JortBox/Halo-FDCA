@@ -194,7 +194,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     axes[0].set_ylabel(ylabel, fontsize=labelsize)
     axes[0].grid(color='white', linestyle='-', alpha=0.25)
 
-    plt.tight_layout()
+    #plt.tight_layout()
 
     im2 = axes[1].imshow(model,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
@@ -209,7 +209,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     #cbar.formatter = ScalarFormatter(useMathText=False)
     #cbar.formatter = ticker.LogFormatter(base=10.,labelOnlyBase=True)
     #cbar.formatter = ticker.StrMethodFormatter('%.2f')
-    plt.tight_layout()
+    #plt.tight_layout()
 
 
     im3 = axes[2].imshow(data-model, cmap='PuOr_r', origin='lower',
@@ -340,7 +340,7 @@ def model_comparisson(halo, mask=False):
     axes[0].grid(color='white', linestyle='-', alpha=0.25)
     draw_sizebar(halo,axes[0], scale)
     draw_ellipse(halo,axes[0], bmin, bmaj)
-    plt.tight_layout()
+    #plt.tight_layout()
 
     im2 = axes[1].imshow(masked_data,
                         cmap='inferno', origin='lower',
@@ -362,7 +362,7 @@ def model_comparisson(halo, mask=False):
     axes[1].grid(color='white', linestyle='-', alpha=0.25)
     draw_sizebar(halo,axes[0], scale)
     draw_ellipse(halo,axes[0], bmin, bmaj)
-    plt.tight_layout()
+    #plt.tight_layout()
 
     im3 = axes[2].imshow(masked_data,
                         cmap='inferno', origin='lower',

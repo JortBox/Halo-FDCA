@@ -272,14 +272,9 @@ Fit results:
         samples_units = self.samples.copy()
         samples_list = list()
 
-        x0 = np.percentile(self.samples.real[:, 1], [16, 50, 84])[1] + self.halo.fov_info_mcmc[2]
-        y0 = np.percentile(self.samples.real[:, 2], [16, 50, 84])[1] + self.halo.fov_info_mcmc[0]
-        
-        self.centre_pix = np.array([x0, y0], dtype=np.int64)
-        self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], wcs.WCS(self.halo.header), origin=1)
-
-
-
+        #x0 = np.percentile(self.samples.real[:, 1], [16, 50, 84])[1] + self.halo.fov_info_mcmc[2]
+        #y0 = np.percentile(self.samples.real[:, 2], [16, 50, 84])[1] + self.halo.fov_info_mcmc[0]
+    
         samples_list = np.asarray([samples_units[:, i]for i 
                                    in range(self.dim)])
 

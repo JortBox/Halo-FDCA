@@ -33,6 +33,7 @@ def arguments():
     parser.add_argument('-steps',     help='(int) Number of evauations each walker has to do. Default: 1200',default=1200, type=int)
     parser.add_argument('-burntime',  help='(int) Burn-in time for MCMC walkers. See emcee documentation for info. Default: None. this is 1/4th of the steps.',default=None, type=int)
     parser.add_argument('-max_radius',help='(float) Maximum posiible radius cut-off. Fitted halos cannot have any r > max_radius. In units of kpc. Default: None (implying image_size/2).',default=None, type=float)
+    parser.add_argument('-min_radius',help='(float) Minimum posiible radius cut-off. Fitted halos cannot have any r < min_radius. In units of pixels. Default: 0.',default=0, type=float)
     parser.add_argument('-gamma_prior',help='(bool) Whether to use a gamma distribution as a prior for radii. Default is False. For the gamma parameters: shape = 2.5, scale = 120 kpc. Default: False',default=False, type=str2bool)
     parser.add_argument('-k_exp',     help='(bool) Whether to use k exponent to change shape of exponential distribution. Default: False',default=False, type=str2bool)
     parser.add_argument('-off',       help='(bool) Whether to use an offset in the model (use this when radius is estimated to be too big). Default: False',default=False, type=str2bool)
@@ -121,6 +122,7 @@ if __name__=='__main__':
             burntime=args.burntime,
             mask=args.m,
             max_radius=args.max_radius,
+            min_radius=args.min_radius,
             gamma_prior=args.gamma_prior,
             k_exponent=args.k_exp, offset=args.off
         )

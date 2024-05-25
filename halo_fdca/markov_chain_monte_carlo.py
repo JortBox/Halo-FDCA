@@ -84,6 +84,9 @@ class Fitting(object):
     max_radius (float): maximum posiible radius cut-off. Fitted halos cannot have any
                         r > max_radius. In units of kpc.
                         Default is None (implying image_size/2).
+    min_radius (float): minimum posiible radius cut-off. Fitted halos cannot have any
+                        r < min_radius. In units of pixels.
+                        Default is 0.
     gamma_prior (bool): wether to use a gamma distribution as a prior for radii.
                         Default is False. For the gamma parameters:
                         shape = 2.5, scale = 120 kpc.
@@ -103,6 +106,7 @@ class Fitting(object):
         rebin=True,
         mask=False,
         max_radius=None,
+        min_radius=0,
         gamma_prior=False,
         k_exponent=False,
         offset=False,
@@ -137,7 +141,7 @@ class Fitting(object):
         self.offset = offset
         self.gamma_prior = gamma_prior
 
-        self.check_settings(model, walkers, mask, burntime, max_radius)
+        self.check_settings(model, walkers, mask, burntime, max_radius, min_radius)
         x = np.arange(0, self.data.shape[1], 1)
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
@@ -211,7 +215,7 @@ class Fitting(object):
         self.set_sampler_header()
         self.hdu.writeto(path, overwrite=True)
 
-    def check_settings(self, model, walkers, mask, burntime, max_radius):
+    def check_settings(self, model, walkers, mask, burntime, max_radius, min_radius):
         self.modelName = model
         self.paramNames = [
             "I0",
@@ -333,10 +337,15 @@ class Fitting(object):
         else:
             self.burntime = int(burntime)
 
-        if max_radius == None:
+        if max_radius == None or max_radius < 0 :
             self.max_radius = self.data.shape[0] / 2.0
         else:
             self.max_radius = max_radius / self.halo.pix2kpc.value
+            
+        if min_radius <= 0.:
+            self.min_radius = 0
+        else:
+            self.min_radius = min_radius
 
         filename_append = "_%s" % (self.modelName)
         if self.mask:
@@ -457,6 +466,9 @@ class Fitting(object):
             r += 1
             if popt["r" + str(r)] > self.max_radius:
                 popt["r" + str(r)] = self.max_radius
+            
+            if popt["r" + str(r)] < self.min_radius:
+                popt["r" + str(r)] = self.min_radius
 
         self.centre_pix = np.array([popt["x0"], popt["y0"]], dtype=np.int64)
         self.centre_wcs = wcs.utils.pixel_to_skycoord(self.centre_pix[0], self.centre_pix[1], wcs.WCS(self.halo.header), origin=1)
@@ -570,6 +582,7 @@ def set_dictionary(obj):
         "binned_image_mask": obj.binned_image_mask,
         "mask_treshold": obj.mask_treshold,
         "max_radius": obj.max_radius,
+        "min_radius": obj.min_radius,
         "params": obj.params,
         "paramNames": obj.paramNames,
         "gamma_prior": obj.gamma_prior,
@@ -647,16 +660,9 @@ def regrid_to_beamsize(info, img, accuracy=100.0):
                     img[i, j] / elements
                 )
                 
-    #print(pseudo_array.shape, "pseudo")
-    #print(scale, "scale")
-    #print(np.array(pseudo_array.shape)/scale, "pseudo/scale")
     f = block_reduce(pseudo_array, block_size=tuple(scale), func=np.sum, cval=0) #type:ignore
     f = np.delete(f, -1, axis=0)
     f = np.delete(f, -1, axis=1)
-    # plt.imshow(f)
-    # plt.show()
-    # print(pseudo_array.shape, scale, f.shape)
-    #print(f.shape, "f")
     return f
 
 
@@ -769,18 +775,14 @@ def lnL(theta, data, coord, info):
     kwargs = {"rotate": True}
     raw_model = info["_func_"](info, coord, theta, **kwargs) * u.Jy
     
-    #print(raw_model.shape, "raw_model")
-    
-    #print(data.shape, raw_model.shape)
     model = set_model_to_use(info, raw_model)
-    #print(model.shape, "model")
     return -0.5 * np.sum(0.5 * ((data - model) / info["sigma"])**2.0) - len(data) * np.log(np.sqrt(2 * np.pi) * info["sigma"])
 
 def lnprior(theta, shape, info):
     prior = -np.inf
     if (theta["I0"] > 0) and (-0.4 < theta["k_exp"] < 19):
         if (0 <= theta["x0"] < shape[1]) and (0 <= theta["y0"] < shape[0]):
-            if 0 < theta["r1"] < info["max_radius"]:
+            if info["min_radius"] < theta["r1"] < info["max_radius"]:
                 if -np.pi * 0.25 < theta["ang"] < 5 * np.pi * 0.25:
                     prior = 0.0
                 if not (0 <= theta["r2"] <= theta["r1"]):
