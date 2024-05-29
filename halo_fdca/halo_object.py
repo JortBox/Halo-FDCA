@@ -251,9 +251,9 @@ class RadioHalo(object):
         """Written for MCXC catalogue. Information is gathered from there. If custom
         parameters are given, these will be used. if nothing is found, filling
         values are set. This is only a problem if you try to calculate radio power."""
-        self.table = Vizier.query_object(self.name, catalog=self.cat)
-        
         try:
+            self.table = Vizier.query_object(self.name, catalog=self.cat)
+
             if self.target[:4] == "MCXC":
                 self.M500 = float(self.table[self.cat]["M500"][0]) * 1.0e14 * u.Msun
                 self.L500 = float(self.table[self.cat]["L500"][0]) * 1.0e37 * u.Watt

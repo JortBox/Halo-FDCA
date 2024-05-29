@@ -6,7 +6,7 @@ Author: J.M. Boxelaar
 '''
 
 from __future__ import division
-import os
+import os, sys
 import logging
 import pyregion
 
@@ -143,16 +143,16 @@ def masking(obj, mask, full_size=False):
     return image_mask, mask
 
 
-def mask_region(infilename,ds9region,outfilename):
-    hdu=fits.open(infilename)
-    hduflat = flatten(hdu)
-    map=hdu[0].data
+def mask_region(infilename: str, ds9region: str, outfilename: str):
+    hdul=fits.open(infilename)
+    hduflat = flatten(hdul)
+    assert hdul[0].header["NAXIS"] == 4, "Only 4D data is supported"
 
     r = pyregion.open(ds9region)
     manualmask = r.get_mask(hdu=hduflat)
-    hdu[0].data[0][0][np.where(manualmask == False)] = 0.0
-    hdu[0].data[0][0][np.where(manualmask == True)] = 1.0
-    hdu.writeto(outfilename,overwrite=True)
+    hdul[0].data[0,0,np.where(manualmask == False)] = 0.0
+    hdul[0].data[0,0,np.where(manualmask == True)] = 1.0
+    hdul.writeto(outfilename,overwrite=True)
 
     return outfilename
 
