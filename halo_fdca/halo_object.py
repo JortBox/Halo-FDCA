@@ -544,7 +544,7 @@ class RadioHalo(object):
             self.pre_mcmc_func,
             self,
             image,
-            p0=(1., centre_pix[0], centre_pix[1], size),
+            p0=(max_flux, centre_pix[0], centre_pix[1], size),
             bounds=bounds,
         )
 

@@ -110,7 +110,7 @@ if __name__=='__main__':
                             output_path=args.path_out, spectr_index=args.spectr_idx, rms=args.rms)
 
     p0, bounds = halo_fdca.utils.get_initial_guess(Halo)
-    
+
     if args.freq is None: 
         args.freq = Halo.freq.value
 

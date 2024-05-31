@@ -133,7 +133,7 @@ def masking(obj, mask, full_size=False):
                     0,0,halo.fov_info[0]:halo.fov_info[1],halo.fov_info[2]:halo.fov_info[3]
                 ]
             obj.log.log(logging.INFO,'MCMC Mask set')
-            os.remove(outfile)
+            #os.remove(outfile)
     else:
         obj.log.log(logging.INFO,'MCMC No mask set')
         mask=False
@@ -147,11 +147,14 @@ def mask_region(infilename: str, ds9region: str, outfilename: str):
     hdul=fits.open(infilename)
     hduflat = flatten(hdul)
     assert hdul[0].header["NAXIS"] == 4, "Only 4D data is supported"
-
+    data = hdul[0].data[0,0]
+    
     r = pyregion.open(ds9region)
     manualmask = r.get_mask(hdu=hduflat)
-    hdul[0].data[0,0,np.where(manualmask == False)] = 0.0
-    hdul[0].data[0,0,np.where(manualmask == True)] = 1.0
+    
+    data[manualmask == False] = 0.0
+    data[manualmask == True] = 1.0
+    hdul[0].data[0,0] = data
     hdul.writeto(outfilename,overwrite=True)
 
     return outfilename

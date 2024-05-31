@@ -100,6 +100,7 @@ def shrink_fits(path, size: int | tuple[int,int] = -1, image_centre: tuple[int,i
         
         newimage = np.pad(oldhdu.data[0,0], ((limits[0], limits[1]),(limits[2], limits[3])), "constant", constant_values=0)   
         newdata = np.ones((1,1) + newimage.shape) 
+        newdata[:,:,0,0] = oldhdu.data[:,:,0,0]
         newdata[0,0] = newimage
         newnax = nax + limits[::2]
     else:
