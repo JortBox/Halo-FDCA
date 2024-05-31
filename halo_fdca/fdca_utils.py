@@ -338,13 +338,13 @@ def transform_units(obj, params, err=False):
     
     params[0] = ((u.Jy * params[0] / obj.halo.pix_area).to(uJyarcsec2)).value
     
-    if obj.modelName in ["ellipse", "rotated_ellipse", "skewed"]:
+    if obj.model_name in ["ellipse", "rotated_ellipse", "skewed"]:
         params[4] = ((params[4] * obj.halo.pix2kpc).to(u.kpc)).value
 
-    if obj.modelName == "skewed":
+    if obj.model_name == "skewed":
         params[5] = ((params[5] * obj.halo.pix2kpc).to(u.kpc)).value
         params[6] = ((params[6] * obj.halo.pix2kpc).to(u.kpc)).value
-    if obj.modelName in ["rotated_ellipse", "skewed"]:
+    if obj.model_name in ["rotated_ellipse", "skewed"]:
         params[obj.at("ang")] = params[obj.at("ang")]
     return params
 

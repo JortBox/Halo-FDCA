@@ -201,7 +201,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     axes[1].annotate('$I(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
                         ha='center', va='top', color='white')
-    axes[1].set_title(obj.modelName.replace('_',' ')+" model", fontsize=titlesize)
+    axes[1].set_title(obj.model_name.replace('_',' ')+" model", fontsize=titlesize)
     axes[1].set_xlabel(xlabel, fontsize=labelsize)
     axes[1].grid(color='white', linestyle='-', alpha=0.25)
     cbar = fig.colorbar(im2,ax=axes[1])
