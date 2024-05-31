@@ -992,6 +992,7 @@ class Processing(object):
         self.k_exponent = k_exponent
         self.offset = offset
         self.mask_treshold = 0.5
+        self.int_max = 0
         mask = _parent_.mask
 
         self.check_settings(model, mask)
@@ -1025,7 +1026,7 @@ Run information for object {self.halo.name}:
     Offset: {self.offset}
 
 Fit results:
-    Flux density at {self.halo.freq:.1f}: {flux:.5f} +/- {flux_err:.5f}
+    Flux density at {self.halo.freq:.1f}: {flux:.5f} +/- {flux_err:.5f} (integrated up to {self.int_max} r_e)
     Reduced chi-squared: {self.get_chi2_value()}
     {param_string}
     Uncertainties (lower, upper):
@@ -1522,6 +1523,7 @@ Fit results:
         return self.chi2_red
 
     def get_flux(self, int_max=np.inf, freq=None):
+        self.int_max = int_max
         if freq is None:
             freq = self.halo.freq
 
