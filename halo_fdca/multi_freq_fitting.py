@@ -22,9 +22,9 @@ from astropy.io import fits
 
 # Subfile imports
 from . import fdca_utils as utils
-#from .mcmc_fitting import *
-#from .mcmc_processing import Processing
-from .markov_chain_monte_carlo import *
+from .mcmc_fitting import *
+from .mcmc_processing import Processing
+#from .markov_chain_monte_carlo import *
 from .halo_object import RadioHalo
 
 rad2deg = 180.0 / np.pi
