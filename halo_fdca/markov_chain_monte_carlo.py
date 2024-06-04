@@ -216,7 +216,7 @@ class Fitting(object):
         self.hdu.writeto(path, overwrite=True)
 
     def check_settings(self, model, walkers, mask, burntime, max_radius, min_radius):
-        self.modelName = model
+        self.model_name = model
         self.paramNames = [
             "I0",
             "x0",
@@ -347,7 +347,7 @@ class Fitting(object):
         else:
             self.min_radius = min_radius
 
-        filename_append = "_%s" % (self.modelName)
+        filename_append = "_%s" % (self.model_name)
         if self.mask:
             filename_append += "_mask"
         if self.k_exponent:
@@ -441,7 +441,7 @@ class Fitting(object):
         if not self.offset:
             popt["off"] = 0.0
 
-        if self.modelName == "skewed":
+        if self.model_name == "skewed":
             """longest dimension of elliptical shape should always be the x-axis.
             This routine switches x and y if necessary to accomplish this."""
             if (popt["r1"] + popt["r2"]) <= (
@@ -451,12 +451,12 @@ class Fitting(object):
                 popt["r2"], popt["r4"] = popt["r4"], popt["r3"]
                 popt["ang"] += np.pi / 2.0
 
-        if self.modelName in ["ellipse", "rotated_ellipse"]:
+        if self.model_name in ["ellipse", "rotated_ellipse"]:
             if popt["r1"] <= popt["r2"]:
                 popt["r1"], popt["r2"] = popt["r2"], popt["r1"]
                 popt["ang"] += np.pi / 2.0
 
-        if self.modelName in ["rotated_ellipse", "skewed"]:
+        if self.model_name in ["rotated_ellipse", "skewed"]:
             """Angle of ellipse from positive x should be between 0 and pi."""
             popt["ang"] = popt["ang"] % (2 * np.pi)
             if popt["ang"] >= np.pi:
@@ -566,7 +566,7 @@ class Fitting(object):
 
 def set_dictionary(obj):
     halo_info = {
-        "modelName": obj.modelName,
+        "model_name": obj.model_name,
         "bmaj": obj.halo.bmaj,
         "bmin": obj.halo.bmin,
         "bpa": obj.halo.bpa,
@@ -789,7 +789,7 @@ def lnprior(theta, shape, info):
                     prior = -np.inf
 
     if prior != -np.inf:
-        if info["modelName"] == "circle":
+        if info["model_name"] == "circle":
             radii = np.array([theta["r1"]])
         else:
             radii = np.array([theta["r1"], theta["r2"]])
@@ -832,7 +832,7 @@ def lnprior8(theta, shape, info):
 def lnprob(theta, data, coord, info):
     #time1 = time.time()
     theta = add_parameter_labels(info["params"], info["paramNames"], theta)
-    if info["modelName"] == "skewed":
+    if info["model_name"] == "skewed":
         lp = lnprior8(theta, coord[0].shape, info)
     else:
         lp = lnprior(theta, coord[0].shape, info)
@@ -858,7 +858,7 @@ def lnprob_multi(theta, data, coord, info):
             info[i]["params"], info[i]["paramNames"], theta_split[i]
         )
         
-        if info[i]["modelName"] == "skewed":
+        if info[i]["model_name"] == "skewed":
             lp = lnprior8(theta, coord[i][0].shape, info[i])
         else:
             lp = lnprior(theta, coord[i][0].shape, info[i])
@@ -907,10 +907,10 @@ def expand_model_params(theta, info):
         kpc_scale = 1. / fit["pix2kpc"].to(u.kpc).value
         theta[3] = theta[3] * kpc_scale
         
-        if fit["modelName"] in ["ellipse", "rotated_ellipse", "skewed"]:
+        if fit["model_name"] in ["ellipse", "rotated_ellipse", "skewed"]:
             theta[4] = theta[4] * kpc_scale
 
-        if fit["modelName"] == "skewed":
+        if fit["model_name"] == "skewed":
             theta[5] = theta[5] * kpc_scale
             theta[6] = theta[6] * kpc_scale 
     
@@ -1016,7 +1016,7 @@ class Processing(object):
         run_details = f"""
 Run information for object {self.halo.name}:
     RMS noise: {self.rms}
-    Model: {self.modelName}
+    Model: {self.model_name}
     Walkers: {self.walkers}
     Steps: {self.steps}
     Burntime: {self.burntime}
@@ -1056,7 +1056,7 @@ Fit results:
         self.cornerplot()
 
     def check_settings(self, model, mask):
-        self.modelName = model
+        self.model_name = model
         self.paramNames = [
             "I0",
             "x0",
@@ -1159,7 +1159,7 @@ Fit results:
         """
 
     def extract_chain_file(self, rebin, sampler, info):
-        filename_append = "_{}".format(self.modelName)
+        filename_append = "_{}".format(self.model_name)
         if self.mask:
             filename_append += "_mask"
         # if rebin: filename_append += '_rebin'
@@ -1238,7 +1238,7 @@ Fit results:
         for i in range(samples.shape[1]):
             percentiles[i, :] = np.percentile(samples[:, i], [16, 50, 84])
 
-        if self.modelName in ["rotated_ellipse", "skewed"]:
+        if self.model_name in ["rotated_ellipse", "skewed"]:
             cosine = np.percentile(np.cos(samples[:, self.at("ang")]), [16, 50, 84])
             sine = np.percentile(np.sin(samples[:, self.at("ang")]), [16, 50, 84])
             arccosine = np.arccos(cosine)
@@ -1378,19 +1378,19 @@ Fit results:
         units = ["$\\mu$Jy arcsec$^{-2}$", "deg", "deg"]
         fmt = [".2f", ".4f", ".4f"]
 
-        if self.modelName == "skewed":
+        if self.model_name == "skewed":
             labels.extend(("$r_{x^+}$", "$r_{x^-}$", "$r_{y^+}$", "$r_{y^-}$"))
             units.extend(("kpc", "kpc", "kpc", "kpc"))
             fmt.extend((".0f", ".0f", ".0f", ".0f"))
-        elif self.modelName in ["ellipse", "rotated_ellipse"]:
+        elif self.model_name in ["ellipse", "rotated_ellipse"]:
             labels.extend(("$r_{x}$", "$r_{y}$"))
             units.extend(("kpc", "kpc"))
             fmt.extend((".1f", ".1f"))
-        elif self.modelName == "circle":
+        elif self.model_name == "circle":
             labels.append("$r_{e}$")
             units.append("kpc")
             fmt.append(".1f")
-        if self.modelName in ["rotated_ellipse", "skewed"]:
+        if self.model_name in ["rotated_ellipse", "skewed"]:
             labels.append("$\\phi_e$")
             units.append("Rad")
             fmt.append(".3f")
@@ -1473,6 +1473,13 @@ Fit results:
                 return self.data.value.ravel()[self.image_mask.ravel() <= 0.5]
             else:
                 return self.data.value.ravel()
+            
+    def get_radius_estimate(self):
+        if self.model_name == "circle":
+            radius = - self.parameters["r1"] *np.log(3 * self.rms.value / self.parameters["I0"]) * self.halo.pix2kpc
+            print(radius)
+        else:
+            pass
 
     def get_chi2_value(self, mask_treshold=0.4):
         self.mask_treshold = mask_treshold
@@ -1528,13 +1535,13 @@ Fit results:
             freq = self.halo.freq
 
         a = self.samples[:, 3] * self.halo.pix_size
-        if self.modelName == "skewed":
+        if self.model_name == "skewed":
             b = self.samples[:, 5] * self.halo.pix_size
             c = self.samples[:, 4] * self.halo.pix_size
             d = self.samples[:, 6] * self.halo.pix_size
             factor = a * b + c * d + a * d + b * c
 
-        elif self.modelName in ["ellipse", "rotated_ellipse"]:
+        elif self.model_name in ["ellipse", "rotated_ellipse"]:
             b = self.samples[:, 4] * self.halo.pix_size
             factor = 4 * a * b
         else:

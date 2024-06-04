@@ -19,7 +19,7 @@ Halo_high = fdca.RadioHalo(
 )
 
 multiFit = fdca.MultiWavelengthFitting([Halo_low, Halo_high])
-multiFit.run(save=True)
+#multiFit.run(save=True)
 
 results = fdca.MultiWavaelenghtProcessing(multiFit)
 

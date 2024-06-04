@@ -556,3 +556,10 @@ Fit results:
                 power.unit,
             ),
         )
+
+    def get_radius_estimate(self):
+        if self.model_name == "circle":
+            radius = - self.parameters["r1"] *np.log(3 * self.rms.value / self.parameters["I0"]) * self.halo.pix2kpc
+            print(radius)
+        else:
+            pass

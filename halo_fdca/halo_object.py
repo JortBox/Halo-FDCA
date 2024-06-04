@@ -395,6 +395,10 @@ class RadioHalo(object):
         )
         self.beam_area = 2.0 * np.pi * 1.0 * beammaj * beammin
         self.beam2pix = self.beam_area / self.pix_area
+        
+        self.beam = u.def_unit("beam", self.beam_area)
+        self.pixScale = u.def_unit("pixel", self.pix_size) # type: ignore
+        self.pix = u.def_unit("pixel", self.pix_area) # type: ignore
 
     def load_data(self):
         hdul = fits.open(self.path)

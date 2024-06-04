@@ -146,6 +146,7 @@ if __name__=='__main__':
     frequency = float(args.freq)*u.MHz
     processing.get_flux(int_max=args.int_max, freq=frequency)# error is one sigma (68%).
     processing.get_power(freq=frequency)
+    processing.get_radius_estimate()
 
     print(processing)
     #Halo.Close()
