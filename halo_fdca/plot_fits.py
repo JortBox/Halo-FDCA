@@ -105,11 +105,8 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     ylabel = 'DEC [Deg]'
     scale  = 1.
     
-    print(ra.shape)
-
     #if mask:
     image_mask = obj.image_mask
-
 
     if regrid:
         data  = utils.regridding(obj.halo, data)

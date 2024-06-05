@@ -120,6 +120,7 @@ Fit results:
         {uncertainties1}
         {uncertainties2}
     """
+        self.log.log(logging.INFO, run_details)
         return run_details
 
     def plot(self):
@@ -134,7 +135,7 @@ Fit results:
         plot_fits.fit_result(
             self,
             self.model,
-            self.halo.data_mcmc,
+            self.halo.data,
             self.halo.rmsnoise,
             mask=self.mask,
             regrid=True,
