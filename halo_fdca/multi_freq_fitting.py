@@ -340,9 +340,7 @@ class MultiWavaelenghtProcessing(object):
         
         self.extract_chain_file(rebin)
         
-        print(self.sampler[-1,-1,:])
         expanded_samples = self.expand_model_params(self.sampler.T)
-        print(expanded_samples[:,:,-1,-1])
         pars = np.array(self.paramNames)[self.params]
         n_params = len(pars)
         
@@ -374,8 +372,6 @@ class MultiWavaelenghtProcessing(object):
         
         final_theta = np.zeros(tuple([self.n_halos, n_params]) + samples.shape[1:])
         final_theta[0] = samples[:n_params]
-        
-        print(final_theta.shape)
         
         compare = np.ones(len(pars), dtype=bool)
         for i in range(len(compare)):
