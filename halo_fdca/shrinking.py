@@ -22,6 +22,7 @@ def arguments():
     parser.add_argument('-path_out', help='(str) Path to code output. Default: directory code is in.', default='none', type=str)
     parser.add_argument('-size', default=-1, type=int)
     parser.add_argument('-pad', action='store_true', default=False)
+    parser.add_argument('-image_centre', default=None,  nargs='+', type=int)
     args = parser.parse_args()
     
     if args.path_out == "none":
@@ -38,12 +39,12 @@ def check_input(
 ):     
     if isinstance(size, int):
         size = np.asarray((size//2, size//2), dtype=np.int64)
-    elif isinstance(size, tuple[int,int]):
-        size = np.asarray(size, dtype=np.int64)//2
+    #elif isinstance(size, tuple[int,int]):
+    #    size = np.asarray(size, dtype=np.int64)//2
     else:
         raise TypeError
     
-    if isinstance(image_centre, tuple[int,int]):
+    if isinstance(image_centre, tuple):
         nax = np.asarray(image_centre)
     elif isinstance(image_centre, SkyCoord):
         nax = np.asarray(
@@ -56,14 +57,15 @@ def check_input(
         raise TypeError
     
     assert np.all(size > 0)
+    '''
     if not pad:
         assert image_shape[-1] >= size, "Size is larger than the image itself, allow padding"
         assert nax[0] - size[0] > 0
         assert nax[0] + size[0] <= image_shape[0]
         assert nax[1] - size[1] > 0 
         assert nax[1] + size[1] <= image_shape[1]  
-        
-    return nax, size
+      '''
+    return nax[::-1], size
 
 
 def shrink_fits(path, size: int | tuple[int,int] = -1, image_centre: tuple[int,int] | SkyCoord | None = None, pad: bool = False):
@@ -72,6 +74,11 @@ def shrink_fits(path, size: int | tuple[int,int] = -1, image_centre: tuple[int,i
     fitwcs = wcs.WCS(oldhdu.header)
     del oldhdul
     
+    original_size = 4
+    if oldhdu.header["NAXIS"] != 4:
+        original_size = 2
+        oldhdu.data = np.expand_dims(oldhdu.data, axis=(0,1))
+        
     assert oldhdu.header["NAXIS"] == 4, "Only 4D data is supported"
     image_shape: tuple[int,int] = oldhdu.data[0,0].shape
          
@@ -108,18 +115,26 @@ def shrink_fits(path, size: int | tuple[int,int] = -1, image_centre: tuple[int,i
         newnax = nax
     
     
-    oldhdu.header["CRPIX1"] = int(oldhdu.header["CRPIX1"]) - (newnax[0] - size[0]) 
-    oldhdu.header["CRPIX2"] = int(oldhdu.header["CRPIX2"]) - (newnax[1] - size[1]) 
-    cutout = newdata[
-        :,
-        :,
-        newnax[0]-size[0] : newnax[0]+size[0],
-        newnax[1]-size[1] : newnax[1]+size[1]
-    ]
+    oldhdu.header["CRPIX1"] = int(oldhdu.header["CRPIX1"]) - (newnax[1] - size[0]) 
+    oldhdu.header["CRPIX2"] = int(oldhdu.header["CRPIX2"]) - (newnax[0] - size[1])
+    if original_size == 4:
+        cutout = newdata[
+            :,
+            :,
+            newnax[0]-size[0] : newnax[0]+size[0],
+            newnax[1]-size[1] : newnax[1]+size[1]
+        ]
+    else:
+        cutout = newdata[
+            0,
+            0,
+            newnax[0]-size[0] : newnax[0]+size[0],
+            newnax[1]-size[1] : newnax[1]+size[1]
+        ]
         
     hdu = fits.PrimaryHDU(cutout, header=oldhdu.header) # type: ignore
     hdu.writeto(path.replace(".fits", "-cutout.fits"), overwrite=True)
     
 if __name__ == "__main__":
     args = arguments()
-    shrink_fits(args.path_in, size=args.size, pad=args.pad)
+    shrink_fits(args.path_in, size=args.size, pad=args.pad, image_centre=tuple(args.image_centre))
