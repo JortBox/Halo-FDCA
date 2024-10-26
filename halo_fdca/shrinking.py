@@ -133,6 +133,7 @@ def shrink_fits(path, size: int | tuple[int,int] = -1, image_centre: tuple[int,i
         ]
         
     hdu = fits.PrimaryHDU(cutout, header=oldhdu.header) # type: ignore
+    print(f"write: {path.replace('.fits', '-cutout.fits')}")
     hdu.writeto(path.replace(".fits", "-cutout.fits"), overwrite=True)
     
 if __name__ == "__main__":
