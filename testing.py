@@ -69,6 +69,23 @@ Halo_high = fdca.RadioHalo(
     logger=logger,
 )
 
+
+fit = fdca.Fitting(Halo_high, walkers=10, steps=100).load()
+#fit.run(save=True)
+
+results = fdca.Processing(fit)
+
+results.plot()
+chi2 = results.get_chi2_value()
+flux, flux_err = results.get_flux() # error is one sigma (68%).
+power, power_err = results.get_power()
+print(results)
+
+
+
+sys.exit()
+
+
 multiFit = fdca.MultiWavelengthFitting([Halo_low, Halo_high])
 #multiFit.run(save=True)
 

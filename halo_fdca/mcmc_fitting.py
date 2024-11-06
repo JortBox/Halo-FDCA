@@ -137,7 +137,7 @@ class Fitting(object):
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
         self.dof = len(self.data.value.flat) - self.dim
-        return
+        #return self
 
     def pre_fit(self):
         popt, perr = self.pre_mcmc_fit(
@@ -146,8 +146,8 @@ class Fitting(object):
         return popt, perr
 
 
-    def run(self, pre_fit_guess=None, save=False):
-        data = self.set_data_to_use(self.data)
+    def run(self, pre_fit_guess=None, save=True, save_path=""):
+        data = utils.set_data_to_use(self, self.data)
         x = np.arange(0, self.data.shape[1])
         y = np.arange(0, self.data.shape[0])
         coord = np.meshgrid(x, y)
@@ -186,22 +186,44 @@ class Fitting(object):
         )
 
         if save:
-            self.save()
+            self.save(save_path)
+            self.get_units()
             plot_fits.samplerplot(self)
             plot_fits.cornerplot(self)
 
         return self.sampler
 
-    def save(self):
+    def save(self, path:str = ""):
+        if path == "":
+            path = "%s%s_mcmc_samples%s.fits" % (
+                self.halo.modelPath,
+                self.halo.file.replace(".fits", ""),
+                self.filename_append,
+            )
+            
+        hdu = fits.PrimaryHDU()
+        hdu.data = self.sampler
+        hdu.header = self.set_sampler_header(hdu.header)
+        hdu.writeto(path, overwrite=True)
+        
+        self.info = hdu.header
+        return self
+        
+    def load(self, path:str=""):
         path = "%s%s_mcmc_samples%s.fits" % (
             self.halo.modelPath,
             self.halo.file.replace(".fits", ""),
             self.filename_append,
         )
-        self.hdu = fits.PrimaryHDU()
-        self.hdu.data = self.sampler
-        self.set_sampler_header()
-        self.hdu.writeto(path, overwrite=True)
+        
+        sampler_chain = fits.open(path)
+        self.get_sampler_header(sampler_chain[0].header)
+        self.info = sampler_chain[0].header
+        self.sampler = sampler_chain[0].data
+        self.samples = self.sampler[:, int(self.burntime):].reshape(
+            (-1, self.dim)
+        )
+        return self
 
     def check_settings(self, model, walkers, mask, burntime, max_radius):
         self.model_name = model
@@ -364,7 +386,8 @@ class Fitting(object):
     def at(self, parameter):
         par = np.array(self.paramNames)[self.params]
         return np.where(par == parameter)[0][0]
-
+    
+    '''
     def set_data_to_use(self, data):
         if self.rebin:
             binned_data = utils.regridding(self.halo, data, decrease_fov=self.halo.cropped)
@@ -375,12 +398,9 @@ class Fitting(object):
                 self.halo, 
                 self.image_mask * u.Jy, 
                 decrease_fov=self.halo.cropped, 
-                mask=True
+                mask=self.mask
             ).value
             use = binned_data.value
-            #print(binned_data.shape, "binned_data (data)")
-        
-            
             return use.ravel()[
                 self.binned_image_mask.ravel()
                 <= self.mask_treshold * self.binned_image_mask.max()
@@ -390,7 +410,8 @@ class Fitting(object):
                 return self.data.value.ravel()[self.image_mask.ravel() <= 0.5]
             else:
                 return self.data.value.ravel()
-
+    '''
+    
     def pre_mcmc_func(self, obj, *theta):
         theta = utils.add_parameter_labels(obj, theta)
         model = self._func_(obj, theta)
@@ -464,37 +485,93 @@ class Fitting(object):
         self.x_pix, self.y_pix = np.meshgrid(x, y)
         
         return popt, perr
+    
+    def get_units(self):
+        labels = ["$I_0$", "$x_0$", "$y_0$"]
+        units = ["$\\mu$Jy arcsec$^{-2}$", "deg", "deg"]
+        fmt = [".2f", ".4f", ".4f"]
+
+        if self.model_name == "skewed":
+            labels.extend(("$r_{x^+}$", "$r_{x^-}$", "$r_{y^+}$", "$r_{y^-}$"))
+            units.extend(("kpc", "kpc", "kpc", "kpc"))
+            fmt.extend((".0f", ".0f", ".0f", ".0f"))
+        elif self.model_name in ["ellipse", "rotated_ellipse"]:
+            labels.extend(("$r_{x}$", "$r_{y}$"))
+            units.extend(("kpc", "kpc"))
+            fmt.extend((".1f", ".1f"))
+        elif self.model_name == "circle":
+            labels.append("$r_{e}$")
+            units.append("kpc")
+            fmt.append(".1f")
+        if self.model_name in ["rotated_ellipse", "skewed"]:
+            labels.append("$\\phi_e$")
+            units.append("Rad")
+            fmt.append(".3f")
+        if self.k_exponent:
+            labels.append("$k$")
+            units.append(" ")
+            fmt.append(".3f")
+        if self.offset:
+            labels.append("$C$")
+            units.append(" ")
+            fmt.append(".3f")
+
+        self.labels = np.array(labels, dtype="<U30")
+        self.units = np.array(units, dtype="<U30")
+        self.fmt = np.array(fmt, dtype="<U30")
+
+        self.labels_units = np.copy(self.labels)
+        for i in range(self.dim):
+            self.labels_units[i] = self.labels[i] + " [" + self.units[i] + "]"
 
 
-    def set_sampler_header(self):
-        self.hdu.header["nwalkers"] = self.walkers
-        self.hdu.header["steps"] = self.steps
-        self.hdu.header["dim"] = self.dim
-        self.hdu.header["burntime"] = self.burntime
-        self.hdu.header["OBJECT"] = (self.halo.name, "Object which was fitted")
-        self.hdu.header["IMAGE"] = self.halo.file
-        self.hdu.header["UNIT_0"] = ("JY/PIX", "unit of fit parameter")
-        self.hdu.header["UNIT_1"] = ("PIX", "unit of fit parameter")
-        self.hdu.header["UNIT_2"] = ("PIX", "unit of fit parameter")
-        self.hdu.header["UNIT_3"] = ("PIX", "unit of fit parameter")
+    def set_sampler_header(self, header:fits.Header):
+        header["nwalkers"] = self.walkers
+        header["steps"] = self.steps
+        header["dim"] = self.dim
+        header["burntime"] = self.burntime
+        header["OBJECT"] = (self.halo.name, "Object which was fitted")
+        header["IMAGE"] = self.halo.file
+        header["UNIT_0"] = ("JY/PIX", "unit of fit parameter")
+        header["UNIT_1"] = ("PIX", "unit of fit parameter")
+        header["UNIT_2"] = ("PIX", "unit of fit parameter")
+        header["UNIT_3"] = ("PIX", "unit of fit parameter")
 
         if self.dim >= 5:
-            self.hdu.header["UNIT_4"] = ("PIX", "unit of fit parameter")
+            header["UNIT_4"] = ("PIX", "unit of fit parameter")
         if self.dim == 8:
-            self.hdu.header["UNIT_5"] = ("PIX", "unit of fit parameter")
-            self.hdu.header["UNIT_6"] = ("PIX", "unit of fit parameter")
+            header["UNIT_5"] = ("PIX", "unit of fit parameter")
+            header["UNIT_6"] = ("PIX", "unit of fit parameter")
         if self.dim >= 6:
-            self.hdu.header["UNIT_7"] = ("RAD", "unit of fit parameter")
+            header["UNIT_7"] = ("RAD", "unit of fit parameter")
         if self.dim == 7:
-            self.hdu.header["UNIT_P"] = ("NONE", "unit of fit parameter")
+            header["UNIT_P"] = ("NONE", "unit of fit parameter")
 
         for i in range(len(self.popt[self.params])):
-            self.hdu.header["INIT_" + str(i)] = (
+            header["INIT_" + str(i)] = (
                 self.popt[self.params][i],
                 "MCMC initial guess",
             )
 
-        self.hdu.header["MASK"] = (self.mask, "was the data masked during fitting")
+        header["MASK"] = (self.mask, "was the data masked during fitting")
+        return header
+        
+    def get_sampler_header(self, header:fits.Header):
+        self.walkers = header["nwalkers"]
+        self.steps = header["steps"]
+        self.dim = header["dim"]
+        self.burntime = header["burntime"]
+        self.halo.name = header["OBJECT"]
+        self.halo.file = header["IMAGE"]
+        
+        popt = np.zeros(len(self.p0))
+        for i in range(len(popt[self.params])):
+            if self.params[i]:
+                popt[i] = header["INIT_" + str(i)]
+
+        self.popt = popt
+        self.mask = header["MASK"]
+        
 
 
 def set_dictionary(obj: Fitting) -> dict:
@@ -525,8 +602,8 @@ def set_dictionary(obj: Fitting) -> dict:
     return halo_info
 
 
-def set_model_to_use(info, data):
-    binned_data = regrid_to_beamsize(info, data.value)
+def set_model_to_use(info, array):
+    binned_data = regrid_to_beamsize(info, array.value)
     return binned_data.ravel()[
         info["binned_image_mask"].ravel()
         <= info["mask_treshold"] * info["binned_image_mask"].max()

@@ -407,3 +407,26 @@ def G(x,y, I0, x0, y0, re_x,re_y, ang, sign_x, sign_y):
     exponent[np.where(np.isnan(exponent))]=0.
     return exponent
 
+def set_data_to_use(obj, data):
+    # obj: has to be Fitting or Processing object
+    if obj.rebin:
+        binned_data = regridding(obj.halo, data, decrease_fov=obj.halo.cropped)
+        if not obj.mask:
+            obj.image_mask = np.zeros(obj.data.shape)
+            
+        obj.binned_image_mask = regridding(
+            obj.halo, 
+            obj.image_mask * u.Jy, 
+            decrease_fov=obj.halo.cropped, 
+            mask=obj.mask
+        ).value
+        use = binned_data.value
+        return use.ravel()[
+            obj.binned_image_mask.ravel()
+            <= obj.mask_treshold * obj.binned_image_mask.max()
+        ]
+    else:
+        if obj.mask:
+            return obj.data.value.ravel()[obj.image_mask.ravel() <= 0.5]
+        else:
+            return obj.data.value.ravel()

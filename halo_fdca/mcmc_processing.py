@@ -8,6 +8,7 @@ Version: 08 June 2020
 
 from __future__ import division
 import logging
+import sys
 
 import numpy as np
 import pandas as pd
@@ -55,14 +56,20 @@ class Processing(object):
     def __init__(
         self,
         fit: Fitting,
-        rebin=True,
         logger=None,
         save=False,
-        sampler=None,
-        sample_info=None,
     ):
         
         self.data = fit.halo.data
+        self.rebin = fit.rebin
+        self.filename_append = fit.filename_append
+        
+        if hasattr(fit, 'sampler'):
+            self.sampler = fit.sampler
+            self.info = fit.info
+        else:
+            logger.log(logging.CRITICAL , "No sampler found in fit object. Exiting.")
+            sys.exit()
 
         if logger is None:
             self.log = fit.log
@@ -80,10 +87,10 @@ class Processing(object):
         self.halo = fit.halo
         self.fit = fit
         self.alpha = fit.halo.alpha  # spectral index guess
-        self.mask_treshold = 0.5
+        self.mask_treshold = fit.mask_treshold
 
         self.check_settings(fit.model_name, fit.mask)
-        self.extract_chain_file(rebin, sampler, sample_info)
+        #self.extract_chain_file(rebin, sampler, sample_info)
         self.retreive_mcmc_params()
         self.set_labels_and_units()
 
@@ -159,38 +166,6 @@ Fit results:
         ).loc["params"]
         self.dim = len(self.params[self.params])
         self.image_mask, self.mask = utils.masking(self, mask)
-
-
-    def extract_chain_file(self, rebin, sampler, info):
-        filename_append = "_{}".format(self.model_name)
-        if self.mask:
-            filename_append += "_mask"
-        # if rebin: filename_append += '_rebin'
-        if self.fit.k_exponent:
-            filename_append += "_exp"
-        if self.fit.offset:
-            filename_append += "_offset"
-        self.filename_append = filename_append
-
-        self.rebin = rebin
-        
-        if sampler is not None and info is not None:
-            self.sampler = sampler
-            self.info = info
-            
-        else:
-            sampler_chain = fits.open(
-                self.halo.modelPath
-                + self.halo.file.replace(".fits", "")
-                + "_mcmc_samples"
-                + self.filename_append
-                + ".fits"
-            )
-
-            self.sampler = sampler_chain[0].data
-            self.info = sampler_chain[0].header
-            
-
 
     def at(self, parameter):
         par = np.array(self.paramNames)[self.params]
@@ -391,7 +366,7 @@ Fit results:
 
         return [conf_low, conf_up]
     
-    def set_data_to_use(self, data):
+    def set_data_to_use(self, data) -> np.ndarray:
         if self.rebin:
             binned_data = utils.regridding(self.halo, data, decrease_fov=True)
             if not self.mask:
@@ -410,8 +385,9 @@ Fit results:
             else:
                 return self.data.value.ravel()
 
-    def get_chi2_value(self, mask_treshold=0.4):
-        self.mask_treshold = mask_treshold
+    def get_chi2_value(self, mask_treshold=None) -> float:
+        mask_treshold = self.mask_treshold if mask_treshold is None else mask_treshold
+        
         x = np.arange(0, self.halo.data_mcmc.shape[1], 1)
         y = np.arange(0, self.halo.data_mcmc.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
@@ -426,7 +402,7 @@ Fit results:
         )
         binned_model = utils.regrid_to_beamsize(self.halo, model)
 
-        self.rmsregrid = utils.findrms(binned_data)
+        rmsregrid = utils.findrms(binned_data)
 
         if not self.mask:
             self.image_mask = np.zeros(self.halo.data.shape)
@@ -438,13 +414,13 @@ Fit results:
             binned_image_mask.ravel() <= mask_treshold * binned_image_mask.max()
         ]
 
-        chi2 = np.sum(((binned_data - binned_model) / (self.rmsregrid)) ** 2.0)
+        chi2 = np.sum(((binned_data - binned_model) / (rmsregrid)) ** 2.0)
         binned_dof = len(binned_data) - self.dim
         self.chi2_red = chi2 / binned_dof
 
         self.ln_likelihood = -np.sum(
-            ((binned_data - binned_model) ** 2.0) / (2 * (self.rmsregrid) ** 2.0)
-            + np.log(np.sqrt(2 * np.pi) * self.rmsregrid)
+            ((binned_data - binned_model) ** 2.0) / (2 * (rmsregrid) ** 2.0)
+            + np.log(np.sqrt(2 * np.pi) * rmsregrid)
         )
         self.AIC = 2 * (self.dim - self.ln_likelihood)
 
@@ -458,9 +434,9 @@ Fit results:
         self.x_pix, self.y_pix = np.meshgrid(x, y)
         return self.chi2_red
 
-    def get_flux(self, int_max=np.inf, freq=None):
-        if freq is None:
-            freq = self.halo.freq
+    def get_flux(self, int_max=np.inf, freq=None, alpha=None) -> tuple[float, float]:
+        alpha = self.alpha if alpha is None else alpha
+        freq = self.halo.freq if freq is None else freq
 
         a = self.samples[:, 3] * self.halo.pix_size
         if self.model_name == "skewed":
@@ -490,31 +466,32 @@ Fit results:
             * gammainc(1.0 / m, int_max ** (2 * m))
             * (freq / self.halo.freq) ** self.alpha
         ).to(u.mJy)
-
+        percentiles = np.percentile(flux, [16, 50, 84])
+        flux_val = percentiles[1]
+        flux_err = ((percentiles[2] - percentiles[1]) + (percentiles[1] - percentiles[0])) / 2.0
+        
         self.flux = np.copy(flux)
         self.flux_freq = freq
-        self.flux_val = np.percentile(flux, 50)
-        self.flux_err = (np.percentile(flux, 84) - np.percentile(flux, 16)) / 2.0
 
         self.log.log(
             logging.INFO,
             f"MCMC Flux at {freq.value:.1f} {freq.unit}: \
-                {self.flux_val.value:.2f} +/- {self.flux_err.value:.2f} \
+                {flux_val.value:.2f} +/- {flux_err.value:.2f} \
                 {flux.unit}"
         )
         self.log.log(logging.INFO, "Integration radius " + str(int_max))
         self.log.log(
             logging.INFO,
             "S/N based on flux {:.2f}".format(
-                self.flux_val.value / self.flux_err.value
+                flux_val.value / flux_err.value
             ),
         )
         
-        return self.flux_val, self.flux_err
+        return flux_val, flux_err
 
-    def get_power(self, freq=None):
-        if freq is None:
-            freq = self.halo.freq
+    def get_power(self, freq=None, alpha=None) -> tuple[float, float]:   
+        alpha = self.alpha if alpha is None else alpha
+        freq = self.halo.freq if freq is None else freq
 
         cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
         d_L = cosmology.luminosity_distance(self.halo.z)
@@ -526,6 +503,7 @@ Fit results:
             * self.flux
             * ((freq / self.flux_freq) ** self.alpha)
         ).to(u.W / u.Hz)
+        '''
         power_std = (
             4
             * np.pi
@@ -534,8 +512,8 @@ Fit results:
             * self.flux_err
             * ((freq / self.flux_freq) ** self.alpha)
         ).to(u.W / u.Hz)
-        self.power_std = np.percentile(power_std, 50)
-
+        power_std = np.percentile(power_std, 50)
+        
         cal = 0.1
         sub = 0.1  # Osinga et al. 2020
         self.power = np.copy(power)
@@ -546,21 +524,26 @@ Fit results:
         self.power_std = np.sqrt(
             (cal * self.power_val.value) ** 2 + sub**2 + power_err**2
         )
+        '''
+        percentiles = np.percentile(power, [16, 50, 84])
+        power_val = percentiles[1]
+        power_err = ((percentiles[2] - percentiles[1]) + (percentiles[1] - percentiles[0])) / 2.0
+        
         self.log.log(
             logging.INFO,
             "Power at {:.1f} {}: ({:.3g} +/- {:.3g}) {}".format(
                 freq.value,
                 freq.unit,
-                np.percentile(power, [50])[0].value,
-                (np.percentile(power, [84])[0] - np.percentile(power, [16])[0]).value
-                / 2.0,
+                power_val.value,
+                power_err.value,
                 power.unit,
             ),
         )
+        return power_val, power_err
 
-    def get_radius_estimate(self):
+    def get_radius_estimate(self) -> float|None:
         if self.model_name == "circle":
             radius = - self.parameters["r1"] *np.log(3 * self.rms.value / self.parameters["I0"]) * self.halo.pix2kpc
-            print(radius)
+            return radius
         else:
-            pass
+            return None
