@@ -9,7 +9,7 @@ Version: 08 June 2020
 import sys
 import os
 import logging
-import datetime
+from datetime import datetime
 
 # Scipy, astropy, emcee imports
 import numpy as np
@@ -32,39 +32,33 @@ mJyarcsec2 = u.mJy / (u.arcsec * u.arcsec)
 uJyarcsec2 = 1.0e-3 * u.mJy / (u.arcsec * u.arcsec)
 
 
-def init_logger(path_out: str, path_in: str):
-    path = path_out
-    if path[-1] == "/":
-        path = path[:-1]
-
-    now = str(datetime.datetime.now())[:19]
-    filename = path_in.split("/")[-1]
-    if not os.path.exists(path_out + "/log/"):
-        os.makedirs(path_out + "/log/")
+def init_logging(filename, path):
+    if path[-1]=='/': path = path[:-1]
+    now = str(datetime.now())[:19]
+    if not os.path.exists(path+'/log/'):
+        os.makedirs(path+'/log/')
 
     d = {
-        "version": 1,
-        "formatters": {
-            "detailed": {
-                "class": "logging.Formatter",
-                "format": "%(asctime)s %(name)-12s %(processName)-2s %(levelname)-8s %(message)s",
+            'version': 1,
+            'formatters': {
+            'detailed': {
+                'class': 'logging.Formatter',
+                'format': '%(asctime)s %(name)-12s %(processName)-2s %(levelname)-8s %(message)s'
             }
-        },
-        "handlers": {
-            "file": {
-                "class": "logging.FileHandler",
-                "filename": path
-                + "/log/"
-                + filename
-                + "_"
-                + now.replace(" ", "_")
-                + ".log",
-                "mode": "w",
-                "formatter": "detailed",
             },
-        },
-        "root": {"level": "INFO", "handlers": ["file"]},  # ,'console'
-    }
+            'handlers': {
+            'file': {
+                'class': 'logging.FileHandler',
+                'filename': path+'/log/'+filename+'_'+now.replace(' ','_')+'.log',
+                'mode': 'w',
+                'formatter': 'detailed',
+            },
+            },
+            'root': {
+            'level': 'INFO',
+            'handlers': ['file'] #,'console'
+            },
+        }
 
     root = logging.getLogger()
     root.setLevel(logging.INFO)
@@ -124,20 +118,13 @@ class RadioHalo(object):
         rms: float = 0,
     ):
         if logger is None:
-            #logging = init_logger(output_path, path)
-            logger = init_logger(output_path, path).getLogger(object)
+            logger = init_logging(object, output_path).getLogger(object)
             logger.log(logging.INFO, "Logger initiated for: " + object)
             self.log = logger
         else:
             self.log = logger
-            
-        if mask_path is not None:
-            mask = True
-        else:
-            mask = False
+           
         self.cropped = False
-
-
         self.rmsnoise = rms  # manual noise level mJy/beam
         self.user_radius = R500
 
@@ -189,7 +176,7 @@ class RadioHalo(object):
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
         self.fov_info = [0, data.shape[0], 0, data.shape[1]]
-        self.image_mask, self.mask = utils.masking(self, mask)
+        self.image_mask = utils.masking(self)
         self.exponentialFit(data, first=True)  # Find centre of the image centre_pix
 
         self.pix_to_world()
@@ -197,9 +184,10 @@ class RadioHalo(object):
 
 
     def initiatePaths(self, maskpath, outputpath):
-        self.basedir = outputpath
         if outputpath[-1] == "/":
             self.basedir = outputpath[:-1]
+        else:
+            self.basedir = outputpath
 
         txt = self.path.split("/")
         self.file = txt[-1]
@@ -209,40 +197,38 @@ class RadioHalo(object):
         self.modelPath = self.basedir + "/"
 
         if not os.path.isdir(self.modelPath):
-            self.log.log(logging.INFO, "Creating modelling directory")
+            self.log.info("Creating modelling directory")
             os.makedirs(self.modelPath)
         if not os.path.isdir(self.plotPath):
-            self.log.log(logging.INFO, "Creating plotting directory")
+            self.log.info("Creating plotting directory")
             os.makedirs(self.plotPath)
 
         if maskpath is None:
-            self.maskPath = self.basedir + "/" + self.target + ".reg"
+            self.maskPath = f"{self.basedir}/{self.target}.reg"
         else:
             self.maskPath = maskpath
+            
+        if os.path.isfile(self.maskPath):
+            self.mask = True
+        else:
+            self.mask = False
+            self.log.error(f"No mask found at {self.maskPath}. Masking will not be applied.")
 
     def get_object_location(self, loc):
         if loc is not None:
             if type(loc) == SkyCoord:
                 self.loc = loc
             else:
-                self.log.log(
-                    logging.ERROR,
-                    "Location given is not a SkyCoord object. Please provide a valid SkyCoord object",
-                )
+                self.log.critical("Location given is not a SkyCoord object. Please provide a valid SkyCoord object")
                 sys.exit()
         else:
             from astroquery.ipac.ned import Ned
             try:
-                self.log.log(
-                    logging.WARNING, 
-                    f"No manual location given, searching for {self.name} in NED."
-                )
+                self.log.warning(f"No manual location given, searching for {self.name} in NED.")
                 table = Ned.query_object(self.name)
                 self.loc = SkyCoord(table["RA"][0], table["DEC"][0], unit=u.deg)
             except:
-                self.log.log(
-                    logging.WARNING, f"{self.name} not found by NED. Assuming image centre."
-                )
+                self.log.warning(f"{self.name} not found by NED. Assuming image centre.")
                 cent_pix = np.asarray(self.original_image.shape, dtype=np.float64)//2.
                 self.loc = wcs.utils.pixel_to_skycoord(cent_pix[0], cent_pix[1], self.wcs, origin=1)
 
@@ -327,7 +313,7 @@ class RadioHalo(object):
         self.radius_real = self.R500 / self.factor
         self.freq = (self.header["CRVAL3"] * u.Hz).to(u.MHz)
 
-    def set_image_characteristics(self, decrease_img_size):
+    def set_image_characteristics(self, decrease_img_size: bool):
         if self.rmsnoise == 0.0:
             self.rmsnoise, self.imagenoise = (
                 u.Jy * self.get_noise(self.data * self.beam2pix) / self.beam2pix
@@ -359,7 +345,7 @@ class RadioHalo(object):
                 "Decreased FoV to "+str(self.data.shape)
             )
 
-            self.image_mask, self.mask = utils.masking(self, self.mask)
+            self.image_mask = utils.masking(self)
             self.exponentialFit(self.data.value)
         else:
             self.data_mcmc, self.fov_info_mcmc = utils.pad_image(self.data)
@@ -508,18 +494,20 @@ class RadioHalo(object):
         self.ra = coords.ra.deg.reshape(self.x_pix.shape)*u.deg
         self.dec = coords.dec.deg.reshape(self.y_pix.shape)*u.deg
 
+    def get_initial_halo_params(self):
+        return utils.get_initial_guess(self)[0]
 
     def pre_mcmc_func(self, obj, *theta):
         I0, x0, y0, re = theta
         model = obj.circle_model((obj.x_pix, obj.y_pix), I0, x0, y0, re)
         if obj.mask:
-            return model[obj.image_mask.ravel() == 0]
+            return model[obj.image_mask.ravel()]
         else:
             return model
 
     def exponentialFit(self, data, first=False):
         plotdata = np.copy(data)
-        plotdata[self.image_mask == 1] = 0
+        plotdata[~self.image_mask] = 0
         
         if first:
             centre_pix = np.asarray(wcs.utils.skycoord_to_pixel(self.loc, self.wcs, origin=1))
@@ -542,7 +530,7 @@ class RadioHalo(object):
             
         image = data.ravel()#/max_flux # Normalise image for better fitting results
         if self.mask:
-            image = data.ravel()[self.image_mask.ravel() == 0]
+            image = data.ravel()[self.image_mask.ravel()]
 
         popt, pcov = curve_fit(
             self.pre_mcmc_func,

@@ -31,6 +31,7 @@ from astropy.io import fits
 from . import plot_fits
 from . import fdca_utils as utils
 from .halo_object import RadioHalo
+from .mcmc_processing import Processing
 
 try:
     set_start_method("fork")
@@ -43,46 +44,9 @@ deg2rad = np.pi / 180.0
 Jydeg2 = u.Jy / (u.deg * u.deg)
 mJyarcsec2 = u.mJy / (u.arcsec * u.arcsec)
 uJyarcsec2 = 1.0e-3 * u.mJy / (u.arcsec * u.arcsec)
-            
+max_params = 10
 
-
-class Fitting(object):
-    """
-    -CLASS DESCRIPTION-
-    -INPUT-
-    _parent_ (Radio_Halo object): Radio_Halo object containing all relevant
-                                  object information
-    data (2D array): Data array to be fitted. It is adviced to
-                         use 'Radio_Halo.data_mcmc'
-    dim (int): number of parameters of fitting model to use. Choose from (8,6,5,4).
-               Note: currently, only dim=8 works.
-    p0 (array like): Initial robust guess for fit parameters. Used for preliminary
-                     scipy.optimize.curve_fit. See Scipy documentation for more info.
-    bounds (2-tuple of array_like): Initial robust guess for fit parameter bounds.
-                                    Used for preliminary scipy.curve_fit. See Scipy
-                                    documentation for more info.
-    walkers (int): Number of walkers to deploy in the MCMC algorithm
-    steps (int): Number of evauations each walker has to do.
-    save (bool): Whether to save the mcmc sampler chain in a fits file. default is False
-    burntime (int): burn-in time for MCMC walkers. See emcee documentation for info.
-    logger: Configured logging object to log info to a .log file. If not given,
-            nothing happens.
-    rebin (bool): default is True. regridding data to beamsize to fit to indipendent
-                  datapoints. Default is True.
-    Forward (bool): Depricated.
-    Mask (bool): applying mask to image. If true: a DS9 .reg  has to be present in the
-                 Radio_halo.maskPath direcory Default is False.
-    maskpath (str): Custom path to DS9 region file, read from database.dat.
-                    If '--' is given, and mas=True, the standard
-                    directory will be searched.
-    max_radius (float): maximum posiible radius cut-off. Fitted halos cannot have any
-                        r > max_radius. In units of kpc.
-                        Default is None (implying image_size/2).
-    gamma_prior (bool): wether to use a gamma distribution as a prior for radii.
-                        Default is False. For the gamma parameters:
-                        shape = 2.5, scale = 120 kpc.
-    """
-
+class BaseFitting():
     def __init__(
         self,
         _parent_: RadioHalo,
@@ -101,27 +65,15 @@ class Fitting(object):
         offset: bool = False
     ):
         assert model in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
-
-        if data is None: self.data = _parent_.data_mcmc
-        else: self.data = data
-
-        if logger is None: self.log = _parent_.log
-        else: self.log = logger
-            
-        if p0 is None or bounds is None:
-            p0_temp, bounds_temp = utils.get_initial_guess(_parent_)
-            
-        if p0 is None: self.p0 = p0_temp
-        else: self.p0 = p0
         
-        if bounds is None: self.bounds = bounds_temp
-        else: self.bounds = bounds
-        
-        mask = _parent_.mask
+        self.data = _parent_.data_mcmc if data is None else data
+        self.log = _parent_.log if logger is None else logger
+
         self.orig_shape = _parent_.data.shape
         self.rebin = rebin
         self.halo = _parent_
         self.noise = _parent_.imagenoise
+        self.mask = _parent_.mask
         self.rms = _parent_.rmsnoise
         self.sigma = (self.rms * self.halo.beam2pix).value
         self.steps = int(steps)
@@ -129,102 +81,8 @@ class Fitting(object):
         self.k_exponent = k_exponent
         self.offset = offset
         self.gamma_prior = gamma_prior
-
-        self.check_settings(model, walkers, mask, burntime, max_radius)
-        x = np.arange(0, self.data.shape[1], 1)
-        y = np.arange(0, self.data.shape[0], 1)
-        self.x_pix, self.y_pix = np.meshgrid(x, y)
-
-        self.dof = len(self.data.value.flat) - self.dim
-
-
-    def _pre_fit(self):
-        popt, perr = self.pre_mcmc_fit(
-            self.data, p0=np.array(self.p0), bounds=np.array(self.bounds)
-        )
-        return popt, perr
-
-
-    def run(self, pre_fit_guess=None, save=True, save_path=""):
-        data = utils.set_data_to_use(self, self.data)
-        x = np.arange(0, self.data.shape[1])
-        y = np.arange(0, self.data.shape[0])
-        coord = np.meshgrid(x, y)
         
-        if pre_fit_guess is None:
-            self.popt, __ = self._pre_fit()
-        else:
-            self.popt = pre_fit_guess
-            
-        #sys.exit()
-        
-        self.mcmc_noise = utils.findrms(data)
-        pos = [
-            self.popt[self.params] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
-            for i in range(self.walkers)
-        ]
-        
-        # set_dictionary is called to create a dictionary with necessary atributes
-        # because 'Pool' cannot pickle the fitting object.
-        halo_info = set_dictionary(self)
 
-        num_CPU = cpu_count()
-        with Pool(num_CPU) as pool:
-            sampler = emcee.EnsembleSampler(
-                self.walkers, 
-                self.dim, 
-                lnprob, 
-                pool=pool, 
-                args=[data, coord, halo_info]
-            )
-            sampler.run_mcmc(pos, self.steps, progress=True)
-
-        self.sampler = sampler.chain
-        self.samples = self.sampler[:, int(self.burntime) :, :].reshape(
-            (-1, self.dim)
-        )
-
-        if save:
-            self.save(save_path)
-            self.get_units()
-            plot_fits.samplerplot(self)
-            plot_fits.cornerplot(self)
-
-        return self.sampler
-
-    def save(self, path:str = ""):
-        if path == "":
-            path = "%s%s_mcmc_samples%s.fits" % (
-                self.halo.modelPath,
-                self.halo.file.replace(".fits", ""),
-                self.filename_append,
-            )
-            
-        hdu = fits.PrimaryHDU()
-        hdu.data = self.sampler
-        hdu.header = self.set_sampler_header(hdu.header)
-        hdu.writeto(path, overwrite=True)
-        
-        self.info = hdu.header
-        return self
-        
-    def load(self, path:str=""):
-        path = "%s%s_mcmc_samples%s.fits" % (
-            self.halo.modelPath,
-            self.halo.file.replace(".fits", ""),
-            self.filename_append,
-        )
-        
-        sampler_chain = fits.open(path)
-        self.get_sampler_header(sampler_chain[0].header)
-        self.info = sampler_chain[0].header
-        self.sampler = sampler_chain[0].data
-        self.samples = self.sampler[:, int(self.burntime):].reshape(
-            (-1, self.dim)
-        )
-        return self
-
-    def check_settings(self, model, walkers, mask, burntime, max_radius):
         self.model_name = model
         self.paramNames = [
             "I0",
@@ -299,58 +157,71 @@ class Fitting(object):
                 False,
             ]
         else:
-            self.log.log(logging.CRITICAL, "CRITICAL: invalid model name")
-            print("CRITICAL: invalid model name")
+            self.log.critical("Invalid model name")
             sys.exit()
 
-        if self.k_exponent:
-            self.AppliedParameters[-2] = True
-        if self.offset:
-            self.AppliedParameters[-1] = True
+        self.AppliedParameters[-2] = True if self.k_exponent else False
+        self.AppliedParameters[-1] = True if self.offset else False
 
         self.params = pd.DataFrame.from_dict(
-            {"params": self.AppliedParameters}, orient="index", columns=self.paramNames
+            {"params": self.AppliedParameters}, 
+            orient = "index", 
+            columns = self.paramNames
         ).loc["params"]
+        
         self.dim = len(self.params[self.params == True])
-        self.image_mask = utils.masking(self, full_size=True)
-
-        if walkers >= 2 * self.dim:
-            self.walkers = int(walkers)
-        else:
-            self.walkers = int(2 * self.dim + 4)
-            self.log.log(
-                logging.WARNING,
-                "MCMC Too few walkers, nwalkers = {}".format(self.walkers),
-            )
-
-        
-        
-        if np.any(np.asarray(self.halo.fov_info_mcmc) < 0):
-            self.image_mask, fov_info = utils.pad_image(self.image_mask)
-        else:
-            self.image_mask = self.image_mask[
-                self.halo.fov_info_mcmc[0] : self.halo.fov_info_mcmc[1],
-                self.halo.fov_info_mcmc[2] : self.halo.fov_info_mcmc[3],
-            ]
+        self.dof = len(self.data.value.flat) - self.dim 
+        self.walkers = int(walkers) if (walkers >= 2 * self.dim) else int(2 * self.dim + 4)
 
         if burntime is None:
             self.burntime = int(0.125 * self.steps)
-        elif 0.0 > burntime or burntime >= 0.8 * self.steps:
-            self.log.log(
-                logging.ERROR,
-                "MCMC Input burntime of {} is invalid. setting burntime to {}".format(
-                    burntime, 0.25 * self.steps
-                ),
-            )
+        elif burntime < 1 or burntime >= 0.8 * self.steps:
+            self.log.error(f"MCMC Input burntime of {burntime} is invalid. setting burntime to {int(0.25*self.steps)}")
             self.burntime = int(0.25 * self.steps)
         else:
             self.burntime = int(burntime)
-
-        if max_radius == None:
+        
+        if max_radius is None:
             self.max_radius = self.data.shape[0] / 2.0
         else:
             self.max_radius = max_radius / self.halo.pix2kpc.value
+            
+        x = np.arange(0, self.data.shape[1], 1)
+        y = np.arange(0, self.data.shape[0], 1)
+        self.x_pix, self.y_pix = np.meshgrid(x, y)
+        
+        # define the mask based on user ds9 region
+        image_mask = utils.masking(self, full_size=True)
+        if np.any(np.asarray(self.halo.fov_info_mcmc) < 0):
+            image_mask, __ = utils.pad_image(image_mask.astype(int))
+            self.image_mask = image_mask.astype(bool)
+        else:
+            self.image_mask = image_mask[
+                self.halo.fov_info_mcmc[0] : self.halo.fov_info_mcmc[1],
+                self.halo.fov_info_mcmc[2] : self.halo.fov_info_mcmc[3],
+            ]
+            
+        self.data_to_use = utils.set_data_to_use(self, self.data)
+        self.mcmc_noise = utils.findrms(self.data_to_use)
+        
+        # need to set binned image data to be used in model_data_to_use()
+        self.binned_image_mask = utils.regridding(
+            self.halo, 
+            self.image_mask.astype(int) * u.Jy, 
+            decrease_fov=self.halo.cropped, 
+            mask=self.mask
+        ).value
+                
 
+
+class SingleComponentFitting(BaseFitting):
+    def __init__(self, _parent_: RadioHalo, p0, bounds, **kwargs):
+        BaseFitting.__init__(self, _parent_, **kwargs)
+        
+        p0_temp, bounds_temp = utils.get_initial_guess(_parent_)
+        self.p0 = p0_temp if p0 is None else p0
+        self.bounds = bounds_temp if bounds is None else bounds
+        
         filename_append = "_%s" % (self.model_name)
         if self.mask:
             filename_append += "_mask"
@@ -360,72 +231,110 @@ class Fitting(object):
             filename_append += "_offset"
         self.filename_append = filename_append
 
-    def find_mask(self):
-        if os.path.isfile(self.halo.maskPath):
-            self.mask = True
-        else:
-            self.mask = False
-            self.log.log(logging.ERROR, "No regionfile found,continueing without mask")
-    '''
-    def set_mask(self):
-        regionpath = self.halo.maskPath
-        outfile = self.halo.basedir + "Data/Masks/" + self.halo.target + "_mask.fits"
-        utils.mask_region(self.halo.path, regionpath, outfile)
 
-        """In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
-           is made wrt the entire image. fov_info makes the mask the same shape as
-           the image and overlays it"""
-        self.image_mask = fits.open(outfile)[0].data[
-            0,
-            0,
-            self.halo.fov_info[0] : self.halo.fov_info[1],
-            self.halo.fov_info[2] : self.halo.fov_info[3],
+    def __pre_fit(self):
+        popt, perr = self.pre_mcmc_fit(
+            self.data, p0=np.array(self.p0), bounds=np.array(self.bounds)
+        )
+        return popt, perr
+
+
+    def run(self, pre_fit_guess=None, save=False, save_path=""):
+        coord = np.meshgrid(
+            np.arange(0, self.data.shape[1]), 
+            np.arange(0, self.data.shape[0])
+        )
+        
+        if pre_fit_guess is None:
+            if not hasattr(self, "popt"):
+                self.popt = self.__pre_fit()[0]
+        else:
+            self.popt = pre_fit_guess
+        
+        
+        pos = [
+            self.popt[self.params] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
+            for _ in range(self.walkers)
         ]
-    '''
+        
+        # set_dictionary is called to create a dictionary with necessary atributes
+        # because 'Pool' cannot pickle the fitting object.
+        #self.binned_image_mask = utils.masking(self, full_size=False)
+        halo_info = set_dictionary(self)
+
+        num_CPU = cpu_count()
+        with Pool(num_CPU) as pool:
+            sampler = emcee.EnsembleSampler(
+                self.walkers, 
+                self.dim, 
+                lnprob, 
+                pool=pool, 
+                args=[self.data_to_use, coord, halo_info]
+            )
+            sampler.run_mcmc(pos, self.steps, progress=True)
+
+        self.sampler = sampler.chain
+        self.samples = self.sampler[:, int(self.burntime) :, :].reshape(
+            (-1, self.dim)
+        )
+
+        if save:
+            self.save(save_path)
+            self.get_units()
+            plot_fits.samplerplot(self)
+            plot_fits.cornerplot(self)
+
+        return self.sampler
+
+    def save(self, path:str = ""):
+        if path == "":
+            path = "%s%s_mcmc_samples%s.fits" % (
+                self.halo.modelPath,
+                self.halo.file.replace(".fits", ""),
+                self.filename_append,
+            )
+            
+        hdu = fits.PrimaryHDU()
+        hdu.data = self.sampler
+        hdu.header = self.set_sampler_header(hdu.header)
+        hdu.writeto(path, overwrite=True)
+        
+        self.info = hdu.header
+        return self
+        
+    def load(self, path:str=""):
+        path = "%s%s_mcmc_samples%s.fits" % (
+            self.halo.modelPath,
+            self.halo.file.replace(".fits", ""),
+            self.filename_append,
+        )
+        
+        sampler_chain = fits.open(path)
+        self.get_sampler_header(sampler_chain[0].header)
+        self.info = sampler_chain[0].header
+        self.sampler = sampler_chain[0].data
+        self.samples = self.sampler[:, int(self.burntime):].reshape(
+            (-1, self.dim)
+        )
+        return self
+
     def at(self, parameter):
         par = np.array(self.paramNames)[self.params]
         return np.where(par == parameter)[0][0]
     
-    '''
-    def set_data_to_use(self, data):
-        if self.rebin:
-            binned_data = utils.regridding(self.halo, data, decrease_fov=self.halo.cropped)
-            if not self.mask:
-                self.image_mask = np.zeros(self.data.shape)
-                
-            self.binned_image_mask = utils.regridding(
-                self.halo, 
-                self.image_mask * u.Jy, 
-                decrease_fov=self.halo.cropped, 
-                mask=self.mask
-            ).value
-            use = binned_data.value
-            return use.ravel()[
-                self.binned_image_mask.ravel()
-                <= self.mask_treshold * self.binned_image_mask.max()
-            ]
-        else:
-            if self.mask:
-                return self.data.value.ravel()[self.image_mask.ravel() <= 0.5]
-            else:
-                return self.data.value.ravel()
-    '''
-    
     def pre_mcmc_func(self, obj, *theta):
         theta = utils.add_parameter_labels(obj, theta)
         model = self._func_(obj, theta)
-        if obj.mask:
-            return model[obj.image_mask.ravel() == 0]
-        else:
-            return model
+        return model[obj.image_mask.ravel()]
+
 
     def pre_mcmc_fit(self, image: np.ndarray, p0, bounds):
         data = image.ravel()
 
         #p0[1] -= self.halo.margin[2]
         #p0[2] -= self.halo.margin[0]
-        if self.mask:
-            data = data[self.image_mask.ravel() == 0]
+
+        data = data[self.image_mask.ravel()]
 
         bounds = (list(bounds[0, self.params]), list(bounds[1, self.params]))
         popt, pcov = curve_fit(
@@ -570,10 +479,22 @@ class Fitting(object):
 
         self.popt = popt
         self.mask = header["MASK"]
+    
+    @property    
+    def results(self):
+        if not hasattr(self, "processing_object"):
+            self.processing_object = Processing(self)
+        return self.processing_object
+        
+    def get_results(self):
+        return self.results
+    
+    def clear_results(self):
+        del self.processing_object
         
 
 
-def set_dictionary(obj: Fitting) -> dict:
+def set_dictionary(obj: BaseFitting) -> dict:
     halo_info = {
         "model_name": obj.model_name,
         "bmaj": obj.halo.bmaj,
@@ -605,7 +526,7 @@ def set_model_to_use(info, array):
     binned_data = regrid_to_beamsize(info, array.value)
     return binned_data.ravel()[
         info["binned_image_mask"].ravel()
-        <= info["mask_treshold"] * info["binned_image_mask"].max()
+        >= info["mask_treshold"] * info["binned_image_mask"].max()
     ]
 
 
@@ -921,3 +842,181 @@ def add_parameter_labels(params, paramNames, array):
     ).loc["params"]
     return parameterised_array
 
+
+
+class MultiComponentFitting(BaseFitting):
+    def __init__(
+        self,
+        _parent_: RadioHalo,
+        p0: list[list] = None,
+        bounds: list[list] = None,
+        model: list[str] = ["circle", "rotated_ellipse"],
+        **kwargs
+    ):
+        BaseFitting.__init__(self, _parent_, model=model[0], **kwargs)
+
+        self.components = model
+        fits = [BaseFitting(_parent_, p0, bounds, model=component, **kwargs) for component in self.components]   
+
+        p0_temp, bounds_temp = utils.get_initial_guess(_parent_)
+        if p0 is None:
+            self.p0 = np.asarray([p0_temp for _ in range(len(fits))])
+        else:
+            assert len(p0) == len(fits), "p0 must have the same length as the number of components"
+            self.p0 = np.asarray(p0)
+        
+        if bounds is None:
+            self.bounds = np.asarray([bounds_temp for _ in range(len(fits))])
+        else:
+            assert len(bounds) == len(fits), "bounds must have the same length as the number of components"
+            self.bounds = np.asarray(bounds)
+        
+        for fit in fits[1:]:
+            self.dim += fit.dim
+            self.AppliedParameters = np.concatenate((self.AppliedParameters, fit.AppliedParameters)).reshape(2,-1)
+            self.paramNames = np.concatenate((self.paramNames, fit.paramNames)).reshape(2,-1)
+            
+        self.params = pd.concat([fit.params for fit in fits], axis=1)
+        self.params.columns = [f"comp_{i}" for i in range(len(fits))]
+        self.prms = self.params.values.T
+        
+        self.fits = fits
+        
+            
+        
+    def run(self, pre_fit_guess=None, save=False, save_path=""):
+        coord = np.meshgrid(
+            np.arange(0, self.data.shape[1]), 
+            np.arange(0, self.data.shape[0])
+        )
+        
+        if pre_fit_guess is None:
+            if not hasattr(self, "popt"):
+                self.popt = self.__pre_fit()[0]
+                self.popt.reshape(len(self.fits),-1)
+        else:
+            self.popt = pre_fit_guess
+            
+        pos = [
+            self.popt[self.prms] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
+            for _ in range(self.walkers)
+        ]
+        halo_info = set_dictionary(self.fits[0])
+        
+        # NOT IMPLEMENTED FROM THIS POINT
+        num_CPU = cpu_count()
+        with Pool(num_CPU) as pool:
+            sampler = emcee.EnsembleSampler(
+                self.walkers, 
+                self.dim, 
+                lnprob, 
+                pool=pool, 
+                args=[self.data_to_use, coord, halo_info]
+            )
+            sampler.run_mcmc(pos, self.steps, progress=True)
+
+        self.sampler = sampler.chain
+        self.samples = self.sampler[:, int(self.burntime) :, :].reshape(
+            (-1, self.dim)
+        )
+
+        if save:
+            self.save(save_path)
+            self.get_units()
+            plot_fits.samplerplot(self)
+            plot_fits.cornerplot(self)
+
+        return self.sampler
+        
+        
+            
+
+        
+    def __pre_fit(self):
+        popt, perr = self.pre_mcmc_fit(
+            self.data, p0=np.array(self.p0), bounds=np.array(self.bounds)
+        )
+        return popt, perr
+
+    
+    def pre_mcmc_fit(self, image: np.ndarray, p0, bounds):
+        data = data[self.image_mask.ravel()]
+        
+        (
+            list(self.bounds[0,0,self.prms[0]]) + list(self.bounds[1,0,self.prms[1]]),
+            list(self.bounds[0,1,self.prms[0]]) + list(self.bounds[1,1,self.prms[1]])
+        )
+
+        full_popt, pcov = curve_fit(
+            pre_mcmc_func, self, data, p0=tuple(p0[self.prms]), bounds=bounds
+        )
+
+        full_perr = np.sqrt(np.diag(pcov))
+
+        idx = 0
+        for i, fit in enumerate(self.fits):
+            popt = utils.add_parameter_labels(fit, full_popt[idx:idx+fit.dim])
+            perr = utils.add_parameter_labels(fit, full_perr[idx:idx+fit.dim])
+
+            if not self.k_exponent:
+                popt["k_exp"] = 0.5
+            if not self.offset:
+                popt["off"] = 0.0
+
+            if self.model_name == "skewed":
+                """longest dimension of elliptical shape should always be the x-axis.
+                This routine switches x and y if necessary to accomplish this."""
+                if (popt["r1"] + popt["r2"]) <= (
+                    popt["r3"] + popt["r4"]
+                ):
+                    popt["r1"], popt["r3"] = popt["r3"], popt["r1"]
+                    popt["r2"], popt["r4"] = popt["r4"], popt["r3"]
+                    popt["ang"] += np.pi / 2.0
+
+            if self.model_name in ["ellipse", "rotated_ellipse"]:
+                if popt["r1"] <= popt["r2"]:
+                    popt["r1"], popt["r2"] = popt["r2"], popt["r1"]
+                    popt["ang"] += np.pi / 2.0
+
+            if self.model_name in ["rotated_ellipse", "skewed"]:
+                """Angle of ellipse from positive x should be between 0 and pi."""
+                popt["ang"] = popt["ang"] % (2 * np.pi)
+                if popt["ang"] >= np.pi:
+                    popt["ang"] -= np.pi
+
+            for r in range(4):
+                r += 1
+                if popt["r" + str(r)] > self.max_radius:
+                    popt["r" + str(r)] = self.max_radius
+            
+            popt_units = utils.transform_units(self, np.copy(popt))
+            popt_units = utils.add_parameter_labels(self, popt_units[self.params])
+            self.log.info(
+                "MCMC initial guess: \n{} \n and units: muJy/arcsec2, deg, deg, r_e: kpc, rad".format(popt_units, perr)
+            )
+            full_popt[idx:idx+fit.dim] = popt
+            full_perr[idx:idx+fit.dim] = perr
+            idx += (i+1) * fit.dim 
+        return popt, perr
+        
+        
+        
+def Fit(_parent_: RadioHalo, model: list[str]|str = 'circle' ,**kwargs) -> MultiComponentFitting|SingleComponentFitting:
+    if isinstance(model, str):
+        return SingleComponentFitting(_parent_, model=model, **kwargs)
+    elif isinstance(model, list):
+        return MultiComponentFitting( _parent_, model=model, **kwargs)
+    else:
+        raise ValueError("model must be a string or a list of strings")
+    
+    
+    
+def pre_mcmc_func(obj, *theta):
+    idx = 0
+    compunent_sum = 0
+    for i, fit in enumerate(obj.fits):
+        model_theta = utils.add_parameter_labels(fit, theta[idx:idx+fit.dim])
+        model = fit._func_(obj, model_theta)
+        compunent_sum += model[obj.image_mask.ravel()]
+        idx += (i+1) * fit.dim 
+    return compunent_sum

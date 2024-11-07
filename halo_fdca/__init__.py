@@ -12,7 +12,7 @@ import logging.handlers
 from .halo_object import RadioHalo
 #from .markov_chain_monte_carlo import *
 from .mcmc_processing import Processing
-from .mcmc_fitting import *
+from .mcmc_fitting_multicomponent import *
 from .multi_freq_fitting import MultiWavelengthFitting, MultiWavaelenghtProcessing
 from . import fdca_utils as utils
 #from . import plotting_fits

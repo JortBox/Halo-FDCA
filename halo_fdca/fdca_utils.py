@@ -104,43 +104,34 @@ def export_fits(data, path, header=None):
     hdul = fits.HDUList([hdu])
     hdul.writeto(path, overwrite=True)
 
-def masking(obj, mask, full_size=False):
+def masking(obj, full_size: bool=False):
     try: halo = obj.halo
     except: halo = obj
+    
+    mask = halo.mask
 
     if mask:
-        '''FIND MASK:'''
-        if os.path.isfile(halo.maskPath):
-            mask = True
-        else:
-            mask=False
-            obj.log.log(logging.ERROR,'No regionfile found,continueing without mask')
-
-
         '''SET MASK:'''
-        if mask:
-            regionpath = halo.maskPath
-            outfile    = halo.basedir+'/'+halo.file.replace('.fits','')+'_MASK.fits'
-            mask_region(halo.path, regionpath, outfile)
+        regionpath = halo.maskPath
+        outfile    = halo.basedir+'/'+halo.file.replace('.fits','')+'_MASK.fits'
+        mask_region(halo.path, regionpath, outfile)
 
-            '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
-               is made wrt the entire image. fov_info makes the mask the same shape as
-               the image and overlays it'''
-            if full_size:
-                image_mask = fits.open(outfile)[0].data[0,0,:,:]
-            else:
-                image_mask = fits.open(outfile)[0].data[
-                    0,0,halo.fov_info[0]:halo.fov_info[1],halo.fov_info[2]:halo.fov_info[3]
-                ]
-            obj.log.log(logging.INFO,'MCMC Mask set')
-            #os.remove(outfile)
+        '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
+            is made wrt the entire image. fov_info makes the mask the same shape as
+            the image and overlays it'''
+        if full_size:
+            image_mask = fits.open(outfile)[0].data[0,0,:,:]
+        else:
+            image_mask = fits.open(outfile)[0].data[
+                0,0,halo.fov_info[0]:halo.fov_info[1],halo.fov_info[2]:halo.fov_info[3]
+            ]
+            
+        
+        obj.log.info('Mask set')
     else:
-        obj.log.log(logging.INFO,'MCMC No mask set')
-        mask=False
-
-    if mask==False:
-        image_mask = np.zeros_like(obj.data)
-    return image_mask, mask
+        obj.log.warning('No mask set')
+        image_mask = np.ones_like(obj.data)
+    return image_mask.astype(bool)
 
 
 def mask_region(infilename: str, ds9region: str, outfilename: str):
@@ -152,8 +143,8 @@ def mask_region(infilename: str, ds9region: str, outfilename: str):
     r = pyregion.open(ds9region)
     manualmask = r.get_mask(hdu=hduflat)
     
-    data[manualmask == False] = 0.0
-    data[manualmask == True] = 1.0
+    data[manualmask == False] = 1.0
+    data[manualmask == True] = 0.0
     hdul[0].data[0,0] = data
     hdul.writeto(outfilename,overwrite=True)
 
@@ -230,19 +221,6 @@ def findrms(data, niter=100, maskSup=1e-7):
         if np.abs((rms-rmsold)/rmsold)<diff: break
         rmsold = rms
     return rms
-
-def setMask(self, data):
-    regionpath = self.halo.maskPath
-    outfile    = self.halo.basedir+'Data/Masks/'+self.halo.target+'_mask.fits'
-    mask_region(self.halo.path, regionpath, outfile)
-
-    '''In 'Radio_Halo', there is a function to decrease the fov of an image. The mask
-       is made wrt the entire image. fov_info makes the mask the same shape as
-       the image and overlays it'''
-    self.image_mask = fits.open(outfile)[0].data[0,0,
-                            self.halo.fov_info[0]:self.halo.fov_info[1],
-                            self.halo.fov_info[2]:self.halo.fov_info[3]]
-
 
 def regridding(obj, data, decrease_fov=False, mask=False):
     data_rot = rotate_image(obj, data.value, decrease_fov, mask)
@@ -411,22 +389,22 @@ def set_data_to_use(obj, data):
     # obj: has to be Fitting or Processing object
     if obj.rebin:
         binned_data = regridding(obj.halo, data, decrease_fov=obj.halo.cropped)
-        if not obj.mask:
-            obj.image_mask = np.zeros(obj.data.shape)
+        #if not obj.mask:
+        #image_mask = np.ones(obj.data.shape)
             
-        obj.binned_image_mask = regridding(
+        binned_image_mask = regridding(
             obj.halo, 
-            obj.image_mask * u.Jy, 
+            obj.image_mask.astype(int) * u.Jy, 
             decrease_fov=obj.halo.cropped, 
             mask=obj.mask
         ).value
         use = binned_data.value
         return use.ravel()[
-            obj.binned_image_mask.ravel()
-            <= obj.mask_treshold * obj.binned_image_mask.max()
+            binned_image_mask.ravel()
+            >= obj.mask_treshold * binned_image_mask.max()
         ]
     else:
         if obj.mask:
-            return obj.data.value.ravel()[obj.image_mask.ravel() <= 0.5]
+            return obj.data.value.ravel()[obj.image_mask.astype(int).ravel() <= 0.5]
         else:
             return obj.data.value.ravel()

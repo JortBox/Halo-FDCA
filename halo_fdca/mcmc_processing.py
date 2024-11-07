@@ -86,6 +86,7 @@ class Processing(object):
         self.save = save
         self.halo = fit.halo
         self.fit = fit
+        self.mask = fit.mask
         self.alpha = fit.halo.alpha  # spectral index guess
         self.mask_treshold = fit.mask_treshold
 
@@ -165,7 +166,7 @@ Fit results:
             {"params": self.AppliedParameters}, orient="index", columns=self.paramNames
         ).loc["params"]
         self.dim = len(self.params[self.params])
-        self.image_mask, self.mask = utils.masking(self, mask)
+        self.image_mask = utils.masking(self)
 
     def at(self, parameter):
         par = np.array(self.paramNames)[self.params]
@@ -369,19 +370,20 @@ Fit results:
     def set_data_to_use(self, data) -> np.ndarray:
         if self.rebin:
             binned_data = utils.regridding(self.halo, data, decrease_fov=True)
-            if not self.mask:
-                self.image_mask = np.zeros(self.halo.data.shape)
+                
             self.binned_image_mask = utils.regridding(
-                self.halo, self.image_mask * u.Jy, mask=not self.halo.cropped
+                self.halo, 
+                self.image_mask.astype(int) * u.Jy, 
+                mask=not self.halo.cropped
             ).value
             use = binned_data.value
             return use.ravel()[
                 self.binned_image_mask.ravel()
-                <= self.mask_treshold * self.binned_image_mask.max()
+                >= self.mask_treshold * self.binned_image_mask.max()
             ]
         else:
             if self.mask:
-                return self.data.value.ravel()[self.image_mask.ravel() <= 0.5]
+                return self.data.value.ravel()[self.image_mask.astype(int).ravel() <= 0.5]
             else:
                 return self.data.value.ravel()
 
@@ -404,14 +406,14 @@ Fit results:
 
         rmsregrid = utils.findrms(binned_data)
 
-        if not self.mask:
-            self.image_mask = np.zeros(self.halo.data.shape)
 
         binned_image_mask = utils.regridding(
-            self.halo, self.image_mask * u.Jy, mask=not self.halo.cropped
+            self.halo, 
+            self.image_mask.astype(int) * u.Jy, 
+            mask=not self.halo.cropped
         ).value
         binned_model = binned_model.ravel()[
-            binned_image_mask.ravel() <= mask_treshold * binned_image_mask.max()
+            binned_image_mask.ravel() >= mask_treshold * binned_image_mask.max()
         ]
 
         chi2 = np.sum(((binned_data - binned_model) / (rmsregrid)) ** 2.0)

@@ -112,7 +112,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         data  = utils.regridding(obj.halo, data)
         model = utils.regridding(obj.halo, model)
         #if mask:
-        image_mask = utils.regridding(obj.halo, obj.image_mask*u.Jy, mask= not obj.halo.cropped).value
+        image_mask = utils.regridding(obj.halo, obj.image_mask.astype(int)*u.Jy, mask= not obj.halo.cropped).value
         noise  = utils.findrms(data.value)*u.Jy
         scale  = (np.array((bmin.value,bmaj.value))/halo.pix_size).value
         bmin   = bmin/(scale[0]*halo.pix_size)
@@ -156,9 +156,9 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     masked_data = np.copy(data)
     #if mask:
     if regrid:
-        masked_data[image_mask > obj.mask_treshold*image_mask.max()] =-10000.
+        masked_data[image_mask < obj.mask_treshold*image_mask.max()] =-10000.
     else:
-        masked_data[image_mask==1]= -10000.
+        masked_data[~image_mask]= -10000.
 
     
 
@@ -304,7 +304,7 @@ def model_comparisson(halo, mask=False):
     noise = (halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value
     masked_data = data.copy()
     #if mask:
-    masked_data[halo.result4.image_mask==1]= -10000.
+    masked_data[~halo.result4.image_mask]= -10000.
 
     LEVEL = np.arange(1,7)*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value
     #NORM    = mplc.LogNorm(vmin=0.4*(halo.rmsnoise/halo.pix_area).to(uJyarcsec2).value,
