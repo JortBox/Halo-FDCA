@@ -164,9 +164,9 @@ class BaseFitting():
         self.AppliedParameters[-2] = True if self.k_exponent else False
         self.AppliedParameters[-1] = True if self.offset else False
         
-        for freeze, freez_vals in freeze_params.items():
+        for freeze, freez_vals in freeze_params.copy().items():
             if freeze not in self.paramNames:
-                self.log.error(f"Parameter {freeze} not a model parameters\nChoose from {",".join(self.paramNames)}")
+                self.log.error(f"Parameter {freeze} not a model parameters\nChoose from: {', '.join(self.paramNames)}")
                 freeze_params.pop(freeze)
         
         applied_frozen = [False] * len(self.AppliedParameters)

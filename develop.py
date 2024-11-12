@@ -13,7 +13,7 @@ Halo = fdca.RadioHalo(
 
 # freeze parameters in image units
 freeze = {
-    "x0": 330.,
+    "x1": 330.,
     "y0": 315.,
 }
 

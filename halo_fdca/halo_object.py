@@ -56,12 +56,12 @@ def init_logging(filename, path):
             },
             'root': {
             'level': 'INFO',
-            'handlers': ['file'] #,'console'
+            'handlers': ['file']
             },
         }
 
     root = logging.getLogger()
-    root.setLevel(logging.INFO)
+    root.setLevel('INFO')
     logging.config.dictConfig(d)
     return logging
 
