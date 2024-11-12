@@ -20,7 +20,6 @@ from astropy import units as u
 from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits
 
-
 # Subfile imports
 from . import plot_fits
 from . import fdca_utils as utils
@@ -59,7 +58,6 @@ class Processing(object):
         logger=None,
         save=False,
     ):
-        
         self.data = fit.halo.data
         self.rebin = fit.rebin
         self.filename_append = fit.filename_append
@@ -91,11 +89,12 @@ class Processing(object):
         self.mask_treshold = fit.mask_treshold
 
         self.check_settings(fit.model_name, fit.mask)
-        #self.extract_chain_file(rebin, sampler, sample_info)
         self.retreive_mcmc_params()
         self.set_labels_and_units()
 
         self.dof = len(self.data.value.flat) - self.dim
+        
+        print(self)
         
     def __repr__(self) -> str:
         
@@ -106,7 +105,11 @@ class Processing(object):
         
         param_string = ""
         for param in range(len(self.params[self.params])):
-            param_string += f"{self.paramNames[param]}:   {self.params_units[self.params][param]:.5f} ({self.units[param]})\n    "
+            if self.fit.frozen[param]:
+                frozen = "   FROZEN"
+            else:
+                frozen = ""
+            param_string += f"{self.paramNames[param]}:   {self.params_units[self.params][param]:.5f} ({self.units[param]}){frozen}\n    "
         
         run_details = f"""
 Run information for object {self.halo.name}:
@@ -122,7 +125,7 @@ Run information for object {self.halo.name}:
 
 Fit results:
     Flux density at {self.halo.freq:.1f}: {flux:.5f} +/- {flux_err:.5f}
-    Reduced chi-squared: {self.get_chi2_value()}
+    Reduced chi-squared: {self.get_chi2()}
     {param_string}
     Uncertainties (lower, upper):
         {uncertainties1}
@@ -247,11 +250,6 @@ Fit results:
     def set_labels_and_units(self):
         self.samples_units = self.samples.copy()
         samples_units = self.samples.copy()
-        samples_list = list()
-
-        #x0 = np.percentile(self.samples.real[:, 1], [16, 50, 84])[1] + self.halo.fov_info_mcmc[2]
-        #y0 = np.percentile(self.samples.real[:, 2], [16, 50, 84])[1] + self.halo.fov_info_mcmc[0]
-    
         samples_list = np.asarray([samples_units[:, i]for i 
                                    in range(self.dim)])
 
@@ -387,7 +385,21 @@ Fit results:
             else:
                 return self.data.value.ravel()
 
-    def get_chi2_value(self, mask_treshold=None) -> float:
+    def get_chi2(self, mask_treshold: float = None) -> float:
+        """
+        Calculate the reduced chi-squared value for the model fit.
+
+        Parameters:
+        mask_treshold (float, optional): Threshold for the mask. If None, the default mask threshold is used.
+
+        Returns:
+        float: The reduced chi-squared value.
+
+        This method calculates the chi-squared value by comparing the binned data to the binned model.
+        It also calculates the Akaike Information Criterion (AIC) for the model.
+        The results are logged using the provided logger.
+        """
+        
         mask_treshold = self.mask_treshold if mask_treshold is None else mask_treshold
         
         x = np.arange(0, self.halo.data_mcmc.shape[1], 1)
@@ -399,13 +411,9 @@ Fit results:
         params[2] += self.halo.margin[0]
 
         binned_data = self.set_data_to_use(self.halo.data_mcmc)
-        model = (
-            self._func_(self, params, rotate=True).reshape(self.halo.data.shape) * u.Jy
-        )
+        model = (self._func_(self, params, rotate=True).reshape(self.halo.data.shape) * u.Jy)
         binned_model = utils.regrid_to_beamsize(self.halo, model)
-
         rmsregrid = utils.findrms(binned_data)
-
 
         binned_image_mask = utils.regridding(
             self.halo, 
@@ -415,30 +423,47 @@ Fit results:
         binned_model = binned_model.ravel()[
             binned_image_mask.ravel() >= mask_treshold * binned_image_mask.max()
         ]
-
-        chi2 = np.sum(((binned_data - binned_model) / (rmsregrid)) ** 2.0)
+        
+        chi2 = np.sum(((binned_data - binned_model) / rmsregrid) ** 2.0)
         binned_dof = len(binned_data) - self.dim
         self.chi2_red = chi2 / binned_dof
+        
+        
+        ln_likelihood = - 0.5 * np.sum( ((binned_data - binned_model) / rmsregrid) ** 2 + np.log(2 * np.pi * (rmsregrid) ** 2)) 
+        AIC = 2 * (self.dim - ln_likelihood)
 
-        self.ln_likelihood = -np.sum(
-            ((binned_data - binned_model) ** 2.0) / (2 * (rmsregrid) ** 2.0)
-            + np.log(np.sqrt(2 * np.pi) * rmsregrid)
-        )
-        self.AIC = 2 * (self.dim - self.ln_likelihood)
-
-        self.log.log(logging.INFO, "chi^2: {}".format(chi2))
-        self.log.log(logging.INFO, "effective DoF: {}".format(binned_dof))
-        self.log.log(logging.INFO, "chi^2_red: {}".format(self.chi2_red))
-        # self.log.log(logging.INFO,'AIC: {}'.format(self.AIC))
+        self.log.info(f"chi^2: {chi2:.2f}")
+        self.log.info(f"effective DoF: {binned_dof:d}")
+        self.log.info(f"chi^2_red: {self.chi2_red:.2f}")
+        self.log.info(f"AIC: {AIC:.2f}")
 
         x = np.arange(0, self.data.shape[1], 1)
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
         return self.chi2_red
 
-    def get_flux(self, int_max=np.inf, freq=None, alpha=None) -> tuple[float, float]:
+    def get_flux(self, int_max: float = np.inf, freq:float=None, alpha:float=None) -> tuple[float, float]:
+        """
+        Calculate flux density of the halo at a given frequency. Based on the MCMC samples.
+
+        Args
+        -------
+        int_max : float
+            max integration radius in units of e-folding. Defaults to np.inf.
+            
+        freq : float 
+            frequency in MHz. Defaults to None.
+            
+        alpha : float 
+            spectral index. REquired when calculating flux at different frequency. Defaults to None.
+
+        Returns
+        -------
+        flux : tuple[float, float] 
+            Flux density and its uncertainty in mJy.
+        """
         alpha = self.alpha if alpha is None else alpha
-        freq = self.halo.freq if freq is None else freq
+        freq = self.halo.freq if freq is None else freq*u.MHz
 
         a = self.samples[:, 3] * self.halo.pix_size
         if self.model_name == "skewed":
@@ -491,7 +516,8 @@ Fit results:
         
         return flux_val, flux_err
 
-    def get_power(self, freq=None, alpha=None) -> tuple[float, float]:   
+    def get_power(self, freq=None, alpha=None) -> tuple[float, float]: 
+          
         alpha = self.alpha if alpha is None else alpha
         freq = self.halo.freq if freq is None else freq
 

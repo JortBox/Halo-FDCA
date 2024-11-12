@@ -25,41 +25,52 @@ labelsize = 13
 
 
 def samplerplot(obj):
-    fig, axes = plt.subplots(ncols=1, nrows=obj.dim, sharex=True)
+    frozen = np.asarray(obj.fit.frozen[obj.params]).astype(bool)
+    rows = obj.dim - len(frozen[frozen])
+    fig, axes = plt.subplots(ncols=1, nrows=rows, sharex=True)
     axes[0].set_title("Number of walkers: " + str(obj.walkers), fontsize=25)
     for axi in axes.flat:
         axi.yaxis.set_major_locator(plt.MaxNLocator(3))
         fig.set_size_inches(2 * 10, 15)
 
-    for i in range(obj.dim):
+    i = 0
+    for j in range(obj.dim):
+        if frozen[j]:
+            continue
+        
         axes[i].plot(
-            obj.sampler[:, :, i].transpose(), color="black", alpha=0.3, lw=0.5
+            obj.sampler[:, :, j].transpose(), color="black", alpha=0.3, lw=0.5
         )
-        axes[i].set_ylabel(obj.labels[i], fontsize=20)
+        axes[i].set_ylabel(obj.labels[j], fontsize=20)
         axes[-1].set_xlabel("steps", fontsize=20)
         axes[i].axvline(0.3 * obj.sampler.shape[1], ls="dashed", color="red")
         axes[i].tick_params(labelsize=20)
         plt.xlim(0, obj.sampler.shape[1])
+        i += 1
 
     if obj.save:
-        plt.savefig(
-            obj.halo.plotPath
-            + obj.halo.file.replace(".fits", "")
-            + "_walkers"
-            + obj.filename_append
-            + ".pdf"
-        )
+        try:
+            plt.savefig(
+                obj.halo.plotPath
+                + obj.halo.file.replace(".fits", "")
+                + "_walkers"
+                + obj.filename_append
+                + ".pdf"
+            )
+        except:
+            obj.log.error("Failed to save walkers plot")
         plt.clf()
         plt.close(fig)
     else:
         plt.show()
         
 def cornerplot(obj):
+    frozen = np.asarray(obj.fit.frozen[obj.params]).astype(bool)
     try:
         fig = corner.corner(
-            obj.samples_units,
-            labels=obj.labels_units,
-            truths=obj.popt_units[obj.params],
+            obj.samples_units[:,~frozen],
+            labels=obj.labels_units[~frozen],
+            truths=obj.popt_units[obj.params][~frozen],
             quantiles=[0.160, 0.5, 0.840],
             show_titles=True,
             max_n_ticks=3,
@@ -71,21 +82,24 @@ def cornerplot(obj):
             labels.append("Param " + str(i + 1))
             
         fig = corner.corner(
-            obj.samples,
-            labels=labels,
+            obj.samples[:,~frozen],
+            labels=labels[~frozen],
             quantiles=[0.160, 0.5, 0.840],
-            truths=np.asarray(obj.popt[obj.params]),
+            truths=np.asarray(obj.popt[obj.params][~frozen]),
             show_titles=True,
             title_fmt=".5f",
         )
     if obj.save:
-        plt.savefig(
-            obj.halo.plotPath
-            + obj.halo.file.replace(".fits", "")
-            + "_cornerplot"
-            + obj.filename_append
-            + ".pdf"
-        )
+        try:
+            plt.savefig(
+                obj.halo.plotPath
+                + obj.halo.file.replace(".fits", "")
+                + "_cornerplot"
+                + obj.filename_append
+                + ".pdf"
+            )
+        except:
+            obj.log.error("Failed to save corner plot")
         plt.clf()
         plt.close(fig)
     else:

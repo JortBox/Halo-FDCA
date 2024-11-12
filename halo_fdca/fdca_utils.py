@@ -254,14 +254,10 @@ def rotate_image(obj,img, decrease_fov=False, mask=False):
         padY  = [int(img.shape[0]) - pivot[1], pivot[1]]
         img_pad  = np.pad(img, [padY, padX], 'constant', constant_values=(cval))
         img_rot  = ndimage.rotate(img_pad, -obj.bpa.value, reshape=False,mode='constant',cval=cval)
-        #plt.imshow(img_rot[padY[0]:-padY[1], padX[0]:-padX[1]])
-        #plt.show()
         return img_rot[padY[0]:-padY[1], padX[0]:-padX[1]]
     else:
         img_rot = ndimage.rotate(img, -obj.bpa.value, reshape=False,mode='constant',cval=cval)
         f= img_rot[obj.margin[2]:obj.margin[3], obj.margin[0]:obj.margin[1]]
-        #plt.imshow(f)
-        #plt.show()
         return f
 
 def regrid_to_beamsize(obj, img, accuracy=100.):
