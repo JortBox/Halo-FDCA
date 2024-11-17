@@ -9,7 +9,7 @@ Version: 08 June 2020
 from __future__ import division
 import sys
 import os
-import logging
+from logging import Logger
 import emcee
 
 import numpy as np
@@ -22,8 +22,7 @@ from skimage.measure import block_reduce
 from astropy import wcs
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from astropy.convolution import Gaussian2DKernel
-from astropy.convolution import convolve
+from astropy.convolution import Gaussian2DKernel, convolve
 from astropy.io import fits
 
 
@@ -68,7 +67,8 @@ class BaseFitting():
         assert model in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
         
         self.data = _parent_.data_mcmc if data is None else data
-        self.log = _parent_.log if logger is None else logger
+        self.logger: Logger = _parent_.logger if logger is None else logger
+        self.logger.info(f"Initialising model: {model}")
 
         self.orig_shape = _parent_.data.shape
         self.rebin = rebin
@@ -158,7 +158,7 @@ class BaseFitting():
                 False,
             ]
         else:
-            self.log.critical("Invalid model name")
+            self.logger.error("Invalid model name")
             sys.exit()
             
         self.AppliedParameters[-2] = True if self.k_exponent else False
@@ -166,7 +166,7 @@ class BaseFitting():
         
         for freeze, freez_vals in freeze_params.copy().items():
             if freeze not in self.paramNames:
-                self.log.error(f"Parameter {freeze} not a model parameters\nChoose from: {', '.join(self.paramNames)}")
+                self.logger.error(f"Parameter {freeze} not a model parameters\nChoose from: {', '.join(self.paramNames)}")
                 freeze_params.pop(freeze)
         
         applied_frozen = [False] * len(self.AppliedParameters)
@@ -199,7 +199,7 @@ class BaseFitting():
         if burntime is None:
             self.burntime = int(0.125 * self.steps)
         elif burntime < 1 or burntime >= 0.8 * self.steps:
-            self.log.error(f"MCMC Input burntime of {burntime} is invalid. setting burntime to {int(0.25*self.steps)}")
+            self.logger.warning(f"MCMC Input burntime of {burntime} is invalid. setting burntime to {int(0.25*self.steps)}")
             self.burntime = int(0.25 * self.steps)
         else:
             self.burntime = int(burntime)
@@ -299,6 +299,7 @@ class SingleComponentFitting(BaseFitting):
         for i in range(self.walkers):
             self.sampler[i,:,self.frozen[self.params]] = np.broadcast_to(self.frozen_vals, (self.steps, len(self.frozen_vals))).T
         self.samples = self.sampler[:,int(self.burntime):,:].reshape((-1, self.dim))
+        self.info = self.set_sampler_header(fits.PrimaryHDU().header)
 
         if save:
             self.save(save_path)
@@ -405,11 +406,10 @@ class SingleComponentFitting(BaseFitting):
         
         popt_units = utils.transform_units(self, np.copy(popt))
         popt_units = utils.add_parameter_labels(self, popt_units[self.params])
-        self.log.log(
-            logging.INFO,
+        self.logger.debug(
             "MCMC initial guess: \n{} \n and units: muJy/arcsec2, deg, deg, r_e: kpc, rad".format(
                 popt_units, perr
-            ),
+            )
         )
 
         x = np.arange(0, self.data.shape[1], 1)
@@ -519,6 +519,7 @@ class SingleComponentFitting(BaseFitting):
     @property    
     def results(self):
         if not hasattr(self, "processing_object"):
+            self.logger.debug("Initialising Processing object")
             self.processing_object = Processing(self, save=True)
         return self.processing_object
         
@@ -1066,7 +1067,7 @@ class MultiComponentFitting(BaseFitting):
             
             popt_units = utils.transform_units(self, np.copy(popt))
             popt_units = utils.add_parameter_labels(self, popt_units[self.params])
-            self.log.info(
+            self.logger.info(
                 "MCMC initial guess: \n{} \n and units: muJy/arcsec2, deg, deg, r_e: kpc, rad".format(popt_units, perr)
             )
             full_popt[idx:idx+fit.dim] = popt

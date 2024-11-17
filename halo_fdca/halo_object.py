@@ -6,9 +6,7 @@ Author: J.M. Boxelaar
 Version: 08 June 2020
 """
 # Built in module imports
-import sys
-import os
-import logging
+import sys, os, logging
 from datetime import datetime
 
 # Scipy, astropy, emcee imports
@@ -22,6 +20,7 @@ from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
 
 from . import fdca_utils as utils
+from . import fdca_logging
 
 np.seterr(divide="ignore", invalid="ignore")
 
@@ -30,40 +29,6 @@ deg2rad = np.pi / 180.0
 Jydeg2 = u.Jy / (u.deg * u.deg)
 mJyarcsec2 = u.mJy / (u.arcsec * u.arcsec)
 uJyarcsec2 = 1.0e-3 * u.mJy / (u.arcsec * u.arcsec)
-
-
-def init_logging(filename, path):
-    if path[-1]=='/': path = path[:-1]
-    now = str(datetime.now())[:19]
-    if not os.path.exists(path+'/log/'):
-        os.makedirs(path+'/log/')
-
-    d = {
-            'version': 1,
-            'formatters': {
-            'detailed': {
-                'class': 'logging.Formatter',
-                'format': '%(asctime)s %(name)-12s %(processName)-2s %(levelname)-8s %(message)s'
-            }
-            },
-            'handlers': {
-            'file': {
-                'class': 'logging.FileHandler',
-                'filename': path+'/log/'+filename+'_'+now.replace(' ','_')+'.log',
-                'mode': 'w',
-                'formatter': 'detailed',
-            },
-            },
-            'root': {
-            'level': 'INFO',
-            'handlers': ['file']
-            },
-        }
-
-    root = logging.getLogger()
-    root.setLevel('INFO')
-    logging.config.dictConfig(d)
-    return logging
 
 
 class RadioHalo(object):
@@ -118,11 +83,12 @@ class RadioHalo(object):
         rms: float = 0,
     ):
         if logger is None:
-            logger = init_logging(object, output_path).getLogger(object)
-            logger.log(logging.INFO, "Logger initiated for: " + object)
-            self.log = logger
+            fdca_logging.Logger('fdca')
+            logger = fdca_logging.logger
+            logger.info('Starting the FDCA pipeline')
+            self.logger = logger
         else:
-            self.log = logger
+            self.logger = logger
            
         self.cropped = False
         self.rmsnoise = rms  # manual noise level mJy/beam
@@ -138,8 +104,7 @@ class RadioHalo(object):
             self.cat = "VII/110A/table3"
         else:
             self.cat = None
-            self.log.log(
-                logging.ERROR,
+            self.logger.warning(
                 "Unknown what catalogue to use. If no costum values are given, filling values will be used",
             )
 
@@ -165,10 +130,7 @@ class RadioHalo(object):
         if self.header["BUNIT"] == "JY/BEAM" or self.header["BUNIT"] == "Jy/beam":
             self.data = data * (u.Jy / self.beam2pix)
         else:
-            self.log.log(
-                logging.CRITICAL,
-                "Possibly other units than jy/beam, CHECK HEADER UNITS!",
-            )
+            self.logger.error("Possibly other units than jy/beam, CHECK HEADER UNITS!")
             sys.exit()
         
         x = np.arange(0, data.shape[1], step=1, dtype="float")
@@ -197,10 +159,10 @@ class RadioHalo(object):
         self.modelPath = self.basedir + "/"
 
         if not os.path.isdir(self.modelPath):
-            self.log.info("Creating modelling directory")
+            self.logger.info("Creating modelling directory")
             os.makedirs(self.modelPath)
         if not os.path.isdir(self.plotPath):
-            self.log.info("Creating plotting directory")
+            self.logger.info("Creating plotting directory")
             os.makedirs(self.plotPath)
 
         if maskpath is None:
@@ -212,23 +174,23 @@ class RadioHalo(object):
             self.mask = True
         else:
             self.mask = False
-            self.log.error(f"No mask found at {self.maskPath}. Masking will not be applied.")
+            self.logger.warning(f"No mask found at {self.maskPath}. Masking will not be applied.")
 
     def get_object_location(self, loc):
         if loc is not None:
             if type(loc) == SkyCoord:
                 self.loc = loc
             else:
-                self.log.critical("Location given is not a SkyCoord object. Please provide a valid SkyCoord object")
+                self.logger.error("Location given is not a SkyCoord object. Please provide a valid SkyCoord object")
                 sys.exit()
         else:
             from astroquery.ipac.ned import Ned
             try:
-                self.log.warning(f"No manual location given, searching for {self.name} in NED.")
+                self.logger.warning(f"No manual location given, searching for {self.name} in NED.")
                 table = Ned.query_object(self.name)
                 self.loc = SkyCoord(table["RA"][0], table["DEC"][0], unit=u.deg)
             except:
-                self.log.warning(f"{self.name} not found by NED. Assuming image centre.")
+                self.logger.warning(f"{self.name} not found by NED. Assuming image centre.")
                 cent_pix = np.asarray(self.original_image.shape, dtype=np.float64)//2.
                 self.loc = wcs.utils.pixel_to_skycoord(cent_pix[0], cent_pix[1], self.wcs, origin=1)
 
@@ -252,7 +214,7 @@ class RadioHalo(object):
                 self.R500 = 1.0 * u.Mpc
                 self.M500 = 3.0e14 * u.Msun
                 self.user_radius = False
-                # self.log.log(logging.WARNING,'No R500 key found. setting R500='\
+                # self.logger.log(logging.WARNING,'No R500 key found. setting R500='\
                 #                        +str(self.R500.value)+'Mpc to continue')
 
             elif self.target[:5] == "Abell":
@@ -260,11 +222,11 @@ class RadioHalo(object):
                     self.z = float(self.table[self.cat]["z"][0])
                 except:
                     self.z = 0.1
-                    # self.log.log(logging.WARNING,'No valid z key found. setting z='\
+                    # self.logger.log(logging.WARNING,'No valid z key found. setting z='\
                     #                    +str(self.z)+' as filling to continue. Ignore this message if -z != None')
                 self.R500 = 1.0 * u.Mpc
                 self.user_radius = False
-                # self.log.log(logging.WARNING,'No R500 key found. setting R500='\
+                # self.logger.log(logging.WARNING,'No R500 key found. setting R500='\
                 #                        +str(self.R500.value)+'Mpc to continue')
 
             elif self.target[:4] == "PSZ2":
@@ -291,7 +253,7 @@ class RadioHalo(object):
                 self.user_radius = False
 
         except:
-            print("catalogue search FAILED")
+            self.logger.warning(f"Catalogue {self.cat} found for {self.name}. Filling values will be used.")
             self.R500 = 1.0 * u.Mpc
             self.z = 0.1
             self.user_radius = False
@@ -299,14 +261,14 @@ class RadioHalo(object):
         if M500 is not None:
             self.M500 = float(M500) * 1.0e14 * u.Msun
             self.M500_std = 0.0 * u.Msun
-            self.log.log(logging.INFO, "Custom M500 mass set")
+            self.logger.debug("Custom M500 mass set" + str(self.M500))
         if R500 is not None:
             self.R500 = float(R500) * u.Mpc
-            self.log.log(logging.INFO, "Custom R500 radius set")
+            self.logger.debug("Custom R500 radius set: "+str(self.R500))
             self.user_radius = self.R500
         if z is not None:
             self.z = float(z)
-            self.log.log(logging.INFO, "Custom redshift set")
+            self.logger.debug("Custom redshift set" + str(self.z))
 
         cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
         self.factor = cosmology.kpc_proper_per_arcmin(self.z).to(u.Mpc / u.deg)
@@ -322,28 +284,17 @@ class RadioHalo(object):
             self.rmsnoise = 1.0e-6 * (self.rmsnoise / self.beam2pix) * u.Jy
             self.imagenoise = 0.0
 
-        self.log.log(
-            logging.INFO,
-            "rms noise %f microJansky/beam"
-            % (1.0e6 * (self.rmsnoise * self.beam2pix).value),
-        )
-        self.log.log(
-            logging.INFO,
-            "rms noise %f microJansky/arcsec2"
-            % (
-                1.0e6 * (self.rmsnoise / self.pix_area).to(u.Jy / u.arcsec**2.0).value
-            ),
-        )
+        self.logger.debug(f"rms noise {1.0e6 * (self.rmsnoise * self.beam2pix).value} microJansky/beam")
+        self.logger.debug(f"rms noise {1.0e6 * (self.rmsnoise / self.pix_area).to(u.Jy / u.arcsec**2.0).value} microJansky/arcsec2")
+        
         if decrease_img_size:
+            old_shape = self.data.shape
             self.decrease_fov(self.data)
             x = np.arange(0, np.shape(self.data.value)[1], step=1, dtype="float")
             y = np.arange(0, np.shape(self.data.value)[0], step=1, dtype="float")
             self.x_pix, self.y_pix = np.meshgrid(x, y)
             
-            self.log.log(
-                logging.INFO,
-                "Decreased FoV to "+str(self.data.shape)
-            )
+            self.logger.info("Decreased image shape from " +str(old_shape)+ " to "+str(self.data.shape))
 
             self.image_mask = utils.masking(self)
             self.exponentialFit(self.data.value)
@@ -436,10 +387,7 @@ class RadioHalo(object):
             if margin < 0 or margin > np.array(self.data.shape).min():
                 error = True
         if error:
-            self.log.log(
-                logging.ERROR,
-                "{}: Decreasing FoV not possible. Halo is too big".format(self.target),
-            )
+            self.logger.warning("{}: Decreasing FoV not possible. Halo is too big. Pad image".format(self.target))
 
             pivot = ((np.sqrt(2.0) / 2.0 - 0.5) * np.array(data.shape)).astype(np.int64)
             padX = [pivot[0], pivot[0]]
@@ -559,4 +507,4 @@ class RadioHalo(object):
 
     def Close(self):
         #self.hdul.close()
-        self.log.log(logging.INFO, "closed Halo object {}".format(self.target))
+        self.logger.info("closed Halo object {}".format(self.target))

@@ -7,7 +7,6 @@ Author: J.M. Boxelaar
 
 from __future__ import division
 import os, sys
-import logging
 import pyregion
 
 import numpy as np
@@ -127,9 +126,9 @@ def masking(obj, full_size: bool=False):
             ]
             
         
-        obj.log.info('Mask set')
+        obj.logger.debug('Mask set')
     else:
-        obj.log.warning('No mask set')
+        obj.logger.warning('No mask set')
         image_mask = np.ones_like(obj.data)
     return image_mask.astype(bool)
 

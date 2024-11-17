@@ -7,7 +7,7 @@ Version: 08 June 2020
 """
 
 from __future__ import division
-import logging
+from logging import Logger
 import sys
 
 import numpy as np
@@ -55,30 +55,29 @@ class Processing(object):
     def __init__(
         self,
         fit: Fitting,
-        logger=None,
+        logger: Logger=None,
         save=False,
     ):
         self.data = fit.halo.data
         self.rebin = fit.rebin
         self.filename_append = fit.filename_append
         
-        if hasattr(fit, 'sampler'):
+        if hasattr(fit, 'sampler') and hasattr(fit, 'info'):
             self.sampler = fit.sampler
             self.info = fit.info
         else:
-            logger.log(logging.CRITICAL , "No sampler found in fit object. Exiting.")
+            logger.error("No sampler found in fit object. Exiting.")
             sys.exit()
 
         if logger is None:
-            self.log = fit.log
+            self.logger: Logger = fit.logger
         else:
-            self.log = logger
+            self.logger = logger
         
         x = np.arange(0, self.data.shape[1], 1)
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
-        self.log.log(logging.INFO, "Model name: {}".format(fit.model_name))
         self.noise = fit.noise
         self.rms = fit.rms
         self.save = save
@@ -93,15 +92,15 @@ class Processing(object):
         self.set_labels_and_units()
 
         self.dof = len(self.data.value.flat) - self.dim
+        self.__repr__()
         
-        print(self)
         
     def __repr__(self) -> str:
         
         uncertainties1 = self.percentiles_units[:, 1] - self.percentiles_units[:, 0]
         uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]
 
-        flux, flux_err = self.get_flux()
+        flux, flux_err = self.get_flux(debug=True)
         
         param_string = ""
         for param in range(len(self.params[self.params])):
@@ -125,13 +124,13 @@ Run information for object {self.halo.name}:
 
 Fit results:
     Flux density at {self.halo.freq:.1f}: {flux:.5f} +/- {flux_err:.5f}
-    Reduced chi-squared: {self.get_chi2()}
+    Reduced chi-squared: {self.get_chi2(debug=True)}
     {param_string}
     Uncertainties (lower, upper):
         {uncertainties1}
         {uncertainties2}
     """
-        self.log.log(logging.INFO, run_details)
+        self.logger.debug(run_details)
         return run_details
 
     def plot(self):
@@ -187,12 +186,7 @@ Fit results:
         if burntime is None:
             self.burntime = int(0.25 * self.steps)
         elif 0.0 > burntime or burntime >= self.steps:
-            self.log.log(
-                logging.ERROR,
-                "MCMC Input burntime of {} is invalid. setting burntime to {}".format(
-                    burntime, 0.25 * self.steps
-                ),
-            )
+            self.logger.warning(f"MCMC Input burntime of {burntime} is invalid. setting burntime to {0.25 * self.steps}")
             self.burntime = int(0.25 * self.steps)
         else:
             self.burntime = int(burntime)
@@ -236,10 +230,7 @@ Fit results:
                 elif arcsine[1] > 0:
                     ang = arccosine.copy()
             else:
-                self.log.log(
-                    logging.ERROR,
-                    "Angle matching failed in processing.get_percentiles. continueing with default.",
-                )
+                self.logger.error("Angle matching failed in processing.get_percentiles. continuing with default.")
                 ang = np.percentile(samples[:, self.at("ang")], [16, 50, 84])
 
             percentiles[self.at("ang"), :] = ang
@@ -280,7 +271,7 @@ Fit results:
             \n{str(uncertainties1)} \n{str(uncertainties2)} \
             \nIn Units: {str(self.units)}" 
                                     
-        self.log.log(logging.INFO, string_to_print)
+        self.logger.debug(string_to_print)
         return string_to_print
 
     def get_units(self):
@@ -335,17 +326,15 @@ Fit results:
             conf_low = self.params_units - z_alpha * se
             conf_up = self.params_units + z_alpha * se
             for i in range(self.dim):
-                self.log.log(
-                    logging.INFO,
-                    "{}% Confidence interval of {}: ({:.5f}, {:.5f}) {}".format(
+                self.logger.debug(
+                    "{}% Confidence interval of {}: ({:.5f}, {:.5f}) {} \n".format(
                         percentage,
                         self.labels[i],
                         conf_low[i],
                         conf_up[i],
                         self.units[i],
-                    ),
+                    )
                 )
-            self.log.log(logging.INFO, "")
         else:
             for i in range(self.dim):
                 se[i] = np.sqrt(
@@ -355,14 +344,11 @@ Fit results:
             conf_low = self.parameters - z_alpha * se
             conf_up = self.parameters + z_alpha * se
             for i in range(self.dim):
-                self.log.log(
-                    logging.INFO,
-                    "{}% Confidence interval of {}: ({:.5f}, {:.5f})".format(
+                self.logger.debug(
+                    "{}% Confidence interval of {}: ({:.5f}, {:.5f}) \n".format(
                         percentage, self.labels[i], conf_low[i], conf_up[i]
-                    ),
+                    )
                 )
-            self.log.log(logging.INFO, "")
-
         return [conf_low, conf_up]
     
     def set_data_to_use(self, data) -> np.ndarray:
@@ -385,7 +371,7 @@ Fit results:
             else:
                 return self.data.value.ravel()
 
-    def get_chi2(self, mask_treshold: float = None) -> float:
+    def get_chi2(self, mask_treshold: float = None, debug=False) -> float:
         """
         Calculate the reduced chi-squared value for the model fit.
 
@@ -432,17 +418,18 @@ Fit results:
         ln_likelihood = - 0.5 * np.sum( ((binned_data - binned_model) / rmsregrid) ** 2 + np.log(2 * np.pi * (rmsregrid) ** 2)) 
         AIC = 2 * (self.dim - ln_likelihood)
 
-        self.log.info(f"chi^2: {chi2:.2f}")
-        self.log.info(f"effective DoF: {binned_dof:d}")
-        self.log.info(f"chi^2_red: {self.chi2_red:.2f}")
-        self.log.info(f"AIC: {AIC:.2f}")
+        if not debug:
+            self.logger.debug(f"chi^2: {chi2:.2f}")
+            self.logger.debug(f"effective DoF: {binned_dof:d}")
+            self.logger.debug(f"chi^2_red: {self.chi2_red:.2f}")
+            self.logger.debug(f"AIC: {AIC:.2f}")
 
         x = np.arange(0, self.data.shape[1], 1)
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
         return self.chi2_red
 
-    def get_flux(self, int_max: float = np.inf, freq:float=None, alpha:float=None) -> tuple[float, float]:
+    def get_flux(self, int_max: float = np.inf, freq:float=None, alpha:float=None, debug=False) -> tuple[float, float]:
         """
         Calculate flux density of the halo at a given frequency. Based on the MCMC samples.
 
@@ -500,20 +487,10 @@ Fit results:
         self.flux = np.copy(flux)
         self.flux_freq = freq
 
-        self.log.log(
-            logging.INFO,
-            f"MCMC Flux at {freq.value:.1f} {freq.unit}: \
-                {flux_val.value:.2f} +/- {flux_err.value:.2f} \
-                {flux.unit}"
-        )
-        self.log.log(logging.INFO, "Integration radius " + str(int_max))
-        self.log.log(
-            logging.INFO,
-            "S/N based on flux {:.2f}".format(
-                flux_val.value / flux_err.value
-            ),
-        )
-        
+        if not debug:
+            self.logger.info(f"MCMC Flux at {freq.value:.1f} {freq.unit}: {flux_val.value:.2f} +/- {flux_err.value:.2f} {flux.unit}")
+            self.logger.debug(f"Flux integration radius {int_max}")
+            self.logger.debug(f"S/N based on flux {flux_val.value / flux_err.value:.2f}")
         return flux_val, flux_err
 
     def get_power(self, freq=None, alpha=None) -> tuple[float, float]: 
@@ -557,8 +534,7 @@ Fit results:
         power_val = percentiles[1]
         power_err = ((percentiles[2] - percentiles[1]) + (percentiles[1] - percentiles[0])) / 2.0
         
-        self.log.log(
-            logging.INFO,
+        self.logger.info(
             "Power at {:.1f} {}: ({:.3g} +/- {:.3g}) {}".format(
                 freq.value,
                 freq.unit,

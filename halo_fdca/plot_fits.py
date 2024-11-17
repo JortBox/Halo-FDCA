@@ -58,7 +58,7 @@ def samplerplot(obj):
                 + ".pdf"
             )
         except:
-            obj.log.error("Failed to save walkers plot")
+            obj.logger.error("Failed to save walkers plot")
         plt.clf()
         plt.close(fig)
     else:
@@ -99,7 +99,7 @@ def cornerplot(obj):
                 + ".pdf"
             )
         except:
-            obj.log.error("Failed to save corner plot")
+            obj.logger.error("Failed to save corner plot")
         plt.clf()
         plt.close(fig)
     else:
