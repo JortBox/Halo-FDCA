@@ -85,13 +85,13 @@ class RadioHalo(object):
         if logger is None:
             fdca_logging.Logger('fdca')
             logger = fdca_logging.logger
-            logger.info('Starting the FDCA pipeline')
+            logger.info('Starting the FDCA pipeline...')
             self.logger = logger
         else:
             self.logger = logger
            
         self.cropped = False
-        self.rmsnoise = rms  # manual noise level mJy/beam
+        self.rmsnoise = rms  # manual noise level Jy/beam
         self.user_radius = R500
 
         if object[:4] == "MCXC":
@@ -181,12 +181,12 @@ class RadioHalo(object):
             if type(loc) == SkyCoord:
                 self.loc = loc
             else:
-                self.logger.error("Location given is not a SkyCoord object. Please provide a valid SkyCoord object")
+                self.logger.error("Coordinate given is not a SkyCoord object. Please provide a valid SkyCoord object")
                 sys.exit()
         else:
             from astroquery.ipac.ned import Ned
             try:
-                self.logger.warning(f"No manual location given, searching for {self.name} in NED.")
+                self.logger.warning(f"No manual coordinate given, searching for {self.name} in NED.")
                 table = Ned.query_object(self.name)
                 self.loc = SkyCoord(table["RA"][0], table["DEC"][0], unit=u.deg)
             except:
@@ -261,14 +261,14 @@ class RadioHalo(object):
         if M500 is not None:
             self.M500 = float(M500) * 1.0e14 * u.Msun
             self.M500_std = 0.0 * u.Msun
-            self.logger.debug("Custom M500 mass set" + str(self.M500))
+            self.logger.debug("Custom M500 mass set: " + str(self.M500))
         if R500 is not None:
             self.R500 = float(R500) * u.Mpc
             self.logger.debug("Custom R500 radius set: "+str(self.R500))
             self.user_radius = self.R500
         if z is not None:
             self.z = float(z)
-            self.logger.debug("Custom redshift set" + str(self.z))
+            self.logger.debug("Custom redshift set: " + str(self.z))
 
         cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
         self.factor = cosmology.kpc_proper_per_arcmin(self.z).to(u.Mpc / u.deg)
@@ -278,15 +278,17 @@ class RadioHalo(object):
     def set_image_characteristics(self, decrease_img_size: bool):
         if self.rmsnoise == 0.0:
             self.rmsnoise, self.imagenoise = (
-                u.Jy * self.get_noise(self.data * self.beam2pix) / self.beam2pix
+                self.get_noise(self.data * self.beam2pix) / self.beam2pix
             )
         else:
-            self.rmsnoise = 1.0e-6 * (self.rmsnoise / self.beam2pix) * u.Jy
+            self.rmsnoise = (self.rmsnoise / self.beam2pix)
             self.imagenoise = 0.0
 
-        self.logger.debug(f"rms noise {1.0e6 * (self.rmsnoise * self.beam2pix).value} microJansky/beam")
-        self.logger.debug(f"rms noise {1.0e6 * (self.rmsnoise / self.pix_area).to(u.Jy / u.arcsec**2.0).value} microJansky/arcsec2")
+        self.rmsnoise = (u.Jy * self.rmsnoise / self.pix_area).to(u.Jy / self.beam)
         
+        self.logger.debug(f"rms noise {self.rmsnoise:.3e} ")
+        self.logger.debug(f"rms noise {self.rmsnoise.to(u.Jy/u.arcsec**2):.3e}")
+
         if decrease_img_size:
             old_shape = self.data.shape
             self.decrease_fov(self.data)
@@ -309,6 +311,7 @@ class RadioHalo(object):
             self.ra = self.ra[self.fov_info[2] : self.fov_info[3]]
             self.dec = self.dec[self.fov_info[0] : self.fov_info[1]]
 
+        self.logger.info("MCMC image shape: "+str(self.data_mcmc.shape))
         #self.noise_char = utils.noise_characterisation(self, self.data.value)
         self.pix2kpc = self.pix_size * self.factor.to(u.kpc / u.deg)
         
@@ -327,15 +330,15 @@ class RadioHalo(object):
         self.pix_size = abs(self.header["CDELT2"]) * u.deg
         beammaj = self.bmaj / (2.0 * (2.0 * np.log(2.0)) ** 0.5)  # Convert to sigma
         beammin = self.bmin / (2.0 * (2.0 * np.log(2.0)) ** 0.5)  # Convert to sigma
-        self.pix_area = (
-            abs(self.header["CDELT1"] * self.header["CDELT2"]) * u.deg * u.deg
-        )
+        
+        self.pix_area = (abs(self.header["CDELT1"] * self.header["CDELT2"]) * u.deg * u.deg)
         self.beam_area = 2.0 * np.pi * 1.0 * beammaj * beammin
         self.beam2pix = self.beam_area / self.pix_area
         
+        
         self.beam = u.def_unit("beam", self.beam_area)
         self.pixScale = u.def_unit("pixel", self.pix_size) # type: ignore
-        self.pix = u.def_unit("pixel", self.pix_area) # type: ignore
+        self.pix = u.def_unit("pixel2", self.pix_area) # type: ignore
 
     def load_data(self):
         hdul = fits.open(self.path)

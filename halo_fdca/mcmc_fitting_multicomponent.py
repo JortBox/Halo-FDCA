@@ -38,8 +38,6 @@ try:
 except RuntimeError:
     pass
 
-MAX_CPU = 8
-
 rad2deg = 180.0 / np.pi
 deg2rad = np.pi / 180.0
 Jydeg2 = u.Jy / (u.deg * u.deg)
@@ -62,13 +60,14 @@ class BaseFitting():
         freeze_params: dict = {},
         gamma_prior: bool = False,
         k_exponent: bool = False,
-        offset: bool = False
+        offset: bool = False,
+        debug: bool = True,
     ):
         assert model in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
         
         self.data = _parent_.data_mcmc if data is None else data
         self.logger: Logger = _parent_.logger if logger is None else logger
-        self.logger.info(f"Initialising model: {model}")
+        if debug: self.logger.info(f"Initialising model: {model}")
 
         self.orig_shape = _parent_.data.shape
         self.rebin = rebin
@@ -179,7 +178,7 @@ class BaseFitting():
                     self.frozen_vals[freeze_keys==param] -= _parent_.fov_info_mcmc[2]
                 if param == "y0":
                     self.frozen_vals[freeze_keys==param] -= _parent_.fov_info_mcmc[0]
-                
+        
         self.frozen = pd.DataFrame.from_dict(
             {"frozen": applied_frozen}, 
             orient = "index", 
@@ -192,8 +191,7 @@ class BaseFitting():
             columns = self.paramNames
         ).loc["params"]
         
-        self.dim = len(self.params[self.params == True])
-        #self.dof = len(self.data.value.flat) - self.dim 
+        self.dim = len(self.params[self.params & ~self.frozen])
         self.walkers = int(walkers) if (walkers >= 2 * self.dim) else int(2 * self.dim + 4)
 
         if burntime is None:
@@ -208,7 +206,18 @@ class BaseFitting():
             self.max_radius = self.data.shape[0] / 2.0
         else:
             self.max_radius = max_radius / self.halo.pix2kpc.value
-            
+        
+        if debug:
+            str_to_log = f"Applied parameters: {', '.join(np.asarray(self.paramNames)[np.asarray(self.AppliedParameters)])}"
+            if np.any(self.frozen):
+                str_to_log += f"  (Freezing parameters: {', '.join(freeze_keys)} to: {', '.join(map(str, self.frozen_vals))})"
+            else:
+                str_to_log += "  (No parameters frozen)"
+            self.logger.info(str_to_log)
+            self.logger.debug("Number of walkers set to %d" % self.walkers)
+            self.logger.debug("Burntime set to %d" % self.burntime)
+            self.logger.debug("Maximum radius set to %f pix" % self.max_radius)
+                
         x = np.arange(0, self.data.shape[1], 1)
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
@@ -272,19 +281,21 @@ class SingleComponentFitting(BaseFitting):
         
         if pre_fit_guess is None:
             if not hasattr(self, "popt"):
+                self.logger.info("Prepare MCMC fitting...")
                 self.popt = self.__pre_fit()[0]
         else:
             self.popt = pre_fit_guess
         
         pos = list()
         for _ in range(self.walkers):
-            popt = self.popt[self.params] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
-            #popt[self.frozen[self.params]] = self.frozen_vals
+            popt = self.popt[self.params & ~self.frozen] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
             pos.append(popt)
         
         halo_info = set_dictionary(self)
 
         num_CPU = cpu_count()
+        self.logger.debug("number of CPU's: %d" % num_CPU)
+        self.logger.info("Starting MCMC run...")
         with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(
                 self.walkers, 
@@ -296,8 +307,6 @@ class SingleComponentFitting(BaseFitting):
             sampler.run_mcmc(pos, self.steps, progress=True)
 
         self.sampler = sampler.chain
-        for i in range(self.walkers):
-            self.sampler[i,:,self.frozen[self.params]] = np.broadcast_to(self.frozen_vals, (self.steps, len(self.frozen_vals))).T
         self.samples = self.sampler[:,int(self.burntime):,:].reshape((-1, self.dim))
         self.info = self.set_sampler_header(fits.PrimaryHDU().header)
 
@@ -316,7 +325,7 @@ class SingleComponentFitting(BaseFitting):
                 self.halo.file.replace(".fits", ""),
                 self.filename_append,
             )
-            
+        self.logger.debug("Saving MCMC samples to %s" % path)    
         hdu = fits.PrimaryHDU()
         hdu.data = self.sampler
         hdu.header = self.set_sampler_header(hdu.header)
@@ -332,7 +341,7 @@ class SingleComponentFitting(BaseFitting):
                 self.halo.file.replace(".fits", ""),
                 self.filename_append,
             )
-        
+        self.logger.debug("Loading MCMC samples from %s" % path)
         sampler_chain = fits.open(path)
         self.get_sampler_header(sampler_chain[0].header)
         self.info = sampler_chain[0].header
@@ -347,7 +356,7 @@ class SingleComponentFitting(BaseFitting):
         return np.where(par == parameter)[0][0]
     
     def pre_mcmc_func(self, obj, *theta):
-        theta = utils.add_parameter_labels(obj, theta)
+        theta = utils.add_labels(obj, theta)
         model = self._func_(obj, theta)
         return model[obj.image_mask.ravel()]
 
@@ -360,18 +369,17 @@ class SingleComponentFitting(BaseFitting):
 
         data = data[self.image_mask.ravel()]
 
-        bounds = (list(bounds[0, self.params]), list(bounds[1, self.params]))
+        bounds = (list(bounds[0, self.params & ~self.frozen]), list(bounds[1, self.params & ~self.frozen]))
         popt, pcov = curve_fit(
-            self.pre_mcmc_func, self, data, p0=tuple(p0[self.params]), bounds=bounds
+            self.pre_mcmc_func, self, data, p0=tuple(p0[self.params & ~self.frozen]), bounds=bounds
         )
         perr = np.sqrt(np.diag(pcov))
-
         #popt[1] += self.halo.margin[2]
         #popt[2] += self.halo.margin[0]
-        popt = utils.add_parameter_labels(self, popt)
-        perr = utils.add_parameter_labels(self, perr)
-        
-        popt[self.frozen] = self.frozen_vals
+        popt = utils.add_labels(self, popt)
+        perr = utils.add_labels(self, perr)
+
+        #popt[self.frozen] = self.frozen_vals
 
         if not self.k_exponent:
             popt["k_exp"] = 0.5
@@ -404,8 +412,9 @@ class SingleComponentFitting(BaseFitting):
             if popt["r" + str(r)] > self.max_radius:
                 popt["r" + str(r)] = self.max_radius
         
-        popt_units = utils.transform_units(self, np.copy(popt))
-        popt_units = utils.add_parameter_labels(self, popt_units[self.params])
+        
+        popt_units = utils.transform_units(self, popt.copy())
+        
         self.logger.debug(
             "MCMC initial guess: \n{} \n and units: muJy/arcsec2, deg, deg, r_e: kpc, rad".format(
                 popt_units, perr
@@ -463,27 +472,15 @@ class SingleComponentFitting(BaseFitting):
         header["burntime"] = self.burntime
         header["OBJECT"] = (self.halo.name, "Object which was fitted")
         header["IMAGE"] = self.halo.file
-        header["UNIT_0"] = ("JY/PIX", "unit of fit parameter")
-        header["UNIT_1"] = ("PIX", "unit of fit parameter")
-        header["UNIT_2"] = ("PIX", "unit of fit parameter")
-        header["UNIT_3"] = ("PIX", "unit of fit parameter")
 
-        if self.dim >= 5:
-            header["UNIT_4"] = ("PIX", "unit of fit parameter")
-        if self.dim == 8:
-            header["UNIT_5"] = ("PIX", "unit of fit parameter")
-            header["UNIT_6"] = ("PIX", "unit of fit parameter")
-        if self.dim >= 6:
-            header["UNIT_7"] = ("RAD", "unit of fit parameter")
-        if self.dim == 7:
-            header["UNIT_P"] = ("NONE", "unit of fit parameter")
-
+        all_units = np.asarray(["JY/PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "RAD", "NONE", "NONE"])
         for i in range(len(self.popt[self.params])):
             header["INIT_" + str(i)] = (
                 self.popt[self.params][i],
                 "MCMC initial guess",
             )
-
+            header["UNIT_" + str(i)] = (all_units[self.params.values][i], "unit of fit parameter")
+                
         header["MASK"] = (self.mask, "was the data masked during fitting")
         return header
         
@@ -532,7 +529,7 @@ class SingleComponentFitting(BaseFitting):
 
 
 def set_dictionary(obj: BaseFitting) -> dict:
-    halo_info = {
+    return {
         "model_name": obj.model_name,
         "dim": obj.dim,
         "bmaj": obj.halo.bmaj,
@@ -559,7 +556,6 @@ def set_dictionary(obj: BaseFitting) -> dict:
         "frozen": obj.frozen,
         "frozen_vals": obj.frozen_vals
     }
-    return halo_info
 
 
 def set_model_to_use(info, array):
@@ -737,20 +733,16 @@ def G(x, y, x0, y0, re_x, re_y, ang, k_exp, sign_x, sign_y):
 
 def lnL_multicomponent(theta, data, coord, full_info):
     kwargs = {"rotate": True}
-    idx = 0
     model = np.zeros(data.shape)
     for i, info in enumerate(full_info):
-        raw_model = info["_func_"](info, coord, theta[idx:idx+info["dim"]], **kwargs) * u.Jy
+        raw_model = info["_func_"](info, coord, theta[i], **kwargs) * u.Jy
         model += set_model_to_use(info, raw_model)
-        idx += (i+1) * info["dim"]
     return - 0.5 * np.sum( ((data - model) / info["sigma"]) ** 2 + np.log(2 * np.pi * (info["sigma"]) ** 2)) 
 
 def lnL(theta, data, coord, info):
     kwargs = {"rotate": True}
     raw_model = info["_func_"](info, coord, theta, **kwargs) * u.Jy
-    
     model = set_model_to_use(info, raw_model)
-    
     return - 0.5 * np.sum( ((data - model) / info["sigma"]) ** 2 + np.log(2 * np.pi * (info["sigma"]) ** 2)) 
 
 def lnprior(theta, shape, info):
@@ -804,35 +796,40 @@ def lnprior8(theta, shape, info):
     return prior
 
 def lnprob(theta, data, coord, info):
-    theta = add_parameter_labels(info["params"], info["paramNames"], theta)
-    theta[info["frozen"]] = info["frozen_vals"]
+    ptheta = add_parameter_labels(info["params"], info["paramNames"])
+    ptheta[info["params"] & ~info["frozen"]] = theta
+    ptheta[info["frozen"]] = info["frozen_vals"]
+
     if info["model_name"] == "skewed":
-        lp = lnprior8(theta, coord[0].shape, info)
+        lp = lnprior8(ptheta, coord[0].shape, info)
     else:
-        lp = lnprior(theta, coord[0].shape, info)
+        lp = lnprior(ptheta, coord[0].shape, info)
     if not np.isfinite(lp):
         return -np.inf
     
-    likelihood = lnL(theta, data, coord, info) + lp
-    return likelihood
+    #likelihood = lnL(ptheta, data, coord, info) + lp
+    return lnL(ptheta, data, coord, info) + lp
 
 
 def lnprob_multicomponent(full_theta, data, coord, full_info):
+    full_ptheta = list()
     idx = 0
     for i, info in enumerate(full_info):
-        theta = full_theta[idx:idx+info["dim"]]
-        theta = add_parameter_labels(info["params"], info["paramNames"], theta)
+        ptheta = add_parameter_labels(info["params"], info["paramNames"])
+        ptheta[info["params"] & ~info["frozen"]] = full_theta[idx:idx+info["dim"]]
+        ptheta[info["frozen"]] = info["frozen_vals"]
+        
         if info["model_name"] == "skewed":
-            lp = lnprior8(theta, coord[0].shape, info)
+            lp = lnprior8(ptheta, coord[0].shape, info)
         else:
-            lp = lnprior(theta, coord[0].shape, info)
+            lp = lnprior(ptheta, coord[0].shape, info)
         if not np.isfinite(lp):
             return -np.inf
-            
-        full_theta[idx:idx+info["dim"]] = theta
+        
+        full_ptheta.append(ptheta)
         idx += (i+1) * info["dim"]
     
-    likelihood = lnL(full_theta, data, coord, full_info) + lp
+    likelihood = lnL_multicomponent(full_ptheta, data, coord, full_info) + lp
     return likelihood
 
 
@@ -902,8 +899,10 @@ def expand_model_params(theta, info):
     return final_theta
 
 
-def add_parameter_labels(params, paramNames, array):
+def add_parameter_labels(params, paramNames, array=None):
     full_array = np.zeros(params.shape)
+    array = np.ones(params[params].shape) if array is None else array
+    
     full_array[params == True] = array
     parameterised_array = pd.DataFrame.from_dict(
         {"params": full_array}, orient="index", columns=paramNames
@@ -922,13 +921,16 @@ class MultiComponentFitting(BaseFitting):
         link_loc: list[bool] = [False, False], # not implemented yet
         **kwargs
     ):
-        BaseFitting.__init__(self, _parent_, model=model[0], **kwargs)
-
-        self.model_name = model
-        fits = [BaseFitting(_parent_, p0, bounds, model=component, **kwargs) for component in self.model_name]   
-        assert len(link_loc) == len(fits), "link_loc must have the same length as the number of components"
+        BaseFitting.__init__(self, _parent_, model=model[0], debug=False, **kwargs)
+        assert len(link_loc) == len(model), "link_loc must have the same length as the number of components"
         
-
+        fits:list[BaseFitting] = list()
+        for i, component in enumerate(model):
+            if link_loc[i] and i > 0:
+                kwargs.update({"freeze_params": {"x0": 0, "y0": 0}})
+            fits.append(BaseFitting(_parent_, model=component, **kwargs))
+             
+        
         p0_temp, bounds_temp = utils.get_initial_guess(_parent_)
         if p0 is None:
             self.p0 = np.asarray([p0_temp for _ in range(len(fits))])
@@ -946,23 +948,33 @@ class MultiComponentFitting(BaseFitting):
             self.dim += fit.dim
             self.AppliedParameters = np.concatenate((self.AppliedParameters, fit.AppliedParameters)).reshape(2,-1)
             self.paramNames = np.concatenate((self.paramNames, fit.paramNames)).reshape(2,-1)
+        
+        if self.walkers <= 2*self.dim:
+            self.logger.debug("Number of walkers is less than 2*dim, increasing walkers to 2 * dim + 1")
+            self.walkers = 2*self.dim + 1
+            for fit in fits:
+                fit.walkers = self.walkers
             
         self.params = pd.concat([fit.params for fit in fits], axis=1)
         self.params.columns = [f"comp_{i}" for i in range(len(fits))]
         self.prms = self.params.values.T
         
-        filename_append = "_%s" % (self.model_name)
+        self.frozen = pd.concat([fit.frozen for fit in fits], axis=1)
+        self.frozen.columns = [f"comp_{i}" for i in range(len(fits))]
+        self.frzn = self.frozen.values.T
+        
+        filename_append = "multicomponent"
         if self.mask:
             filename_append += "_mask"
         if self.k_exponent:
             filename_append += "_exp"
         if self.offset:
             filename_append += "_offset"
+        if np.any(self.frozen):
+            filename_append += "_frozen-" + "-".join(list(self.frozen[self.frozen].keys()))
         self.filename_append = filename_append + f"_{len(model):02d}components"
         
-        self.fits = fits
-        
-            
+        self.fits = fits     
         
     def run(self, pre_fit_guess=None, save=False, save_path=""):
         coord = np.meshgrid(
@@ -972,19 +984,23 @@ class MultiComponentFitting(BaseFitting):
         
         if pre_fit_guess is None:
             if not hasattr(self, "popt"):
-                self.popt = self.__pre_fit()[0]
-                self.popt.reshape(len(self.fits),-1)
+                self.logger.info("Prepare MCMC fitting...")
+                popt = self.__pre_fit()[0]
+                self.popt = popt.values.T
         else:
             self.popt = pre_fit_guess
-            
-        pos = [
-            self.popt[self.prms] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
-            for _ in range(self.walkers)
-        ]
+        
+        pos = list()
+        for _ in range(self.walkers):
+            popt = self.popt[self.prms & ~self.frzn] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
+            pos.append(popt)
+        
         halo_info_list = [set_dictionary(fit) for fit in self.fits]
         halo_info = set_dictionary(self.fits[0])
         
-        num_CPU = min(cpu_count(), MAX_CPU)
+        num_CPU = cpu_count()
+        self.logger.debug("number of CPU's: %d" % num_CPU)
+        self.logger.info("Starting MCMC run...")
         with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(
                 self.walkers, 
@@ -993,18 +1009,18 @@ class MultiComponentFitting(BaseFitting):
                 pool=pool, 
                 args=[self.data_to_use, coord, halo_info_list]
             )
-            sampler.run_mcmc(pos, self.steps, progress=True)
+            sampler.run_mcmc(pos, self.steps, progress=True, skip_initial_state_check = True)
 
         self.sampler = sampler.chain
-        self.samples = self.sampler[:, int(self.burntime) :, :].reshape(
+        self.samples = self.sampler[:, int(self.burntime):, :].reshape(
             (-1, self.dim)
         )
 
-        #if save:
+        if save:
         #    self.save(save_path)
         #    self.get_units()
-        #    plot_fits.samplerplot(self)
-        #    plot_fits.cornerplot(self)
+            plot_fits.samplerplot(self)
+            plot_fits.cornerplot(self)
 
         return self.sampler
         
@@ -1016,9 +1032,9 @@ class MultiComponentFitting(BaseFitting):
 
     
     def pre_mcmc_fit(self, image: np.ndarray, p0, bounds):
+        data = image.ravel()
         data = data[self.image_mask.ravel()]
-        
-        (
+        bounds = (
             list(self.bounds[0,0,self.prms[0]]) + list(self.bounds[1,0,self.prms[1]]),
             list(self.bounds[0,1,self.prms[0]]) + list(self.bounds[1,1,self.prms[1]])
         )
@@ -1026,20 +1042,25 @@ class MultiComponentFitting(BaseFitting):
         full_popt, pcov = curve_fit(
             pre_mcmc_func, self, data, p0=tuple(p0[self.prms]), bounds=bounds
         )
-
         full_perr = np.sqrt(np.diag(pcov))
+        
+        #full_popt = np.ones(self.dim)
+        #full_perr = np.zeros(self.dim)
+
+        final_popt = self.params.copy()
+        final_perr = self.params.copy()
 
         idx = 0
         for i, fit in enumerate(self.fits):
-            popt = utils.add_parameter_labels(fit, full_popt[idx:idx+fit.dim])
-            perr = utils.add_parameter_labels(fit, full_perr[idx:idx+fit.dim])
+            popt = utils.add_labels(fit, full_popt[idx:idx+fit.dim])
+            perr = utils.add_labels(fit, full_perr[idx:idx+fit.dim])
 
             if not self.k_exponent:
                 popt["k_exp"] = 0.5
             if not self.offset:
                 popt["off"] = 0.0
 
-            if self.model_name == "skewed":
+            if fit.model_name == "skewed":
                 """longest dimension of elliptical shape should always be the x-axis.
                 This routine switches x and y if necessary to accomplish this."""
                 if (popt["r1"] + popt["r2"]) <= (
@@ -1049,12 +1070,12 @@ class MultiComponentFitting(BaseFitting):
                     popt["r2"], popt["r4"] = popt["r4"], popt["r3"]
                     popt["ang"] += np.pi / 2.0
 
-            if self.model_name in ["ellipse", "rotated_ellipse"]:
+            if fit.model_name in ["ellipse", "rotated_ellipse"]:
                 if popt["r1"] <= popt["r2"]:
                     popt["r1"], popt["r2"] = popt["r2"], popt["r1"]
                     popt["ang"] += np.pi / 2.0
 
-            if self.model_name in ["rotated_ellipse", "skewed"]:
+            if fit.model_name in ["rotated_ellipse", "skewed"]:
                 """Angle of ellipse from positive x should be between 0 and pi."""
                 popt["ang"] = popt["ang"] % (2 * np.pi)
                 if popt["ang"] >= np.pi:
@@ -1065,15 +1086,15 @@ class MultiComponentFitting(BaseFitting):
                 if popt["r" + str(r)] > self.max_radius:
                     popt["r" + str(r)] = self.max_radius
             
-            popt_units = utils.transform_units(self, np.copy(popt))
-            popt_units = utils.add_parameter_labels(self, popt_units[self.params])
-            self.logger.info(
-                "MCMC initial guess: \n{} \n and units: muJy/arcsec2, deg, deg, r_e: kpc, rad".format(popt_units, perr)
+            popt_units = utils.transform_units(self, popt.copy())
+            
+            self.logger.debug(
+                "MCMC initial guess Component {:02d}: \n{} \n and units: muJy/arcsec2, deg, deg, r_e: kpc, rad".format(i, popt_units)
             )
-            full_popt[idx:idx+fit.dim] = popt
-            full_perr[idx:idx+fit.dim] = perr
+            final_popt[f"comp_{i}"] = popt
+            final_perr[f"comp_{i}"] = perr
             idx += (i+1) * fit.dim 
-        return full_popt, full_perr
+        return final_popt, final_perr
         
         
         
@@ -1091,7 +1112,7 @@ def pre_mcmc_func(obj, *theta):
     idx = 0
     compunent_sum = 0
     for i, fit in enumerate(obj.fits):
-        model_theta = utils.add_parameter_labels(fit, theta[idx:idx+fit.dim])
+        model_theta = utils.add_labels(fit, theta[idx:idx+fit.dim])
         model = fit._func_(obj, model_theta)
         compunent_sum += model[obj.image_mask.ravel()]
         idx += (i+1) * fit.dim 

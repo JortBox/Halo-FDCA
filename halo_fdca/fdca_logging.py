@@ -37,10 +37,10 @@ class Logger():
         logger.handlers = []
  
         timestamp = time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime())
-        self.logfile = pipename+'_'+timestamp+'.logger'
+        self.logfile = pipename+'_'+timestamp+'.log'
         self.set_logger(self.logfile)
-        os.symlink(self.logfile, pipename+'.logger.tmp')
-        os.rename(pipename+'.logger.tmp', pipename+'.logger')      
+        os.symlink(self.logfile, pipename+'.log.tmp')
+        os.rename(pipename+'.log.tmp', pipename+'.log')      
 
     def set_logger(self, logfile):
         logger = logging.getLogger("FDCA")

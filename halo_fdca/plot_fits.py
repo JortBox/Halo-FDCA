@@ -13,7 +13,6 @@ import matplotlib.colors as mplc
 from matplotlib.ticker import ScalarFormatter
 
 from . import fdca_utils as utils
-#from .markov_chain_monte_carlo import Processing
 
 Jydeg2     = u.Jy/(u.deg*u.deg)
 mJyarcsec2 = u.mJy/(u.arcsec*u.arcsec)
@@ -27,26 +26,21 @@ labelsize = 13
 def samplerplot(obj):
     frozen = np.asarray(obj.fit.frozen[obj.params]).astype(bool)
     rows = obj.dim - len(frozen[frozen])
-    fig, axes = plt.subplots(ncols=1, nrows=rows, sharex=True)
+    fig, axes = plt.subplots(ncols=1, nrows=obj.dim, sharex=True)
     axes[0].set_title("Number of walkers: " + str(obj.walkers), fontsize=25)
     for axi in axes.flat:
         axi.yaxis.set_major_locator(plt.MaxNLocator(3))
         fig.set_size_inches(2 * 10, 15)
 
-    i = 0
-    for j in range(obj.dim):
-        if frozen[j]:
-            continue
-        
+    for i in range(obj.dim):
         axes[i].plot(
-            obj.sampler[:, :, j].transpose(), color="black", alpha=0.3, lw=0.5
+            obj.sampler[:, :, i].transpose(), color="black", alpha=0.3, lw=0.5
         )
-        axes[i].set_ylabel(obj.labels[j], fontsize=20)
+        axes[i].set_ylabel(obj.labels[i], fontsize=20)
         axes[-1].set_xlabel("steps", fontsize=20)
         axes[i].axvline(0.3 * obj.sampler.shape[1], ls="dashed", color="red")
         axes[i].tick_params(labelsize=20)
         plt.xlim(0, obj.sampler.shape[1])
-        i += 1
 
     if obj.save:
         try:
@@ -65,27 +59,28 @@ def samplerplot(obj):
         plt.show()
         
 def cornerplot(obj):
-    frozen = np.asarray(obj.fit.frozen[obj.params]).astype(bool)
     try:
+        popt_units = utils.transform_units(obj, obj.popt)
         fig = corner.corner(
-            obj.samples_units[:,~frozen],
-            labels=obj.labels_units[~frozen],
-            truths=obj.popt_units[obj.params][~frozen],
+            obj.samples_units,
+            labels=obj.labels_units,
+            truths=popt_units[obj.params & ~obj.frozen],
             quantiles=[0.160, 0.5, 0.840],
             show_titles=True,
             max_n_ticks=3,
             title_fmt="1.2g",
         )
+        
     except:
         labels = list()
         for i in range(obj.dim):
             labels.append("Param " + str(i + 1))
             
         fig = corner.corner(
-            obj.samples[:,~frozen],
-            labels=labels[~frozen],
+            obj.samples,
+            labels=labels, 
             quantiles=[0.160, 0.5, 0.840],
-            truths=np.asarray(obj.popt[obj.params][~frozen]),
+            truths=np.asarray(obj.popt[obj.params & ~obj.frozen]),
             show_titles=True,
             title_fmt=".5f",
         )
@@ -166,15 +161,12 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     noise = (noise/halo.pix_area).to(uJyarcsec2).value
     model = (model/halo.pix_area).to(uJyarcsec2).value
 
-
     masked_data = np.copy(data)
     #if mask:
     if regrid:
         masked_data[image_mask < obj.mask_treshold*image_mask.max()] =-10000.
     else:
         masked_data[~image_mask]= -10000.
-
-    
 
 
     if regrid:

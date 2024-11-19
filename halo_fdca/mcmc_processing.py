@@ -23,7 +23,8 @@ from astropy.io import fits
 # Subfile imports
 from . import plot_fits
 from . import fdca_utils as utils
-from .mcmc_fitting import Fitting
+#from .mcmc_fitting import Fitting
+#from .mcmc_fitting_multicomponent import SingleComponentFitting, MultiComponentFitting
 
 
 class Processing(object):
@@ -54,7 +55,7 @@ class Processing(object):
 
     def __init__(
         self,
-        fit: Fitting,
+        fit,
         logger: Logger=None,
         save=False,
     ):
@@ -86,6 +87,8 @@ class Processing(object):
         self.mask = fit.mask
         self.alpha = fit.halo.alpha  # spectral index guess
         self.mask_treshold = fit.mask_treshold
+        self.dim = fit.dim
+        self.frozen = fit.frozen
 
         self.check_settings(fit.model_name, fit.mask)
         self.retreive_mcmc_params()
@@ -110,8 +113,7 @@ class Processing(object):
                 frozen = ""
             param_string += f"{self.paramNames[param]}:   {self.params_units[self.params][param]:.5f} ({self.units[param]}){frozen}\n    "
         
-        run_details = f"""
-Run information for object {self.halo.name}:
+        run_details = f"""Run information for object {self.halo.name}:
     RMS noise: {self.rms}
     Model: {self.model_name}
     Walkers: {self.walkers}
@@ -134,11 +136,12 @@ Fit results:
         return run_details
 
     def plot(self):
+        
         plot_fits.fit_result(
             self,
             self.model,
             self.halo.data,
-            self.halo.rmsnoise,
+            self.halo.rmsnoise * (self.halo.beam / self.halo.beam2pix),
             mask=self.mask,
             regrid=False,
         )
@@ -167,7 +170,7 @@ Fit results:
         self.params = pd.DataFrame.from_dict(
             {"params": self.AppliedParameters}, orient="index", columns=self.paramNames
         ).loc["params"]
-        self.dim = len(self.params[self.params])
+        #self.dim = len(self.params[self.params])
         self.image_mask = utils.masking(self)
 
     def at(self, parameter):
@@ -177,12 +180,12 @@ Fit results:
     def retreive_mcmc_params(self):
         self.walkers = self.info["nwalkers"]
         self.steps = self.info["steps"]
+        
+        self.popt = utils.add_labels(self.fit)
+        for i in range(len(self.popt[self.params])):
+            self.popt[self.params][i] = self.info["INIT_" + str(i)]
+
         burntime = int(self.info["burntime"])
-        self.popt = utils.add_parameter_labels(self, np.zeros(self.dim))
-
-        for i in range(self.dim):
-            self.popt[i] = self.info["INIT_" + str(i)]
-
         if burntime is None:
             self.burntime = int(0.25 * self.steps)
         elif 0.0 > burntime or burntime >= self.steps:
@@ -193,20 +196,26 @@ Fit results:
 
         samples = self.sampler[:, self.burntime :, :].reshape((-1, self.dim))
 
-        # translate saples for location to right Fov.
-        samples[:, self.at("x0")] -= self.halo.margin[2]
-        samples[:, self.at("y0")] -= self.halo.margin[0]
+        # translate saples for location to right Fov.:
+        #if "x0" in self.params[~self.fit.frozen].keys():
+        #    samples[:, self.at("x0")] -= self.halo.margin[2]
 
-        self.percentiles = self.get_percentiles(samples)
-        self.parameters = utils.add_parameter_labels(
-            self, self.percentiles[:, 1].reshape(self.dim)
-        )
+        #if "y0" in self.params[~self.fit.frozen].keys():
+        #    samples[:, self.at("y0")] -= self.halo.margin[0]
+
+        percentiles = self.get_percentiles(samples)
+        self.parameters = utils.add_labels(self.fit, percentiles[:, 1].reshape(self.dim))
+        
+        if "x0" in self.fit.frozen.keys():
+            self.parameters["x0"] -= self.halo.margin[2]
+        if "y0" in self.fit.frozen.keys():
+            self.parameters["y0"] -= self.halo.margin[0]
+        
         self.centre_pix = np.array(
             [self.parameters["x0"], self.parameters["y0"]], dtype=np.int64
         )
 
         self.model = self._func_(self, self.parameters).reshape(self.x_pix.shape) * u.Jy
-
         self.samples = samples
 
     def get_percentiles(self, samples):
@@ -241,31 +250,25 @@ Fit results:
     def set_labels_and_units(self):
         self.samples_units = self.samples.copy()
         samples_units = self.samples.copy()
-        samples_list = np.asarray([samples_units[:, i]for i 
-                                   in range(self.dim)])
-
-        transformed = utils.transform_units(self, np.copy(samples_list))
+        samples_list = np.asarray([samples_units[:, i] for i in range(self.dim)])
+        transformed = utils.transform_units(
+            self, 
+            np.copy(samples_list), 
+            unlabeled=True, 
+            keys=self.params[self.params & ~self.frozen].keys()
+        )
         for i in range(self.dim):
             self.samples_units[:, i] = transformed[i]
 
-        self.popt_units = utils.transform_units(self, np.copy(self.popt))
-        self.percentiles_units = self.get_percentiles(self.samples_units)
-        self.params_units = utils.add_parameter_labels(
-            self, self.percentiles_units[:, 1].reshape(self.dim)
-        )
         
+        self.params_units = utils.transform_units(self, self.parameters)
+        self.percentiles_units = self.get_percentiles(self.samples_units)
+
+
         self.get_units()
         uncertainties1 = self.percentiles_units[:, 1] - self.percentiles_units[:, 0]
         uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]
-        '''
-        string_to_print = "\n Parameters: \n%s \nOne sigma parameter uncertainties (lower, upper): \
-                                    \n%s \n%s \nIn Units: %s" % (
-                str(self.params_units[self.params]),
-                str(uncertainties1),
-                str(uncertainties2),
-                str(self.units),
-            )
-        '''                         
+                     
         string_to_print = f"\n Parameters: \n{str(self.params_units[self.params])} \
             \nOne sigma parameter uncertainties (lower, upper): \
             \n{str(uncertainties1)} \n{str(uncertainties2)} \
@@ -308,9 +311,10 @@ Fit results:
         self.units = np.array(units, dtype="<U30")
         self.fmt = np.array(fmt, dtype="<U30")
 
-        self.labels_units = np.copy(self.labels)
+        self.labels_units = np.copy(self.labels)[:self.dim]
+        frozen = self.frozen[self.params]
         for i in range(self.dim):
-            self.labels_units[i] = self.labels[i] + " [" + self.units[i] + "]"
+            self.labels_units[i] = self.labels[~frozen][i] + " [" + self.units[~frozen][i] + "]"
 
     def get_confidence_interval(self, percentage=95, units=True):
         alpha = 1.0 - percentage / 100.0
@@ -372,20 +376,15 @@ Fit results:
                 return self.data.value.ravel()
 
     def get_chi2(self, mask_treshold: float = None, debug=False) -> float:
-        """
-        Calculate the reduced chi-squared value for the model fit.
+        """_summary_
 
-        Parameters:
-        mask_treshold (float, optional): Threshold for the mask. If None, the default mask threshold is used.
+        Args:
+            mask_treshold (float, optional): _description_. Defaults to None.
+            debug (bool, optional): _description_. Defaults to False.
 
         Returns:
-        float: The reduced chi-squared value.
-
-        This method calculates the chi-squared value by comparing the binned data to the binned model.
-        It also calculates the Akaike Information Criterion (AIC) for the model.
-        The results are logged using the provided logger.
+            float: _description_
         """
-        
         mask_treshold = self.mask_treshold if mask_treshold is None else mask_treshold
         
         x = np.arange(0, self.halo.data_mcmc.shape[1], 1)
@@ -393,6 +392,8 @@ Fit results:
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
         params = self.parameters.copy()
+        #print(params)
+        #sys.exit()
         params[1] += self.halo.margin[2]
         params[2] += self.halo.margin[0]
 
@@ -409,6 +410,7 @@ Fit results:
         binned_model = binned_model.ravel()[
             binned_image_mask.ravel() >= mask_treshold * binned_image_mask.max()
         ]
+       
         
         chi2 = np.sum(((binned_data - binned_model) / rmsregrid) ** 2.0)
         binned_dof = len(binned_data) - self.dim
@@ -442,7 +444,10 @@ Fit results:
             frequency in MHz. Defaults to None.
             
         alpha : float 
-            spectral index. REquired when calculating flux at different frequency. Defaults to None.
+            spectral index. Required when calculating flux at different frequency. Defaults to None.
+            
+        debug : bool
+            If True, do not print flux to terminal. Defaults to False.
 
         Returns
         -------
@@ -451,26 +456,28 @@ Fit results:
         """
         alpha = self.alpha if alpha is None else alpha
         freq = self.halo.freq if freq is None else freq*u.MHz
+        
+        samples = dict(zip(self.paramNames, self.parameters))
+        for i in range(self.dim):
+            samples.update({self.params[self.params & ~self.frozen].keys()[i]: self.samples[:, i]})
+            
+        for i, key in enumerate(self.frozen[self.frozen].keys()):
+            samples.update({key: self.fit.frozen_vals[i]})
 
-        a = self.samples[:, 3] * self.halo.pix_size
+        a = samples['r1'] * self.halo.pix_size
         if self.model_name == "skewed":
-            b = self.samples[:, 5] * self.halo.pix_size
-            c = self.samples[:, 4] * self.halo.pix_size
-            d = self.samples[:, 6] * self.halo.pix_size
+            b = samples['r2'] * self.halo.pix_size
+            c = samples['r3'] * self.halo.pix_size
+            d = samples['r4'] * self.halo.pix_size
             factor = a * b + c * d + a * d + b * c
-
         elif self.model_name in ["ellipse", "rotated_ellipse"]:
-            b = self.samples[:, 4] * self.halo.pix_size
+            b = samples['r2'] * self.halo.pix_size
             factor = 4 * a * b
         else:
             factor = 4 * a**2
-            
-        if self.fit.k_exponent:
-            m = self.samples[:, self.at("k_exp")] + 0.5
-        else:
-            m = 0.5
-
-        I0 = u.Jy * self.samples[:, 0] / self.halo.pix_area
+    
+        m = samples['k_exp'] + 0.5
+        I0 = u.Jy * samples['I0'] / self.halo.pix_area
         flux = (
             gamma(1.0 / m)
             * np.pi
@@ -486,15 +493,38 @@ Fit results:
         
         self.flux = np.copy(flux)
         self.flux_freq = freq
+        
+        signal_to_noise = I0.mean().to(u.Jy/self.halo.beam) / self.halo.rmsnoise
+        if signal_to_noise < 10:
+            self.logger.warning(f"Halo peak below 10 x RMS, Fitting probably unreliable. Value: {signal_to_noise:.2f}")
 
         if not debug:
             self.logger.info(f"MCMC Flux at {freq.value:.1f} {freq.unit}: {flux_val.value:.2f} +/- {flux_err.value:.2f} {flux.unit}")
             self.logger.debug(f"Flux integration radius {int_max}")
-            self.logger.debug(f"S/N based on flux {flux_val.value / flux_err.value:.2f}")
+            self.logger.debug(f"S/N based on flux (Flux / Flux Error) {flux_val.value / flux_err.value:.2f}")
+            self.logger.debug(f"Signal to noise (I_0 / RMS): {signal_to_noise}")
         return flux_val, flux_err
 
-    def get_power(self, freq=None, alpha=None) -> tuple[float, float]: 
-          
+    def get_power(self, freq:float=None, alph:float=None) -> tuple[float, float]: 
+        """
+        Calculate radio power of the halo at a given frequency. Based on the MCMC samples.
+
+        Args
+        -------
+        freq : float 
+            frequency in MHz. Defaults to None and takes from halo fits file.
+            
+        alpha : float 
+            spectral index. REquired when calculating flux at different frequency. Defaults to None and takes from halo fits file.
+            
+        debug : bool
+            If True, do not print flux to terminal. Defaults to False.
+
+        Returns
+        -------
+        flux : tuple[float, float] 
+            Flux density and its uncertainty in mJy.
+        """
         alpha = self.alpha if alpha is None else alpha
         freq = self.halo.freq if freq is None else freq
 
@@ -508,28 +538,7 @@ Fit results:
             * self.flux
             * ((freq / self.flux_freq) ** self.alpha)
         ).to(u.W / u.Hz)
-        '''
-        power_std = (
-            4
-            * np.pi
-            * d_L**2.0
-            * ((1.0 + self.halo.z) ** ((-1.0 * self.alpha) - 1.0))
-            * self.flux_err
-            * ((freq / self.flux_freq) ** self.alpha)
-        ).to(u.W / u.Hz)
-        power_std = np.percentile(power_std, 50)
-        
-        cal = 0.1
-        sub = 0.1  # Osinga et al. 2020
-        self.power = np.copy(power)
-        self.power_val = np.percentile(power, [50])[0]
-        power_err = (
-            (np.percentile(power, [84])[0] - np.percentile(power, [16])[0]) / 2.0
-        ).value
-        self.power_std = np.sqrt(
-            (cal * self.power_val.value) ** 2 + sub**2 + power_err**2
-        )
-        '''
+
         percentiles = np.percentile(power, [16, 50, 84])
         power_val = percentiles[1]
         power_err = ((percentiles[2] - percentiles[1]) + (percentiles[1] - percentiles[0])) / 2.0

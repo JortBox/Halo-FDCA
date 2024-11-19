@@ -12,6 +12,10 @@ Halo = fdca.RadioHalo(
 )
 
 
+fit = fdca.Fit(Halo, walkers=10, steps=100, model = ["circle", "rotated_ellipse"])
+fit.run()
+sys.exit()
+
 # freeze parameters in image units
 freeze = {
     "x0": 330.,
@@ -19,10 +23,11 @@ freeze = {
 }
 
 fit = fdca.Fit(Halo, walkers=10, steps=100, freeze_params=freeze)
-fit.run()
+#fit.run()
 #fit.save()
-#fit.load()
+
+fit.load()
 
 chi2 = fit.results.get_chi2()
 flux = fit.results.get_flux()
-#fit.results.plot()
+fit.results.plot()

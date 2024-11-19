@@ -46,13 +46,23 @@ def get_initial_guess(halo):
                r_bound,r_bound,r_bound,r_bound,np.inf, np.inf, np.inf])
     return p0,bounds
 
-def add_parameter_labels(obj, array):
+def add_parameter_labels(obj, array=None):
     full_array = np.zeros(obj.params.shape)
+    array = np.zeros(obj.params[obj.params].shape) if array is None else array
     full_array[obj.params] = np.array(array)
     parameterised_array = pd.DataFrame.from_dict({'params': full_array},
                             orient='index',columns=obj.paramNames).loc['params']
     return parameterised_array
 
+def add_labels(obj, array=None, expand=True):
+    array = np.zeros(obj.dim) if array is None else array
+    full_array = np.zeros(obj.params.shape)
+    full_array[obj.params & ~obj.frozen] = np.array(array)
+    parameterised_array = pd.DataFrame.from_dict({'params': full_array},
+                            orient='index',columns=obj.paramNames).loc['params']
+    if expand:
+        parameterised_array[obj.frozen] = obj.frozen_vals
+    return parameterised_array
 
 def gauss(x,mu,sigma, A):
     return A*np.exp(-1./2*((x-mu)/sigma)**2.)
@@ -293,35 +303,58 @@ def gamma_dist(x, shape, scale):
     from scipy.special import gamma
     return (x**(shape-1.)*np.exp(-x/scale))/(gamma(shape)*(scale**shape))
 
+def at(obj, parameter):
+    par = np.array(obj.paramNames)[obj.params]
+    return np.where(par == parameter)[0][0]
 
-def transform_units(obj, params, err=False):
-    if err:
-        params[1] *= obj.halo.pix_size.to(u.deg).value
-        params[2] *= obj.halo.pix_size.to(u.deg).value
+def transform_units(obj, params_orig, err=False, unlabeled=False, keys=None):
+    params = params_orig.copy()
+    if unlabeled:
+        assert keys is not None, "Keys must be provided"
+        for i,key in enumerate(keys):
+            if key in ["x0", "y0"]:
+                if err:
+                    params[i] *= obj.halo.pix_size.to(u.deg).value
+                else:
+                    if key == "x0":
+                        params[i] += obj.halo.fov_info[2]
+                    else:
+                        params[i] += obj.halo.fov_info[0]
+        
+            elif key == "I0":
+                params[i] = ((u.Jy * params[i] / obj.halo.pix_area).to(uJyarcsec2)).value
+            elif key in ["r1", "r2", "r3", "r4"]:
+                params[i] = ((params[i] * obj.halo.pix2kpc).to(u.kpc)).value
+
+        if "x0" in keys and "y0" in keys:
+            param_sky = wcs.utils.pixel_to_skycoord(
+                params[keys=='x0'], params[keys=='y0'], wcs.WCS(obj.halo.header), origin=1
+            )
+            params[keys=='x0'] = param_sky.ra.deg
+            params[keys=='y0'] = param_sky.dec.deg
+        return params
     else:
-        params[1] += obj.halo.fov_info[2]
-        params[2] += obj.halo.fov_info[0]
+        for key in params.keys():
+            if key in ["x0", "y0"]:
+                if err:
+                    params[key] *= obj.halo.pix_size.to(u.deg).value
+                else:
+                    if key == "x0":
+                        params[key] += obj.halo.fov_info[2]
+                    else:
+                        params[key] += obj.halo.fov_info[0]
         
-        param_sky = wcs.utils.pixel_to_skycoord(
-            params[1], params[2], wcs.WCS(obj.halo.header), origin=1
-        )
-        
-        params[1] = param_sky.ra.deg
-        params[2] = param_sky.dec.deg
-    
-    params[0] = ((u.Jy * params[0] / obj.halo.pix_area).to(uJyarcsec2)).value
-    
-    params[3] = ((params[3] * obj.halo.pix2kpc).to(u.kpc)).value
-    
-    if obj.model_name in ["ellipse", "rotated_ellipse", "skewed"]:
-        params[4] = ((params[4] * obj.halo.pix2kpc).to(u.kpc)).value
+            elif key == "I0":
+                params[key] = ((u.Jy * params[key] / obj.halo.pix_area).to(uJyarcsec2)).value
+            elif key in ["r1", "r2", "r3", "r4"]:
+                params[key] = ((params[key] * obj.halo.pix2kpc).to(u.kpc)).value
 
-    if obj.model_name == "skewed":
-        params[5] = ((params[5] * obj.halo.pix2kpc).to(u.kpc)).value
-        params[6] = ((params[6] * obj.halo.pix2kpc).to(u.kpc)).value
-    if obj.model_name in ["rotated_ellipse", "skewed"]:
-        params[obj.at("ang")] = params[obj.at("ang")]
-    return params
+        param_sky = wcs.utils.pixel_to_skycoord(
+            params['x0'], params['y0'], wcs.WCS(obj.halo.header), origin=1
+        )
+        params['x0'] = param_sky.ra.deg
+        params['y0'] = param_sky.dec.deg
+        return params
 
 
 
