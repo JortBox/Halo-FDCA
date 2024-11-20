@@ -110,13 +110,16 @@ def shrink_fits(path, size: int | tuple[int,int] = -1, image_centre: tuple[int,i
         newdata[:,:,0,0] = oldhdu.data[:,:,0,0]
         newdata[0,0] = newimage
         newnax = nax + limits[::2]
+        
+        oldhdu.header["CRPIX1"] = int(oldhdu.header["CRPIX1"]) + limits[0]
+        oldhdu.header["CRPIX2"] = int(oldhdu.header["CRPIX2"]) + limits[2]
     else:
         newdata = oldhdu.data
         newnax = nax
-    
-    
-    oldhdu.header["CRPIX1"] = int(oldhdu.header["CRPIX1"]) - (newnax[1] - size[0]) 
-    oldhdu.header["CRPIX2"] = int(oldhdu.header["CRPIX2"]) - (newnax[0] - size[1])
+        
+        oldhdu.header["CRPIX1"] = int(oldhdu.header["CRPIX1"]) - (newnax[1] - size[0]) 
+        oldhdu.header["CRPIX2"] = int(oldhdu.header["CRPIX2"]) - (newnax[0] - size[1])
+
     if original_size == 4:
         cutout = newdata[
             :,
@@ -138,4 +141,6 @@ def shrink_fits(path, size: int | tuple[int,int] = -1, image_centre: tuple[int,i
     
 if __name__ == "__main__":
     args = arguments()
-    shrink_fits(args.path_in, size=args.size, pad=args.pad, image_centre=tuple(args.image_centre))
+    if args.image_centre is not None:
+        args.image_centre = tuple(args.image_centre)
+    shrink_fits(args.path_in, size=args.size, pad=args.pad, image_centre=args.image_centre)
