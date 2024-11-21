@@ -3,13 +3,14 @@ import sys, os
 
 
 Halo = fdca.RadioHalo(
-    'A1033', 
-    'Example/data_dir_test/A1033-HBA-sub-MFS-T50kpc.fits', 
+    'A2744', 
+    'Example/Data_dir/A2744_JVLA.image.fits', 
     output_path='Example/Output_dir', 
-    z=0.122, 
-    mask_path='Example/data_dir_test/A1033halo_hba.reg',
-    decreased_fov=True
+    z=0.308, 
+    #mask_path='Example/Data_dir/A2744halo.reg',
+    decreased_fov=False
 )
+
 
 
 #fit = fdca.Fit(Halo, walkers=10, steps=100, model = ["circle", "rotated_ellipse"])

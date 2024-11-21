@@ -459,7 +459,6 @@ class RadioHalo(object):
     def exponentialFit(self, data, first=False):
         plotdata = np.copy(data)
         plotdata[~self.image_mask] = 0
-        
         if first:
             centre_pix = np.asarray(wcs.utils.skycoord_to_pixel(self.loc, self.wcs, origin=1))
             size = data.shape[1] / 4.0

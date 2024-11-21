@@ -138,8 +138,16 @@ def masking(obj, full_size: bool=False):
         
         obj.logger.debug('Mask set')
     else:
+        if full_size:
+
+            image_mask_shape = fits.open(halo.path)[0].data[0,0,:,:].shape
+        else:
+            image_mask_shape = fits.open(halo.path)[0].data[
+                0,0,halo.fov_info[0]:halo.fov_info[1],halo.fov_info[2]:halo.fov_info[3]
+            ].shape
+
         obj.logger.warning('No mask set')
-        image_mask = np.ones_like(obj.data)
+        image_mask = np.ones(image_mask_shape)
     return image_mask.astype(bool)
 
 
@@ -427,6 +435,7 @@ def set_data_to_use(obj, data):
             mask=obj.mask
         ).value
         use = binned_data.value
+        
         return use.ravel()[
             binned_image_mask.ravel()
             >= obj.mask_treshold * binned_image_mask.max()
