@@ -12,9 +12,9 @@ Halo = fdca.RadioHalo(
 )
 
 
-fit = fdca.Fit(Halo, walkers=10, steps=100, model = ["circle", "rotated_ellipse"])
-fit.run()
-sys.exit()
+#fit = fdca.Fit(Halo, walkers=10, steps=100, model = ["circle", "rotated_ellipse"])
+#fit.run()
+#sys.exit()
 
 # freeze parameters in image units
 freeze = {
@@ -22,10 +22,9 @@ freeze = {
     "y0": 315.,
 }
 
-fit = fdca.Fit(Halo, walkers=10, steps=100, freeze_params=freeze)
-#fit.run()
-#fit.save()
-
+fit = fdca.Fit(Halo, walkers=10, steps=100)#, freeze_params=freeze)
+fit.run()
+fit.save()
 fit.load()
 
 chi2 = fit.results.get_chi2()
