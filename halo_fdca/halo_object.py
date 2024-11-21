@@ -138,7 +138,7 @@ class RadioHalo(object):
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
         self.fov_info = [0, data.shape[0], 0, data.shape[1]]
-        self.image_mask = utils.masking(self)
+        self.image_mask = utils.masking(self, verbose=True)
         self.exponentialFit(data, first=True)  # Find centre of the image centre_pix
 
         self.pix_to_world()
@@ -190,7 +190,7 @@ class RadioHalo(object):
                 table = Ned.query_object(self.name)
                 self.loc = SkyCoord(table["RA"][0], table["DEC"][0], unit=u.deg)
             except:
-                self.logger.warning(f"{self.name} not found by NED. Assuming image centre.")
+                self.logger.error(f"{self.name} not found by NED. Assuming image centre.")
                 cent_pix = np.asarray(self.original_image.shape, dtype=np.float64)//2.
                 self.loc = wcs.utils.pixel_to_skycoord(cent_pix[0], cent_pix[1], self.wcs, origin=1)
 

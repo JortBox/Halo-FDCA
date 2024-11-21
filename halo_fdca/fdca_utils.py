@@ -113,7 +113,7 @@ def export_fits(data, path, header=None):
     hdul = fits.HDUList([hdu])
     hdul.writeto(path, overwrite=True)
 
-def masking(obj, full_size: bool=False):
+def masking(obj, full_size: bool=False, verbose: bool=False):
     try: halo = obj.halo
     except: halo = obj
     
@@ -135,8 +135,10 @@ def masking(obj, full_size: bool=False):
                 0,0,halo.fov_info[0]:halo.fov_info[1],halo.fov_info[2]:halo.fov_info[3]
             ]
             
-        
-        obj.logger.debug('Mask set')
+        if verbose:
+            obj.logger.info('Mask set')
+        else:
+            obj.logger.debug('Mask set')
     else:
         if full_size:
 
@@ -146,7 +148,10 @@ def masking(obj, full_size: bool=False):
                 0,0,halo.fov_info[0]:halo.fov_info[1],halo.fov_info[2]:halo.fov_info[3]
             ].shape
 
-        obj.logger.warning('No mask set')
+        if verbose:
+            obj.logger.warning('No mask set')
+        else:
+            obj.logger.debug('No mask set')
         image_mask = np.ones(image_mask_shape)
     return image_mask.astype(bool)
 

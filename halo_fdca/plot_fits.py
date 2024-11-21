@@ -38,7 +38,7 @@ def samplerplot(obj):
         )
         axes[i].set_ylabel(obj.labels[i], fontsize=20)
         axes[-1].set_xlabel("steps", fontsize=20)
-        axes[i].axvline(0.3 * obj.sampler.shape[1], ls="dashed", color="red")
+        axes[i].axvline(obj.burntime, ls="dashed", color="red")
         axes[i].tick_params(labelsize=20)
         plt.xlim(0, obj.sampler.shape[1])
 
@@ -145,14 +145,15 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         #plt.imshow(image_mask)
         #plt.show()
 
-    fig, axes = plt.subplots(ncols=3, nrows=1, sharey=True)
+    fig, axes = plt.subplots(ncols=3, nrows=1, sharey=True, figsize=(20, 7))
+    fig.subplots_adjust(hspace=1.3)
+    axes = axes.flatten()
 
     for axi in axes.flat:
         axi.xaxis.set_major_locator(plt.MaxNLocator(5))
         axi.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
         axi.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
 
-    fig.set_size_inches(3.2*5,5.1)
 
     draw_sizebar(halo,axes[0], scale, regrid)
     draw_ellipse(halo,axes[0], bmin, bmaj, regrid)
@@ -196,8 +197,8 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     axes[0].set_xlabel(xlabel, fontsize=labelsize)
     axes[0].set_ylabel(ylabel, fontsize=labelsize)
     axes[0].grid(color='white', linestyle='-', alpha=0.25)
-
-    #plt.tight_layout()
+    axes[0].set_aspect = 'equal'
+    cbar = fig.colorbar(im1,ax=axes[0], shrink=0.7)
 
     im2 = axes[1].imshow(model,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
@@ -207,12 +208,9 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     axes[1].set_title(obj.model_name.replace('_',' ')+" model", fontsize=titlesize)
     axes[1].set_xlabel(xlabel, fontsize=labelsize)
     axes[1].grid(color='white', linestyle='-', alpha=0.25)
-    cbar = fig.colorbar(im2,ax=axes[1])
-    cbar.ax.set_ylabel('$\\mu$Jy arcsec$^{-2}$',fontsize=labelsize)
-    #cbar.formatter = ScalarFormatter(useMathText=False)
-    #cbar.formatter = ticker.LogFormatter(base=10.,labelOnlyBase=True)
-    #cbar.formatter = ticker.StrMethodFormatter('%.2f')
-    #plt.tight_layout()
+    cbar = fig.colorbar(im2,ax=axes[1], shrink=0.7)
+    #cbar.ax.set_ylabel('$\\mu$Jy arcsec$^{-2}$',fontsize=labelsize)
+    #axes[1].set_aspect = 'equal'
 
 
     im3 = axes[2].imshow(data-model, cmap='PuOr_r', origin='lower',
@@ -231,14 +229,11 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     axes[2].set_title("Residual image", fontsize=titlesize)
     axes[2].set_xlabel(xlabel, fontsize=labelsize)
     axes[2].grid(color='black', linestyle='-', alpha=0.25)
-    plt.tight_layout()
-    import matplotlib.ticker as ticker
+    #axes[2].set_aspect = 'equal'
+    fig.tight_layout()
 
-    cbar = fig.colorbar(im3,ax=axes[2])
+    cbar = fig.colorbar(im3, shrink=0.7)
     cbar.ax.set_ylabel('$\\mu$Jy arcsec$^{-2}$',fontsize=labelsize)
-    #cbar.formatter = ScalarFormatter(useMathText=False)
-    #cbar.formatter = ticker.LogFormatter(base=10.,labelOnlyBase=True)
-    #cbar.formatter = ticker.StrMethodFormatter('%.2f')
 
     if regrid:
         plt.savefig(halo.plotPath +halo.file.replace('.fits','')+'_mcmc_model'+obj.filename_append+'_REGRID.pdf')

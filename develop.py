@@ -23,7 +23,7 @@ freeze = {
     "y0": 315.,
 }
 
-fit = fdca.Fit(Halo, walkers=10, steps=100)#, freeze_params=freeze)
+fit = fdca.Fit(Halo, walkers=100, steps=1000, model='skewed')#, freeze_params=freeze)
 fit.run()
 fit.save()
 fit.load()

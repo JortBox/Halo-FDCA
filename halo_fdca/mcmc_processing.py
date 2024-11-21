@@ -102,16 +102,21 @@ class Processing(object):
         
         uncertainties1 = self.percentiles_units[:, 1] - self.percentiles_units[:, 0]
         uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]
-
+        errors = np.mean([uncertainties1, uncertainties2], axis=0)
         flux, flux_err = self.get_flux(debug=True)
         
         param_string = ""
+        i = 0
         for param in range(len(self.params[self.params])):
             if self.fit.frozen[param]:
                 frozen = "   FROZEN"
+                error = ''
             else:
                 frozen = ""
-            param_string += f"{self.paramNames[param]}:   {self.params_units[self.params][param]:.5f} ({self.units[param]}){frozen}\n    "
+                error = f" +/- {errors[i]:.4f}"
+                i += 1
+                    
+            param_string += f"{self.paramNames[param]}:   {self.params_units[self.params][param]:.3f}{error} ({self.units[param]}){frozen}\n    "
         
         run_details = f"""Run information for object {self.halo.name}:
     RMS noise: {self.rms}
@@ -174,7 +179,7 @@ Fit results:
         self.image_mask = utils.masking(self)
 
     def at(self, parameter):
-        par = np.array(self.paramNames)[self.params]
+        par = np.array(self.paramNames)[self.params & ~self.frozen]
         return np.where(par == parameter)[0][0]
 
     def retreive_mcmc_params(self):
@@ -223,7 +228,7 @@ Fit results:
         for i in range(samples.shape[1]):
             percentiles[i, :] = np.percentile(samples[:, i], [16, 50, 84])
 
-        if self.model_name in ["rotated_ellipse", "skewed"]:
+        if self.model_name in ["rotated_ellipse", "skewed"] and "ang" not in self.params[self.frozen].keys():
             cosine = np.percentile(np.cos(samples[:, self.at("ang")]), [16, 50, 84])
             sine = np.percentile(np.sin(samples[:, self.at("ang")]), [16, 50, 84])
             arccosine = np.arccos(cosine)

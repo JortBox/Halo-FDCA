@@ -62,6 +62,7 @@ class BaseFitting():
         k_exponent: bool = False,
         offset: bool = False,
         debug: bool = True,
+        num_cpus: int = -1,
     ):
         assert model in ["circle", "ellipse", "rotated_ellipse", "skewed"], "Provide valid function kind"
         
@@ -81,6 +82,7 @@ class BaseFitting():
         self.k_exponent = k_exponent
         self.offset = offset
         self.gamma_prior = gamma_prior
+        self.max_cpu = num_cpus
 
         self.model_name = model
         self.paramNames = [
@@ -293,9 +295,12 @@ class SingleComponentFitting(BaseFitting):
         
         halo_info = set_dictionary(self)
 
-        num_CPU = cpu_count()
-        self.logger.debug("number of CPU's: %d" % num_CPU)
-        self.logger.info("Starting MCMC run...")
+        
+        num_CPU = cpu_count() if self.max_cpu == -1 else self.max_cpu
+        if self.max_cpu > cpu_count():
+            self.logger.warning(f"Number of CPU's requested ({self.max_cpu}) is higher than available ({cpu_count()})")
+            num_CPU = cpu_count()
+        self.logger.info(f"Starting MCMC run (number of CPU's: {num_CPU})...")
         with Pool(num_CPU) as pool:
             sampler = emcee.EnsembleSampler(
                 self.walkers, 
