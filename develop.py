@@ -3,18 +3,20 @@ import sys, os
 
 
 Halo = fdca.RadioHalo(
-    'A2744', 
-    'Example/Data_dir/A2744_JVLA.image.fits', 
+    'A1033', 
+    'Example/data_dir_test/A1033-HBA-sub-MFS-T50kpc.fits', 
     output_path='Example/Output_dir', 
-    z=0.308, 
-    #mask_path='Example/Data_dir/A2744halo.reg',
-    decreased_fov=False
+    z=0.1220, 
+    mask_path='Example/data_dir_test/A1033halo_hba.reg',
+    decreased_fov=True
 )
 
 
 
-#fit = fdca.Fit(Halo, walkers=10, steps=100, model = ["circle", "rotated_ellipse"])
+#fit = fdca.Fit(Halo, walkers=10, steps=100, model = ["circle", "rotated_ellipse"], link_loc=[True, True])
 #fit.run()
+#fit.save()
+#fit.load()
 #sys.exit()
 
 # freeze parameters in image units
@@ -23,9 +25,11 @@ freeze = {
     "y0": 315.,
 }
 
-fit = fdca.Fit(Halo, walkers=100, steps=1000, model='skewed')#, freeze_params=freeze)
-fit.run()
-fit.save()
+freeze = {"k_exp": 0.5}
+
+fit = fdca.Fit(Halo, walkers=10, steps=100, model='circle', k_exponent=True)#, freeze_params=freeze)
+#fit.run()
+#fit.save()
 fit.load()
 
 chi2 = fit.results.get_chi2()

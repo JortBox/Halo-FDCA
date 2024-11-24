@@ -30,6 +30,20 @@ Jydeg2 = u.Jy / (u.deg * u.deg)
 mJyarcsec2 = u.mJy / (u.arcsec * u.arcsec)
 uJyarcsec2 = 1.0e-3 * u.mJy / (u.arcsec * u.arcsec)
 
+
+def set_linked_loc(obj, array, loop=True):
+    for i, fit in enumerate(obj.fits):
+        if obj.link[i]:
+            if i == 0:
+                link_x = array[f'comp_{i}']['x0']
+                link_y = array[f'comp_{i}']['y0']
+            if obj.link[i] and i > 0:
+                array[f'comp_{i}']['x0'] = link_x
+                array[f'comp_{i}']['y0'] = link_y
+                fit.frozen_vals = np.array([link_x, link_y])
+                
+    return array
+
 def get_initial_guess(halo):
     r_guess = halo.radius/(3.5*halo.pix_size)
     r_bound = halo.data.shape[0]/2.
@@ -64,7 +78,7 @@ def add_labels(obj, array=None, expand=True):
         parameterised_array[obj.frozen] = obj.frozen_vals
     return parameterised_array
 
-def gauss(x,mu,sigma, A):
+def gauss(x, mu, sigma, A):
     return A*np.exp(-1./2*((x-mu)/sigma)**2.)
 
 def noise_modelling(obj):

@@ -245,6 +245,45 @@ class BaseFitting():
             decrease_fov=self.halo.cropped, 
             mask=self.mask
         ).value
+        
+    def get_units(self):
+        labels = ["$I_0$", "$x_0$", "$y_0$"]
+        units = ["$\\mu$Jy arcsec$^{-2}$", "deg", "deg"]
+        fmt = [".2f", ".4f", ".4f"]
+        
+
+        if self.model_name == "skewed":
+            labels.extend(("$r_{x^+}$", "$r_{x^-}$", "$r_{y^+}$", "$r_{y^-}$"))
+            units.extend(("kpc", "kpc", "kpc", "kpc"))
+            fmt.extend((".0f", ".0f", ".0f", ".0f"))
+        elif self.model_name in ["ellipse", "rotated_ellipse"]:
+            labels.extend(("$r_{x}$", "$r_{y}$"))
+            units.extend(("kpc", "kpc"))
+            fmt.extend((".1f", ".1f"))
+        elif self.model_name == "circle":
+            labels.append("$r_{e}$")
+            units.append("kpc")
+            fmt.append(".1f")
+        if self.model_name in ["rotated_ellipse", "skewed"]:
+            labels.append("$\\phi_e$")
+            units.append("Rad")
+            fmt.append(".3f")
+        if self.k_exponent:
+            labels.append("$k$")
+            units.append(" ")
+            fmt.append(".3e")
+        if self.offset:
+            labels.append("$C$")
+            units.append(" ")
+            fmt.append(".3f")
+
+        self.labels = np.array(labels, dtype="<U30")
+        self.units = np.array(units, dtype="<U30")
+        self.fmt = np.array(fmt, dtype="<U30")
+
+        self.labels_units = np.copy(self.labels)
+        for i in range(len(self.labels)):
+            self.labels_units[i] = self.labels[i] + " [" + self.units[i] + "]"
                 
 
 
@@ -368,10 +407,6 @@ class SingleComponentFitting(BaseFitting):
 
     def pre_mcmc_fit(self, image: np.ndarray, p0, bounds):
         data = image.ravel()
-
-        #p0[1] -= self.halo.margin[2]
-        #p0[2] -= self.halo.margin[0]
-
         data = data[self.image_mask.ravel()]
 
         bounds = (list(bounds[0, self.params & ~self.frozen]), list(bounds[1, self.params & ~self.frozen]))
@@ -379,8 +414,6 @@ class SingleComponentFitting(BaseFitting):
             self.pre_mcmc_func, self, data, p0=tuple(p0[self.params & ~self.frozen]), bounds=bounds
         )
         perr = np.sqrt(np.diag(pcov))
-        #popt[1] += self.halo.margin[2]
-        #popt[2] += self.halo.margin[0]
         popt = utils.add_labels(self, popt)
         perr = utils.add_labels(self, perr)
 
@@ -431,43 +464,7 @@ class SingleComponentFitting(BaseFitting):
         self.x_pix, self.y_pix = np.meshgrid(x, y)
         return popt, perr
     
-    def get_units(self):
-        labels = ["$I_0$", "$x_0$", "$y_0$"]
-        units = ["$\\mu$Jy arcsec$^{-2}$", "deg", "deg"]
-        fmt = [".2f", ".4f", ".4f"]
-
-        if self.model_name == "skewed":
-            labels.extend(("$r_{x^+}$", "$r_{x^-}$", "$r_{y^+}$", "$r_{y^-}$"))
-            units.extend(("kpc", "kpc", "kpc", "kpc"))
-            fmt.extend((".0f", ".0f", ".0f", ".0f"))
-        elif self.model_name in ["ellipse", "rotated_ellipse"]:
-            labels.extend(("$r_{x}$", "$r_{y}$"))
-            units.extend(("kpc", "kpc"))
-            fmt.extend((".1f", ".1f"))
-        elif self.model_name == "circle":
-            labels.append("$r_{e}$")
-            units.append("kpc")
-            fmt.append(".1f")
-        if self.model_name in ["rotated_ellipse", "skewed"]:
-            labels.append("$\\phi_e$")
-            units.append("Rad")
-            fmt.append(".3f")
-        if self.k_exponent:
-            labels.append("$k$")
-            units.append(" ")
-            fmt.append(".3f")
-        if self.offset:
-            labels.append("$C$")
-            units.append(" ")
-            fmt.append(".3f")
-
-        self.labels = np.array(labels, dtype="<U30")
-        self.units = np.array(units, dtype="<U30")
-        self.fmt = np.array(fmt, dtype="<U30")
-
-        self.labels_units = np.copy(self.labels)
-        for i in range(self.dim):
-            self.labels_units[i] = self.labels[i] + " [" + self.units[i] + "]"
+    
 
 
     def set_sampler_header(self, header:fits.Header):
@@ -517,6 +514,12 @@ class SingleComponentFitting(BaseFitting):
             )
             model = self._func_mcmc(info, coords, theta, rotate=True)
             return set_model_to_use(info, model)
+        
+    def get_samples(self) -> np.ndarray:
+        return self.samples.T
+    
+    def get_param_names(self) -> list:
+        return list(self.params[self.params & ~self.frozen].keys())
     
     @property    
     def results(self):
@@ -823,6 +826,9 @@ def lnprob_multicomponent(full_theta, data, coord, full_info):
         ptheta = add_parameter_labels(info["params"], info["paramNames"])
         ptheta[info["params"] & ~info["frozen"]] = full_theta[idx:idx+info["dim"]]
         ptheta[info["frozen"]] = info["frozen_vals"]
+        if info["linked_loc"] and i > 0:
+            ptheta['x0'] = full_ptheta[0]['x0']
+            ptheta['y0'] = full_ptheta[0]['y0']
         
         if info["model_name"] == "skewed":
             lp = lnprior8(ptheta, coord[0].shape, info)
@@ -924,17 +930,29 @@ class MultiComponentFitting(BaseFitting):
         bounds: list[list] = None,
         model: list[str] = ["circle", "rotated_ellipse"],
         link_loc: list[bool] = [False, False], # not implemented yet
+        exponent_shape: list[str] = ["default", "default"],
         **kwargs
     ):
         BaseFitting.__init__(self, _parent_, model=model[0], debug=False, **kwargs)
         assert len(link_loc) == len(model), "link_loc must have the same length as the number of components"
+        assert len(exponent_shape) == len(model), "exponent_shape must have the same length as the number of components"
         
-        fits:list[BaseFitting] = list()
+        fits: list[BaseFitting] = list()
+    
         for i, component in enumerate(model):
+            freeze_params = {}
             if link_loc[i] and i > 0:
-                kwargs.update({"freeze_params": {"x0": 0, "y0": 0}})
+                link_loc[0] = True
+                freeze_params.update({"x0": -1, "y0": -1})
+            if exponent_shape[i] == "gaussian":
+                kwargs.update({"k_exponent": True})
+                freeze_params.update({"k_exp": 0.5})
+            elif exponent_shape[i] == "free":
+                kwargs.update({"k_exponent": True})
+            
+            kwargs.update({"freeze_params": freeze_params})    
             fits.append(BaseFitting(_parent_, model=component, **kwargs))
-             
+        self.link = np.asarray(link_loc, dtype=bool)
         
         p0_temp, bounds_temp = utils.get_initial_guess(_parent_)
         if p0 is None:
@@ -948,7 +966,7 @@ class MultiComponentFitting(BaseFitting):
         else:
             assert len(bounds) == len(fits), "bounds must have the same length as the number of components"
             self.bounds = np.asarray(bounds)
-        
+            
         for fit in fits[1:]:
             self.dim += fit.dim
             self.AppliedParameters = np.concatenate((self.AppliedParameters, fit.AppliedParameters)).reshape(2,-1)
@@ -979,7 +997,7 @@ class MultiComponentFitting(BaseFitting):
             filename_append += "_frozen-" + "-".join(list(self.frozen[self.frozen].keys()))
         self.filename_append = filename_append + f"_{len(model):02d}components"
         
-        self.fits = fits     
+        self.fits = fits
         
     def run(self, pre_fit_guess=None, save=False, save_path=""):
         coord = np.meshgrid(
@@ -987,10 +1005,18 @@ class MultiComponentFitting(BaseFitting):
             np.arange(0, self.data.shape[0])
         )
         
+        if np.any(self.link):
+            for i, fit in enumerate(self.fits):
+                if i ==0:
+                    self.p0[0][fit.frozen] = fit.frozen_vals
+                elif self.link[i]:
+                    fit.frozen_vals = self.p0[0][fit.frozen]
+        
         if pre_fit_guess is None:
             if not hasattr(self, "popt"):
                 self.logger.info("Prepare MCMC fitting...")
                 popt = self.__pre_fit()[0]
+                popt = utils.set_linked_loc(self, popt)
                 self.popt = popt.values.T
         else:
             self.popt = pre_fit_guess
@@ -1000,8 +1026,11 @@ class MultiComponentFitting(BaseFitting):
             popt = self.popt[self.prms & ~self.frzn] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
             pos.append(popt)
         
-        halo_info_list = [set_dictionary(fit) for fit in self.fits]
-        halo_info = set_dictionary(self.fits[0])
+        halo_info_list = list()
+        for i, fit in enumerate(self.fits):
+            dictionary = set_dictionary(fit)
+            dictionary["linked_loc"] = self.link[i]
+            halo_info_list.append(dictionary)
         
         num_CPU = cpu_count()
         self.logger.debug("number of CPU's: %d" % num_CPU)
@@ -1022,12 +1051,60 @@ class MultiComponentFitting(BaseFitting):
         )
 
         if save:
-        #    self.save(save_path)
-        #    self.get_units()
+            self.save(save_path)
+            for i, fit in enumerate(self.fits):
+                fit.get_units()
+                if i == 0:
+                    self.units = fit.units
+                    self.labels = np.asarray([label + f"_c{i}" for label in fit.labels])
+                    self.fmt = fit.fmt
+                else:
+                    self.units = np.concatenate((self.units, fit.units))
+                    self.labels = np.concatenate((self.labels, np.asarray([label + f"_c{i}" for label in fit.labels])))
+                    self.fmt = np.concatenate((self.fmt, fit.fmt))
+                
+            labels_units = list()
+            for i in range(len(self.labels)):
+                labels_units.append(self.labels[i] + " [" + self.units[i] + "]")
+            self.labels_units = np.asarray(labels_units)
+                
             plot_fits.samplerplot(self)
             plot_fits.cornerplot(self)
 
         return self.sampler
+    
+    def save(self, path:str = ""):
+        if path == "":
+            path = "%s%s_mcmc_samples%s.fits" % (
+                self.halo.modelPath,
+                self.halo.file.replace(".fits", ""),
+                self.filename_append,
+            )
+        self.logger.debug("Saving MCMC samples to %s" % path)    
+        hdu = fits.PrimaryHDU()
+        hdu.data = self.sampler
+        hdu.header = self.set_sampler_header(hdu.header)
+        hdu.writeto(path, overwrite=True)
+        
+        self.info = hdu.header
+        return self
+    
+    def load(self, path:str=""):
+        if path == "":
+            path = "%s%s_mcmc_samples%s.fits" % (
+                self.halo.modelPath,
+                self.halo.file.replace(".fits", ""),
+                self.filename_append,
+            )
+        self.logger.debug("Loading MCMC samples from %s" % path)
+        sampler_chain = fits.open(path)
+        self.get_sampler_header(sampler_chain[0].header)
+        self.info = sampler_chain[0].header
+        self.sampler = sampler_chain[0].data
+        self.samples = self.sampler[:, int(self.burntime):].reshape(
+            (-1, self.dim)
+        )
+        return self
         
     def __pre_fit(self):
         popt, perr = self.pre_mcmc_fit(
@@ -1039,13 +1116,14 @@ class MultiComponentFitting(BaseFitting):
     def pre_mcmc_fit(self, image: np.ndarray, p0, bounds):
         data = image.ravel()
         data = data[self.image_mask.ravel()]
+        
         bounds = (
-            list(self.bounds[0,0,self.prms[0]]) + list(self.bounds[1,0,self.prms[1]]),
-            list(self.bounds[0,1,self.prms[0]]) + list(self.bounds[1,1,self.prms[1]])
+            list(self.bounds[0,0,self.prms[0] & ~self.frzn[0]]) + list(self.bounds[1,0,self.prms[1] & ~self.frzn[1]]),
+            list(self.bounds[0,1,self.prms[0] & ~self.frzn[0]]) + list(self.bounds[1,1,self.prms[1] & ~self.frzn[1]])
         )
 
         full_popt, pcov = curve_fit(
-            pre_mcmc_func, self, data, p0=tuple(p0[self.prms]), bounds=bounds
+            pre_mcmc_func, self, data, p0=tuple(p0[self.prms & ~self.frzn]), bounds=bounds
         )
         full_perr = np.sqrt(np.diag(pcov))
         
@@ -1100,6 +1178,55 @@ class MultiComponentFitting(BaseFitting):
             final_perr[f"comp_{i}"] = perr
             idx += (i+1) * fit.dim 
         return final_popt, final_perr
+    
+    def set_sampler_header(self, header:fits.Header):
+        header["nwalkers"] = self.walkers
+        header["steps"] = self.steps
+        header["dim"] = self.dim
+        header["burntime"] = self.burntime
+        header["OBJECT"] = (self.halo.name, "Object which was fitted")
+        header["IMAGE"] = self.halo.file
+
+        all_units = np.asarray(["JY/PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "RAD", "NONE", "NONE"])
+        all_units = np.concatenate([all_units for _ in range(len(self.fits))]).reshape(len(self.fits),-1)
+        for i in range(len(self.popt[self.prms])):
+            header["INIT_" + str(i)] = (
+                self.popt[self.prms][i],
+                "MCMC initial guess",
+            )
+            header["UNIT_" + str(i)] = (all_units[self.prms][i], "unit of fit parameter")
+                
+        header["MASK"] = (self.mask, "was the data masked during fitting")
+        return header
+    
+    def get_sampler_header(self, header:fits.Header):
+        self.walkers = header["nwalkers"]
+        self.steps = header["steps"]
+        self.dim = header["dim"]
+        self.burntime = header["burntime"]
+        self.halo.name = header["OBJECT"]
+        self.halo.file = header["IMAGE"]
+        
+        popt = np.zeros_like(self.p0).ravel()
+        j = 0
+        for i in range(len(self.prms.ravel())):
+            if self.prms.ravel()[i]:
+                popt[i] = header["INIT_" + str(j)]
+                j += 1
+
+        self.popt = popt.reshape(self.p0.shape)
+        self.mask = header["MASK"]
+        
+    def get_samples(self) -> np.ndarray:
+        return self.samples.T
+    
+    def get_param_names(self) -> list:
+        names = []
+        for i, _ in enumerate(self.fits):
+            params = self.params['comp_'+str(i)]
+            frozen = self.frozen['comp_'+str(i)]
+            names.append(list(params[params & ~frozen].keys()))
+        return names
         
         
         
@@ -1118,6 +1245,13 @@ def pre_mcmc_func(obj, *theta):
     compunent_sum = 0
     for i, fit in enumerate(obj.fits):
         model_theta = utils.add_labels(fit, theta[idx:idx+fit.dim])
+        if obj.link[i]:
+            if i == 0:
+                link_x = model_theta['x0']
+                link_y = model_theta['y0']
+            if obj.link[i] and i > 0:
+                model_theta['x0'] = link_x
+                model_theta['y0'] = link_y
         model = fit._func_(obj, model_theta)
         compunent_sum += model[obj.image_mask.ravel()]
         idx += (i+1) * fit.dim 

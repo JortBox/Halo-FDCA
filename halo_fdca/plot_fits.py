@@ -24,8 +24,12 @@ labelsize = 13
 
 
 def samplerplot(obj):
-    frozen = np.asarray(obj.fit.frozen[obj.params]).astype(bool)
-    rows = obj.dim - len(frozen[frozen])
+    try:
+        labels = obj.labels[~obj.frzn[obj.prms]]
+    except:
+        labels = obj.labels[~obj.frozen[obj.params]]
+    
+    
     fig, axes = plt.subplots(ncols=1, nrows=obj.dim, sharex=True)
     axes[0].set_title("Number of walkers: " + str(obj.walkers), fontsize=25)
     for axi in axes.flat:
@@ -36,7 +40,8 @@ def samplerplot(obj):
         axes[i].plot(
             obj.sampler[:, :, i].transpose(), color="black", alpha=0.3, lw=0.5
         )
-        axes[i].set_ylabel(obj.labels[i], fontsize=20)
+        
+        axes[i].set_ylabel(labels[i], fontsize=20)
         axes[-1].set_xlabel("steps", fontsize=20)
         axes[i].axvline(obj.burntime, ls="dashed", color="red")
         axes[i].tick_params(labelsize=20)
@@ -60,10 +65,17 @@ def samplerplot(obj):
         
 def cornerplot(obj):
     try:
+        labels = obj.labels[~obj.frzn[obj.prms]]
+        labels_uits = obj.labels_units[~obj.frzn[obj.prms]]
+    except:
+        labels = obj.labels[~obj.frozen[obj.params]]
+        labels_uits = obj.labels_units[~obj.frozen[obj.params]]
+        
+    try:
         popt_units = utils.transform_units(obj, obj.popt)
         fig = corner.corner(
             obj.samples_units,
-            labels=obj.labels_units,
+            labels=labels_uits,
             truths=popt_units[obj.params & ~obj.frozen],
             quantiles=[0.160, 0.5, 0.840],
             show_titles=True,
@@ -71,16 +83,12 @@ def cornerplot(obj):
             title_fmt="1.2g",
         )
         
-    except:
-        labels = list()
-        for i in range(obj.dim):
-            labels.append("Param " + str(i + 1))
-            
+    except:            
         fig = corner.corner(
             obj.samples,
             labels=labels, 
             quantiles=[0.160, 0.5, 0.840],
-            truths=np.asarray(obj.popt[obj.params & ~obj.frozen]),
+            truths=np.asarray(obj.popt[obj.params.values.T & ~obj.frozen.values.T].flatten()),
             show_titles=True,
             title_fmt=".5f",
         )

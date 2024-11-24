@@ -34,13 +34,13 @@ def check_input(
     image_centre: tuple[int,int] | SkyCoord | None,
     image_shape: tuple[int,int], 
     pad: bool, 
-    size: int | tuple[int,int], 
+    size: np.ndarray, 
     fitwcs: wcs.WCS
 ):     
-    if isinstance(size, int):
+    if len(size) == 1:
         size = np.asarray((size//2, size//2), dtype=np.int64)
-    #elif isinstance(size, tuple[int,int]):
-    #    size = np.asarray(size, dtype=np.int64)//2
+    elif len(size) == 2:
+        size = np.asarray(size, dtype=np.int64)//2
     else:
         raise TypeError
     

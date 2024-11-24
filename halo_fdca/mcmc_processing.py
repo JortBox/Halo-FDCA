@@ -107,16 +107,23 @@ class Processing(object):
         
         param_string = ""
         i = 0
-        for param in range(len(self.params[self.params])):
-            if self.fit.frozen[param]:
+        for param in range(len(self.params)):
+            if self.frozen[param]:
                 frozen = "   FROZEN"
                 error = ''
+                unit = f"({self.units[i]})" 
+            elif not self.params[param]:
+                frozen = ""
+                error = ""
+                unit = ""
             else:
                 frozen = ""
                 error = f" +/- {errors[i]:.4f}"
+                unit = f"({self.units[i]})" 
                 i += 1
-                    
-            param_string += f"{self.paramNames[param]}:   {self.params_units[self.params][param]:.3f}{error} ({self.units[param]}){frozen}\n    "
+                
+            if self.params.values[param]: 
+                param_string += f"{np.asarray(self.paramNames)[param]}:   {self.params_units[param]:.3f}{error} {unit}{frozen}\n    "
         
         run_details = f"""Run information for object {self.halo.name}:
     RMS noise: {self.rms}
@@ -316,10 +323,11 @@ Fit results:
         self.units = np.array(units, dtype="<U30")
         self.fmt = np.array(fmt, dtype="<U30")
 
-        self.labels_units = np.copy(self.labels)[:self.dim]
-        frozen = self.frozen[self.params]
-        for i in range(self.dim):
-            self.labels_units[i] = self.labels[~frozen][i] + " [" + self.units[~frozen][i] + "]"
+        self.labels_units = np.copy(self.labels)#[:self.dim]
+        #frozen = self.frozen[self.params]
+        for i in range(len(self.labels)):
+            #self.labels_units[i] = self.labels[~frozen][i] + " [" + self.units[~frozen][i] + "]"
+            self.labels_units[i] = self.labels[i] + " [" + self.units[i] + "]"
 
     def get_confidence_interval(self, percentage=95, units=True):
         alpha = 1.0 - percentage / 100.0
