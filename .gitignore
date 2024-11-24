@@ -9,3 +9,6 @@ __pycache__/
 *.icloud
 
 *.ipynb_checkpoints
+Example/data_dir_test/*
+
+.vscode/*
