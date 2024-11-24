@@ -3,7 +3,7 @@
 ## Introduction
 This software is created to automate flux density (and power) estimations of radio halos in galaxy clusters. This is done by fitting the surface brightness profile of halos to a mathematical model using Bayesian Inference. From the resulting fit, the flux density profile can be calculatied analytically. The text below provides a step-by-step example and walk trough of the algorithm as well as a summary of installation and machine requirements. A full text on the methodology can be found under 'Citation'.
 
-This software is open source and still in development. Suggestions, remarks, bugfixes, questions etc. are more than welcome and can be sent to boxelaar@strw.leidenuniv.nl .
+This software is open source and still in development. Suggestions, remarks, bugfixes, questions etc. are more than welcome and can be sent to j.boxelaar@ira.inaf.it .
 
 
 ### Citation
@@ -70,7 +70,7 @@ Halo-FDCA is very flexible and has many settings that can be easily set by the u
 usage: HaloFitting.py [-h] -z Z
                       [-model {circle,ellipse,rotated_ellipse,skewed}]
                       [-frame FRAME] [-loc LOC] [-m M] [-m_file M_FILE]
-                      [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
+                      [-path_out PATH_OUT] [-fov FOV] [-spectr_idx SPECTR_IDX]
                       [-walkers WALKERS] [-steps STEPS] [-burntime BURNTIME]
                       [-max_radius MAX_RADIUS] [-gamma_prior GAMMA_PRIOR]
                       [-k_exp K_EXP] [-s S] [-run_mcmc RUN_MCMC]
@@ -81,12 +81,12 @@ Halo-FDCA: An automated flux density calculator for radio halos in galaxy
 clusters. (Boxelaar et al.)
 
 positional arguments:
-  object                (str) Cluster object name
-  d_file                (str) FITS image location (containing radio halo).
+  -object                (str) Cluster object name
+  -path_in                (str) FITS image location (containing radio halo).
 
 optional arguments:
   -h, --help            show this help message and exit
-  -z Z                  (float) cluster redshift
+  -z, --redshift REDSHIFT (float) cluster redshift
   -model {circle,ellipse,rotated_ellipse,skewed}
                         (str) Model to use. choose from (circle, ellipse,
                         rotated_ellipse, skewed). Default: circle
@@ -152,7 +152,7 @@ The recommended way to install Halo-FDCA is to download it from github with:
 `git clone https://github.com/JortBox/Halo-FDCA.git`
 This allows for easy updating of the code to include bugfixes or new features. Once downloaded, the installation is complete; to set up a run from the **Example** directory, use the following line included with standard settings:
 ```
-python3 HaloFitting.py Abell2744 ./Example/Data_dir/A2744_JVLA.image.fits -z 0.308 -m_file ./Example/Data_dir/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -out_path './Example/Output_dir' -model circle
+python3 HaloFitting.py -object A2744 -path_in Example/Data_dir/A2744_JVLA.image.fits -z 0.308 -m_file Example/Data_dir/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -path_out Example/Output_dir -model circle
 ```
 Here, the circular model is fitted and samples/figures are saved to the Example directory. The relevant data is located in **./Example/Data_dir/A2744_JVLA.image.fits** and the mask is in **./Example/Data_dir/A2744halo.reg**.
 
