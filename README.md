@@ -3,8 +3,7 @@
 ## Introduction
 This software is created to automate flux density (and power) estimations of radio halos in galaxy clusters. This is done by fitting the surface brightness profile of halos to a mathematical model using Bayesian Inference. From the resulting fit, the flux density profile can be calculatied analytically. The text below provides a step-by-step example and walk trough of the algorithm as well as a summary of installation and machine requirements. A full text on the methodology can be found under 'Citation'.
 
-This software is open source and still in development. Suggestions, remarks, bugfixes, questions etc. are more than welcome and can be sent to boxelaar@strw.leidenuniv.nl .
-
+This software is open source and still in development. Suggestions, remarks, bugfixes, questions etc. are more than welcome and can be sent to j.boxelaar@ira.inaf.it.
 
 ### Citation
 If you make use of this code in its original form or portions of it, please cite:<br>
@@ -14,7 +13,7 @@ Also available on the arXiv: https://arxiv.org/abs/2103.08554
 
 ## Requirements
 
-This software is written in the `Python` programming language and is meant for application in astronomical research. Key software requirements to run the pipeline include:
+This software is written and tested in the `Python 3.11` programming language and is meant for application in astronomical research. Key software requirements to run the pipeline include:
 
 `Astropy` v4.0 and up<br>
 https://www.astropy.org
@@ -50,7 +49,7 @@ This class also handles the very first fit such that the image coordinates can b
 
 The Markov Chain Monte Carlo (MCMC) algorithm is performed in the blue part of the flowchart. This takes place in the `fitting` class in `markov_chain_monte_carlo.py` (see class documentation there and below). This class takes a Radio Halo object as input and from there starts the profile fitting based on the extra settings given as input. 'Chains' that are the result of MCMC are saved in new FITS files (**./outputpath/Samples/**), settings of the speciffic run are saved in the header. 
 
-The `processing` class in `markov_chain_monte_carlo.py` takes a halo object as input and processes the MCMC results by generating figures, statistical analysis and final flux density and parameter estimations. these results are found in the log files: **./outputpath/log/**.
+The `processing` class in `mcmc_fitting_multicomponent.py` takes a halo object as input and processes the MCMC results by generating figures, statistical analysis and final flux density and parameter estimations. these results are found in the log files.
 
 ### Input
 The code requires very specific input to be able to work properly. 
@@ -63,96 +62,80 @@ A DS9 region file with regions drawn around contaminating sources/artifacts in t
 
 Currently, cluster characteristics such as location and redshift can be retrieved from catalogues on VIZIER. This automatic retrieval of cluster information is availible for MCXC, PSZ2, Abell and WHL clusters. A catalogue search is not always succesful, it is adviced to give the essential cluster information, redshift and sky location, as input. 
 
-### Settings
-Halo-FDCA is very flexible and has many settings that can be easily set by the user within the terminal using `argparse`. All possible settings and their use can be inspected by entering `python3 HaloFitting.py -h` in the terminal. The help page will look like this:
+### Getting Started
+In v2.0, Halo-FDCA is used as a package. See `develop.py` as example of how to run Halo-FDCA. we are currently working on making the package availible through pip. For now, if one wants to use the code as a package, run `export PYTHONPATH=/path_to_code/halo_fdca:$PYTHONPATH` in your terminal. 
 
+Creating a RadioHalo object passing the minimum amount of information:
+
+```python
+import halo_fdca as fdca
+
+Halo = fdca.RadioHalo('A2744','Example/Data_dir/A2744_JVLA.image.fits')
 ```
-usage: HaloFitting.py [-h] -z Z
-                      [-model {circle,ellipse,rotated_ellipse,skewed}]
-                      [-frame FRAME] [-loc LOC] [-m M] [-m_file M_FILE]
-                      [-out_path OUT_PATH] [-fov FOV] [-spectr_idx SPECTR_IDX]
-                      [-walkers WALKERS] [-steps STEPS] [-burntime BURNTIME]
-                      [-max_radius MAX_RADIUS] [-gamma_prior GAMMA_PRIOR]
-                      [-k_exp K_EXP] [-s S] [-run_mcmc RUN_MCMC]
-                      [-int_max INT_MAX] [-freq FREQ]
-                      object d_file
 
-Halo-FDCA: An automated flux density calculator for radio halos in galaxy
-clusters. (Boxelaar et al.)
+Creating a Fitting object and start a run:
+```python
+import halo_fdca as fdca
 
-positional arguments:
-  object                (str) Cluster object name
-  d_file                (str) FITS image location (containing radio halo).
+Halo = fdca.RadioHalo('A2744','Example/Data_dir/A2744_JVLA.image.fits')
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -z Z                  (float) cluster redshift
-  -model {circle,ellipse,rotated_ellipse,skewed}
-                        (str) Model to use. choose from (circle, ellipse,
-                        rotated_ellipse, skewed). Default: circle
-  -frame FRAME          (str) Coordinate frame. Default: ICRS
-  -loc LOC              (str) Sky coordinates of cluster. provide coordinates
-                        of the form: 'hh mm ss.ss -dd mm ss.s' in hourangle
-                        units. Default: None and image centre is chosen.
-  -m M                  (bool) choose to include mask or not. If True,
-                        -maskPath should be specified. Default: True
-  -m_file M_FILE        (str) Mask file location. Default: None
-  -out_path OUT_PATH    (str) Path to code output. Default: directory code is
-                        in.
-  -fov FOV              (bool) Declare if image size has to be decreased
-                        before MCMC-ing. Amount of decreasement has ben
-                        automatically set to 3.5*r_e. Default: True
-  -spectr_idx SPECTR_IDX
-                        (float) Set spectral index of cluster (S ~ nu^alpha).
-                        Used to calculate power and extrapolate flux to
-                        arbitrary frequencies. Default: -1.2
-  -walkers WALKERS      (int) Number of walkers to deploy in the MCMC
-                        algorithm. Default: 200
-  -steps STEPS          (int) Number of evauations each walker has to do.
-                        Default: 1200
-  -burntime BURNTIME    (int) Burn-in time for MCMC walkers. See emcee
-                        documentation for info. Default: None. this is 1/4th
-                        of the steps.
-  -max_radius MAX_RADIUS
-                        (float) Maximum posiible radius cut-off. Fitted halos
-                        cannot have any r > max_radius. In units of kpc.
-                        Default: None (implying image_size/2).
-  -gamma_prior GAMMA_PRIOR
-                        (bool) Wether to use a gamma distribution as a prior
-                        for radii. Default is False. For the gamma parameters:
-                        shape = 2.5, scale = 120 kpc. Default: False
-  -k_exp K_EXP          (bool) Wether to use k exponent to change shape of
-                        exponential distribution. Default: False
-  -s S                  (bool) Whether to save the mcmc sampler chain in a
-                        fits file. Default: True.
-  -run_mcmc RUN_MCMC    (bool) Whether to run a MCMC routine or skip it to go
-                        straight to processing. can be done if a runned sample
-                        already exists in the output path. Default: True
-  -int_max INT_MAX      (float) Integration radius in r_e units. Default: inf
-  -freq FREQ            (float) frequency in MHz to calculate flux in. When
-                        given, the spectral index will be used. Default: image
-                        frequency  
-  -rms                  (float) Set manual rms noise level to be used by the code in uJy/beam Default: rms calculated by code
+# in Fit(), it is possible to specify number of steps and walkers 
+fit = fdca.Fit(Halo, model='circle')
+fit.run()
 ```
-The keywords `object`, `d_path` and `z` are mandatory to give to be able to run the code.
 
-Note: At this point, the code only works when `HaloFitting.py` is run from its current directory. To get around this problem, the FDCA directory should be placed in your python "site-packages" directory to effectively let it function as a package. 
+To prevent rerunning the MCMC, one can save a run with `fit.save(path)` where the path to the saved samples is optional. Load a previous run with 
+
+```python
+fit = fdca.Fit(Halo, model='circle').load()
+```
+where a path is optional. By default it takes the default filename following the default naming scheme. 
+
+Analyzing results after a fit is run or loaded is done by
+
+```python
+
+fit = fdca.Fit(Halo, model='circle').load() 
+
+fit.results.plot()
+chi2 = fit.results.get_chi2()
+flux, flux_uncertainty = fit.results.get_flux()
+power, power_uncertainty = fit.results.get_power()
+
+samples = fit.get_samples()
+parameter_names = fit.get_param_names()
+```
+
 
 ### Output
 Samples file in FITS format containing the walker strings and run information (found in **outputpath/Samples**). This file is used to process the routine and retrieve flux denisty and parameter values. All values and their one sigma uncertainties will be printed in the log file after running the pipeline. The figures will be in **outputpath/Plots**. There, all relevant figures will be saved. This includes the corner plot, walker plot and radio image with model overlay for the original and regridded image. 
 
-## Example (Abell 2744)
-
-### Installation and Example (Abell 2744)
-
-We will now show an example to showcase the code using Abell 2744. See https://ui.adsabs.harvard.edu/abs/2017ApJ...845...81P  by C.J.J Pearce, (2017) for more information on the cluster.
-
-The recommended way to install Halo-FDCA is to download it from github with:
-
-`git clone https://github.com/JortBox/Halo-FDCA.git`
-This allows for easy updating of the code to include bugfixes or new features. Once downloaded, the installation is complete; to set up a run from the **Example** directory, use the following line included with standard settings:
+The .log file outputs the final fit information and it looks something like this:
 ```
-python3 HaloFitting.py Abell2744 ./Example/Data_dir/A2744_JVLA.image.fits -z 0.308 -m_file ./Example/Data_dir/A2744halo.reg -loc '00 14 20.03 -30 23 17.8' -out_path './Example/Output_dir' -model circle
-```
-Here, the circular model is fitted and samples/figures are saved to the Example directory. The relevant data is located in **./Example/Data_dir/A2744_JVLA.image.fits** and the mask is in **./Example/Data_dir/A2744halo.reg**.
+Run information for object A1033:
+    RMS noise: 0.0002863803820218891 Jy / beam
+    Model: circle
+    Walkers: 10
+    Steps: 100
+    Burntime: 12
+    Mask: True
+    Rebin: True
+    K_exponent: True
+    Offset: False
 
+Fit results:
+    Flux density at 143.7 MHz: 336.81546 mJy +/- 4.79004 mJy
+    Reduced chi-squared: 4.859490839643051
+    I0:   25.543 +/- 0.2336 ($\mu$Jy arcsec$^{-2}$)
+    x0:   157.928 +/- 0.0002 (deg)
+    y0:   35.040 +/- 0.0002 (deg)
+    r1:   100.547 +/- 1.1243 (kpc)
+    
+    Uncertainties (lower, upper):
+        [2.38880646e-01 1.90126966e-04 1.85981806e-04 1.27793972e+00
+ 5.43166949e-20]
+        [2.28331040e-01 2.48196633e-04 2.07639059e-04 9.70618808e-01
+ 8.45588410e-20]
+```
+
+The same information can be printed to the terminal by printing the resuts: `print(fit.results)`. 
