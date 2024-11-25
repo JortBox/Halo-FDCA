@@ -83,9 +83,9 @@ class RadioHalo(object):
         rms: float = 0,
     ):
         if logger is None:
-            fdca_logging.Logger('fdca')
+            fdca_logging.Logger('fdca', path = output_path)
             logger = fdca_logging.logger
-            logger.info('Starting the FDCA pipeline...')
+            logger.info('Starting the FDCA pipeline...\n')
             self.logger = logger
         else:
             self.logger = logger
@@ -145,9 +145,11 @@ class RadioHalo(object):
         self.set_image_characteristics(decreased_fov)
 
 
-    def initiatePaths(self, maskpath, outputpath):
-        if outputpath[-1] == "/":
+    def initiatePaths(self, maskpath:str, outputpath: str):
+        if outputpath.endswith("/"):
             self.basedir = outputpath[:-1]
+        elif outputpath == "":
+            self.basedir = os.getcwd()
         else:
             self.basedir = outputpath
 

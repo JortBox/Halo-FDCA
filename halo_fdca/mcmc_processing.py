@@ -63,9 +63,9 @@ class Processing(object):
         self.rebin = fit.rebin
         self.filename_append = fit.filename_append
         
-        if hasattr(fit, 'sampler') and hasattr(fit, 'info'):
+        if hasattr(fit, 'sampler'):
             self.sampler = fit.sampler
-            self.info = fit.info
+            #self.info = fit.info
         else:
             logger.error("No sampler found in fit object. Exiting.")
             sys.exit()
@@ -74,24 +74,15 @@ class Processing(object):
             self.logger: Logger = fit.logger
         else:
             self.logger = logger
+            
+        self.save = save
         
         x = np.arange(0, self.data.shape[1], 1)
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
 
-        self.noise = fit.noise
-        self.rms = fit.rms
-        self.save = save
-        self.halo = fit.halo
-        self.fit = fit
-        self.mask = fit.mask
-        self.alpha = fit.halo.alpha  # spectral index guess
-        self.mask_treshold = fit.mask_treshold
-        self.dim = fit.dim
-        self.frozen = fit.frozen
-
-        self.check_settings(fit.model_name, fit.mask)
-        self.retreive_mcmc_params()
+        self.check_settings(fit)
+        self.retreive_mcmc_params(fit)
         self.set_labels_and_units()
 
         self.dof = len(self.data.value.flat) - self.dim
@@ -148,7 +139,6 @@ Fit results:
         return run_details
 
     def plot(self):
-        
         plot_fits.fit_result(
             self,
             self.model,
@@ -168,59 +158,50 @@ Fit results:
         plot_fits.samplerplot(self)
         plot_fits.cornerplot(self)
 
-    def check_settings(self, model, mask):
-        self.model_name = model
-        self.paramNames = self.fit.paramNames
-        self._func_ = self.fit._func_
-        self.AppliedParameters = self.fit.AppliedParameters
+    def check_settings(self, fit):
+        self.model_name = fit.model_name
+        self.paramNames = fit.paramNames
+        self._func_ = fit._func_
+        self.AppliedParameters = fit.AppliedParameters
+        self.mask = fit.mask
 
-        if self.fit.k_exponent:
+        if fit.k_exponent:
             self.AppliedParameters[-2] = True
-        if self.fit.offset:
+        if fit.offset:
             self.AppliedParameters[-1] = True
 
         self.params = pd.DataFrame.from_dict(
             {"params": self.AppliedParameters}, orient="index", columns=self.paramNames
         ).loc["params"]
         #self.dim = len(self.params[self.params])
-        self.image_mask = utils.masking(self)
+        self.image_mask = utils.masking(fit.halo)
 
     def at(self, parameter):
         par = np.array(self.paramNames)[self.params & ~self.frozen]
         return np.where(par == parameter)[0][0]
 
-    def retreive_mcmc_params(self):
-        self.walkers = self.info["nwalkers"]
-        self.steps = self.info["steps"]
+    def retreive_mcmc_params(self, fit):
+        self.noise = fit.noise
+        self.rms = fit.rms
+        self.halo = fit.halo
+        self.alpha = fit.halo.alpha  # spectral index guess
+        self.mask_treshold = fit.mask_treshold
+        self.dim = fit.dim
+        self.frozen = fit.frozen
+        self.walkers = fit.walkers
+        self.steps = fit.steps
+        self.popt = fit.popt
+        self.burntime = fit.burntime
+        self.samples = fit.samples
         
-        self.popt = utils.add_labels(self.fit)
-        for i in range(len(self.popt[self.params])):
-            self.popt[self.params][i] = self.info["INIT_" + str(i)]
-
-        burntime = int(self.info["burntime"])
-        if burntime is None:
-            self.burntime = int(0.25 * self.steps)
-        elif 0.0 > burntime or burntime >= self.steps:
-            self.logger.warning(f"MCMC Input burntime of {burntime} is invalid. setting burntime to {0.25 * self.steps}")
-            self.burntime = int(0.25 * self.steps)
-        else:
-            self.burntime = int(burntime)
-
-        samples = self.sampler[:, self.burntime :, :].reshape((-1, self.dim))
-
-        # translate saples for location to right Fov.:
-        #if "x0" in self.params[~self.fit.frozen].keys():
-        #    samples[:, self.at("x0")] -= self.halo.margin[2]
-
-        #if "y0" in self.params[~self.fit.frozen].keys():
-        #    samples[:, self.at("y0")] -= self.halo.margin[0]
-
-        percentiles = self.get_percentiles(samples)
+        self.fit = fit
+        
+        percentiles = self.get_percentiles(self.samples)
         self.parameters = utils.add_labels(self.fit, percentiles[:, 1].reshape(self.dim))
         
-        if "x0" in self.fit.frozen.keys():
+        if "x0" in fit.frozen.keys():
             self.parameters["x0"] -= self.halo.margin[2]
-        if "y0" in self.fit.frozen.keys():
+        if "y0" in fit.frozen.keys():
             self.parameters["y0"] -= self.halo.margin[0]
         
         self.centre_pix = np.array(
@@ -228,7 +209,6 @@ Fit results:
         )
 
         self.model = self._func_(self, self.parameters).reshape(self.x_pix.shape) * u.Jy
-        self.samples = samples
 
     def get_percentiles(self, samples):
         percentiles = np.ones((samples.shape[1], 3))
@@ -318,7 +298,7 @@ Fit results:
             labels.append("$C$")
             units.append(" ")
             fmt.append(".3f")
-
+        
         self.labels = np.array(labels, dtype="<U30")
         self.units = np.array(units, dtype="<U30")
         self.fmt = np.array(fmt, dtype="<U30")

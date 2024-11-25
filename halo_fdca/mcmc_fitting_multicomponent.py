@@ -9,6 +9,7 @@ Version: 08 June 2020
 from __future__ import division
 import sys
 import os
+import json
 from logging import Logger
 import emcee
 
@@ -332,7 +333,7 @@ class SingleComponentFitting(BaseFitting):
             popt = self.popt[self.params & ~self.frozen] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
             pos.append(popt)
         
-        halo_info = set_dictionary(self)
+        self.halo_info = set_dictionary(self)
 
         
         num_CPU = cpu_count() if self.max_cpu == -1 else self.max_cpu
@@ -346,7 +347,7 @@ class SingleComponentFitting(BaseFitting):
                 self.dim, 
                 lnprob, 
                 pool=pool, 
-                args=[self.data_to_use, coord, halo_info]
+                args=[self.data_to_use, coord, self.halo_info]
             )
             sampler.run_mcmc(pos, self.steps, progress=True)
 
@@ -370,12 +371,12 @@ class SingleComponentFitting(BaseFitting):
                 self.filename_append,
             )
         self.logger.debug("Saving MCMC samples to %s" % path)    
-        hdu = fits.PrimaryHDU()
-        hdu.data = self.sampler
-        hdu.header = self.set_sampler_header(hdu.header)
-        hdu.writeto(path, overwrite=True)
-        
-        self.info = hdu.header
+        #hdu = fits.PrimaryHDU()
+        #hdu.data = self.sampler
+        #hdu.header = self.set_sampler_header(hdu.header)
+        #hdu.writeto(path, overwrite=True)
+        #self.info = hdu.header
+        self.save_json(path)
         return self
         
     def load(self, path:str=""):
@@ -386,13 +387,15 @@ class SingleComponentFitting(BaseFitting):
                 self.filename_append,
             )
         self.logger.debug("Loading MCMC samples from %s" % path)
-        sampler_chain = fits.open(path)
-        self.get_sampler_header(sampler_chain[0].header)
-        self.info = sampler_chain[0].header
-        self.sampler = sampler_chain[0].data
-        self.samples = self.sampler[:, int(self.burntime):].reshape(
-            (-1, self.dim)
-        )
+        #sampler_chain = fits.open(path)
+        #self.get_sampler_header(sampler_chain[0].header)
+        #self.info = sampler_chain[0].header
+        #self.sampler = sampler_chain[0].data
+        #self.samples = self.sampler[:, int(self.burntime):].reshape(
+        #    (-1, self.dim)
+        #)
+        
+        self.load_json(path)
         return self
 
     def at(self, parameter):
@@ -464,7 +467,95 @@ class SingleComponentFitting(BaseFitting):
         self.x_pix, self.y_pix = np.meshgrid(x, y)
         return popt, perr
     
-    
+    def save_json(self, path:str = ""):
+        halo_info = self.halo_info
+        info = dict()
+        info['object'] = self.halo.name
+        info['filename'] = self.halo.path
+        info['maskPath'] = self.halo.maskPath
+        info['outputPath'] = self.halo.basedir
+        info['redshift'] = self.halo.z
+        
+        for key, value in halo_info.items():
+            if key == "image_mask":
+                continue
+            if key == "binned_image_mask":
+                continue
+            
+            if isinstance(value, u.quantity.Quantity):
+                if str(value.unit) == "":
+                    info[key] = value.value
+                else:
+                    info[key] = {"value": value.value, "unit": str(value.unit)}
+            elif isinstance(value, np.float32):
+                info[key] = float(value)
+            elif isinstance(value, np.ndarray):
+                info[key] = value.tolist()
+            elif callable(value):
+                info[key] = str(value.__name__)
+            elif isinstance(value, pd.Series):
+                info[key] = value.to_dict()
+            elif isinstance(value, wcs.WCS):
+                continue
+            else:
+                info[key] = value
+                
+        info["p0"] = np.asarray(self.p0, dtype=float).tolist()
+        info["filename_append"] = self.filename_append
+        info["walkers"] = self.walkers
+        info["steps"] = self.steps
+        info["burntime"] = self.burntime
+        #info["bounds"] = self.bounds
+        
+        best = dict()
+        all_units = np.asarray(["JY/PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "RAD", "NONE", "NONE"])
+        for i in range(len(self.popt[self.params])):
+            best[self.params.keys()[i]] = {"value": self.popt[self.params][i], "unit": all_units[self.params.values][i]}
+        
+        info["initial"] = best
+        info["data"] = self.sampler.tolist()
+        
+        with open(path.replace(".fits", ".json"), "w") as f:
+            json.dump(info, f, indent=4)
+
+    def load_json(self, path:str = ""):
+        with open(path.replace(".fits", ".json"), "r") as f:
+            info = json.load(f)
+            
+        self.walkers = info["walkers"]
+        self.steps = info["steps"]
+        self.dim = info["dim"]
+        self.burntime = info["burntime"]
+        self.halo.name = info["object"]
+        self.halo.path = info["filename"]
+        #info['maskPath'] = self.halo.maskPath
+        self.mask = info["mask"]
+        self.filename_append = info["filename_append"]
+        self.p0 = np.asarray(info["p0"])
+        
+        self.sampler = np.asarray(info["data"])
+        self.samples = self.sampler[:, int(self.burntime):].reshape(
+            (-1, self.dim)
+        )
+        
+        self.params = pd.DataFrame.from_dict(
+            {"params": info["params"].values()}, 
+            orient = "index", 
+            columns = info["params"].keys()
+        ).loc["params"]
+        
+        self.frozen = pd.DataFrame.from_dict(
+            {"frozen": info["frozen"].values()}, 
+            orient = "index", 
+            columns = info["frozen"].keys()
+        ).loc["frozen"]
+        
+        popt = []
+        for i in range(len(self.params)):
+            if self.params[i]:
+                popt.append(info["initial"][self.params.keys()[i]]["value"])
+        self.popt = utils.add_labels(self, np.asarray(popt))
+        
 
 
     def set_sampler_header(self, header:fits.Header):
@@ -1256,3 +1347,62 @@ def pre_mcmc_func(obj, *theta):
         compunent_sum += model[obj.image_mask.ravel()]
         idx += (i+1) * fit.dim 
     return compunent_sum
+
+
+def load(path) -> SingleComponentFitting:
+    with open(path, "r") as f:
+        info = json.load(f)
+    
+    halo = RadioHalo(
+        info["object"], 
+        info["filename"], 
+        mask_path=info["maskPath"], 
+        #output_path=info["outputPath"],
+        decreased_fov=info["cropped"],
+        z=info["redshift"]
+    )
+    halo.logger.info("\n\nLoaded MCMC samples from file: %s\n" % path)
+    
+    frozen = pd.DataFrame.from_dict(
+        {"frozen": info["frozen"].values()}, 
+        orient = "index", 
+        columns = info["frozen"].keys()
+    ).loc["frozen"]
+    
+    frozen_vals = info["frozen_vals"]
+    freeze = dict(zip(frozen[frozen].keys(), frozen_vals))
+    
+    fit = Fit(
+        halo, 
+        model=info["model_name"], 
+        walkers=info["walkers"], 
+        steps=info["steps"], 
+        burntime=info["burntime"],
+        freeze_params=freeze,
+    )
+    
+    fit.params = pd.DataFrame.from_dict(
+        {"params": info["params"].values()}, 
+        orient = "index", 
+        columns = info["params"].keys()
+    ).loc["params"]
+    
+    fit.frozen = frozen
+    fit.frozen_vals = np.asarray(frozen_vals)
+    fit.p0 = np.asarray(info["p0"])
+    
+    fit.filename_append = info["filename_append"]
+    
+    fit.sampler = np.asarray(info["data"])
+    fit.samples = fit.sampler[:, int(fit.burntime):].reshape(
+        (-1, fit.dim)
+    )
+    
+    popt = []
+    for i in range(len(fit.params)):
+        if fit.params[i]:
+            popt.append(info["initial"][fit.params.keys()[i]]["value"])
+    fit.popt = utils.add_labels(fit, np.asarray(popt))
+    return fit
+    
+    

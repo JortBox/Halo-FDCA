@@ -66,32 +66,33 @@ def samplerplot(obj):
 def cornerplot(obj):
     try:
         labels = obj.labels[~obj.frzn[obj.prms]]
-        labels_uits = obj.labels_units[~obj.frzn[obj.prms]]
+        labels_uits = obj.labels_units[~obj.frzn[obj.prms]]    
     except:
         labels = obj.labels[~obj.frozen[obj.params]]
         labels_uits = obj.labels_units[~obj.frozen[obj.params]]
         
-    try:
-        popt_units = utils.transform_units(obj, obj.popt)
-        fig = corner.corner(
-            obj.samples_units,
-            labels=labels_uits,
-            truths=popt_units[obj.params & ~obj.frozen],
-            quantiles=[0.160, 0.5, 0.840],
-            show_titles=True,
-            max_n_ticks=3,
-            title_fmt="1.2g",
-        )
-        
-    except:            
+    #try:
+    popt_units = utils.transform_units(obj, obj.popt)
+    fig = corner.corner(
+        obj.samples_units,
+        labels=labels_uits,
+        truths=popt_units[obj.params & ~obj.frozen],
+        quantiles=[0.160, 0.5, 0.840],
+        show_titles=True,
+        max_n_ticks=3,
+        title_fmt="1.2g",
+    )
+    '''   
+    except AttributeError as e:  
+        obj.logger.errer(f"Failed to create corner plot with units: {e}")         
         fig = corner.corner(
             obj.samples,
             labels=labels, 
             quantiles=[0.160, 0.5, 0.840],
-            truths=np.asarray(obj.popt[obj.params.values.T & ~obj.frozen.values.T].flatten()),
+            truths=np.asarray(obj.popt[obj.params.values.T & ~obj.frozen.values.T]).flatten(),
             show_titles=True,
             title_fmt=".5f",
-        )
+        )'''
     if obj.save:
         try:
             plt.savefig(

@@ -31,13 +31,15 @@ class _ColorStreamHandler(logging.StreamHandler):
         return logging.StreamHandler.format(self, record)
 
 class Logger():
-    def __init__(self, pipename):
+    def __init__(self, pipename, path = ""):
         logger = logging.getLogger()
         logger.propagate = False
         logger.handlers = []
+        
+        output_path = "" if path == "" else path + "/"
  
         timestamp = time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime())
-        self.logfile = pipename+'_'+timestamp+'.log'
+        self.logfile = f"{output_path}{pipename}_{timestamp}.log"
         self.set_logger(self.logfile)
         os.symlink(self.logfile, pipename+'.log.tmp')
         os.rename(pipename+'.log.tmp', pipename+'.log')      
