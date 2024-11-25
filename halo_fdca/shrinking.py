@@ -37,7 +37,7 @@ def check_input(
     size: np.ndarray, 
     fitwcs: wcs.WCS
 ):     
-    if len(size) == 1:
+    if isinstance(size, int):
         size = np.asarray((size//2, size//2), dtype=np.int64)
     elif len(size) == 2:
         size = np.asarray(size, dtype=np.int64)//2
