@@ -141,3 +141,18 @@ Fit results:
 ```
 
 The same information can be printed to the terminal by printing the resuts: `print(fit.results)`. 
+
+## Multi-component Fitting (Beta)
+
+Fitting multiple exponential shapes to an image in now possible, but untested. The ability to add multiple components adds to possibility to link the location of the shapes (usefull for mega halos) or to change the profile of the exponential (e.g. to a Gaussian istead of a exponential., usefull for fitting the contribution from an AGN). As a example, given a RadioHalo, we want to fit a circle model with exponential shape and have a circle model with a Gaussian shape at the same location accounting for the mega halo shape:
+
+```python
+fit = fdca.Fit(Halo, model=['circle','circle'], link_loc=[True, True], profiles=["default", "gaussian"])
+```
+
+where `"default"` is the default exponential shape. **Note:** it is not yet possible to get results from the fits, to analyse the results, use the outputted samples directly:
+
+```python
+samples = fit.get_samples()
+param_names = fit.get_param_names()
+```
