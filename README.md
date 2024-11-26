@@ -150,4 +150,9 @@ Fitting multiple exponential shapes to an image in now possible, but untested. T
 fit = fdca.Fit(Halo, model=['circle','circle'], link_loc=[True, True], profiles=["default", "gaussian"])
 ```
 
-where `"default"` is the default exponential shape
+where `"default"` is the default exponential shape. **Note:** it is not yet possible to get results from the fits, to analyse the results, use the outputted samples directly:
+
+```python
+samples = fit.get_samples()
+param_names = fit.get_param_names()
+```
