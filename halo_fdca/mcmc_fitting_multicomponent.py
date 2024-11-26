@@ -1021,12 +1021,12 @@ class MultiComponentFitting(BaseFitting):
         bounds: list[list] = None,
         model: list[str] = ["circle", "rotated_ellipse"],
         link_loc: list[bool] = [False, False], # not implemented yet
-        exponent_shape: list[str] = ["default", "default"],
+        profiles: list[str] = ["default", "default"],
         **kwargs
     ):
         BaseFitting.__init__(self, _parent_, model=model[0], debug=False, **kwargs)
         assert len(link_loc) == len(model), "link_loc must have the same length as the number of components"
-        assert len(exponent_shape) == len(model), "exponent_shape must have the same length as the number of components"
+        assert len(profiles) == len(model), "exponent_shape must have the same length as the number of components"
         
         fits: list[BaseFitting] = list()
     
@@ -1035,10 +1035,10 @@ class MultiComponentFitting(BaseFitting):
             if link_loc[i] and i > 0:
                 link_loc[0] = True
                 freeze_params.update({"x0": -1, "y0": -1})
-            if exponent_shape[i] == "gaussian":
+            if profiles[i] == "gaussian":
                 kwargs.update({"k_exponent": True})
                 freeze_params.update({"k_exp": 0.5})
-            elif exponent_shape[i] == "free":
+            elif profiles[i] == "free":
                 kwargs.update({"k_exponent": True})
             
             kwargs.update({"freeze_params": freeze_params})    
