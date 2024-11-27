@@ -33,11 +33,12 @@ from . import fdca_utils as utils
 from .halo_object import RadioHalo
 from .mcmc_processing import Processing
 
-try:
-    set_start_method("fork")
-    freeze_support()
-except RuntimeError:
-    pass
+if __name__ == "__main__":
+    try:
+        set_start_method("spawn")
+        freeze_support()
+    except RuntimeError as e:
+        print("multiprocess error:",e)
 
 rad2deg = 180.0 / np.pi
 deg2rad = np.pi / 180.0

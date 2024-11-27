@@ -20,7 +20,7 @@ def regular_run():
     }
 
     fit = fdca.Fit(Halo, walkers=100, steps=1000, model='circle')#, freeze_params=freeze)
-    #fit.run()
+    fit.run()
     #fit.save()
     fit.load()
     
