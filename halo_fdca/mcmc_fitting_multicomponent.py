@@ -341,15 +341,25 @@ class SingleComponentFitting(BaseFitting):
             self.logger.warning(f"Number of CPU's requested ({self.max_cpu}) is higher than available ({cpu_count()})")
             num_CPU = cpu_count()
         self.logger.info(f"Starting MCMC run (number of CPU's: {num_CPU})...")
-        with Pool(num_CPU) as pool:
+        
+        if num_CPU == 1:
             sampler = emcee.EnsembleSampler(
                 self.walkers, 
                 self.dim, 
                 lnprob, 
-                pool=pool, 
                 args=[self.data_to_use, coord, self.halo_info]
             )
             sampler.run_mcmc(pos, self.steps, progress=True)
+        else:
+            with Pool(num_CPU) as pool:
+                sampler = emcee.EnsembleSampler(
+                    self.walkers, 
+                    self.dim, 
+                    lnprob, 
+                    pool=pool, 
+                    args=[self.data_to_use, coord, self.halo_info]
+                )
+                sampler.run_mcmc(pos, self.steps, progress=True)
 
         self.sampler = sampler.chain
         self.samples = self.sampler[:,int(self.burntime):,:].reshape((-1, self.dim))
