@@ -13,7 +13,9 @@ Also available on the arXiv: https://arxiv.org/abs/2103.08554
 
 ## Requirements
 
-This software is written and tested in the `Python 3.11` programming language and is meant for application in astronomical research. Key software requirements to run the pipeline include:
+This software is written and tested in the `Python 3.11`(!!) and is meant for application in astronomical research. **Note:** Multiprocessing does not work for python versions below 3.11, in case you use an oilder vresion of Python, always set num_cpus=1 in the fdca.Fit() function. 
+
+Key software requirements to run the pipeline include:
 
 `Astropy` v4.0 and up<br>
 https://www.astropy.org
