@@ -31,11 +31,11 @@ from astropy.io import fits
 from . import plot_fits
 from . import fdca_utils as utils
 from .halo_object import RadioHalo
-from .mcmc_processing import Processing
+from .processing import Processing
 
 if __name__ == "__main__":
     try:
-        set_start_method("spawn")
+        set_start_method("fork")
         freeze_support()
     except RuntimeError as e:
         print("multiprocess error:",e)
@@ -248,6 +248,7 @@ class BaseFitting():
             mask=self.mask
         ).value
         
+        
     def get_units(self):
         labels = ["$I_0$", "$x_0$", "$y_0$"]
         units = ["$\\mu$Jy arcsec$^{-2}$", "deg", "deg"]
@@ -381,12 +382,7 @@ class SingleComponentFitting(BaseFitting):
                 self.halo.file.replace(".fits", ""),
                 self.filename_append,
             )
-        self.logger.debug("Saving MCMC samples to %s" % path)    
-        #hdu = fits.PrimaryHDU()
-        #hdu.data = self.sampler
-        #hdu.header = self.set_sampler_header(hdu.header)
-        #hdu.writeto(path, overwrite=True)
-        #self.info = hdu.header
+        self.logger.debug("Saving MCMC samples to %s" % path)
         self.save_json(path)
         return self
         
@@ -398,14 +394,6 @@ class SingleComponentFitting(BaseFitting):
                 self.filename_append,
             )
         self.logger.debug("Loading MCMC samples from %s" % path)
-        #sampler_chain = fits.open(path)
-        #self.get_sampler_header(sampler_chain[0].header)
-        #self.info = sampler_chain[0].header
-        #self.sampler = sampler_chain[0].data
-        #self.samples = self.sampler[:, int(self.burntime):].reshape(
-        #    (-1, self.dim)
-        #)
-        
         self.load_json(path)
         return self
 
@@ -1052,7 +1040,7 @@ class MultiComponentFitting(BaseFitting):
             elif profiles[i] == "free":
                 kwargs.update({"k_exponent": True})
             
-            kwargs.update({"freeze_params": freeze_params})    
+            kwargs.update({"freeze_params": freeze_params})
             fits.append(BaseFitting(_parent_, model=component, **kwargs))
         self.link = np.asarray(link_loc, dtype=bool)
         
@@ -1112,8 +1100,9 @@ class MultiComponentFitting(BaseFitting):
                 if i ==0:
                     self.p0[0][fit.frozen] = fit.frozen_vals
                 elif self.link[i]:
-                    fit.frozen_vals = self.p0[0][fit.frozen]
-        
+                    fit.frozen_vals[fit.frozen[fit.frozen].index.get_loc("x0")] = self.p0[0][fit.frozen.index.get_loc("x0")]
+                    fit.frozen_vals[fit.frozen[fit.frozen].index.get_loc("y0")] = self.p0[0][fit.frozen.index.get_loc("y0")]
+
         if pre_fit_guess is None:
             if not hasattr(self, "popt"):
                 self.logger.info("Prepare MCMC fitting...")
@@ -1128,11 +1117,11 @@ class MultiComponentFitting(BaseFitting):
             popt = self.popt[self.prms & ~self.frzn] * (1.0 + 1.0e-3 * np.random.randn(self.dim))
             pos.append(popt)
         
-        halo_info_list = list()
+        self.halo_info_list = list()
         for i, fit in enumerate(self.fits):
             dictionary = set_dictionary(fit)
             dictionary["linked_loc"] = self.link[i]
-            halo_info_list.append(dictionary)
+            self.halo_info_list.append(dictionary)
         
         num_CPU = cpu_count()
         self.logger.debug("number of CPU's: %d" % num_CPU)
@@ -1143,7 +1132,7 @@ class MultiComponentFitting(BaseFitting):
                 self.dim, 
                 lnprob_multicomponent, 
                 pool=pool, 
-                args=[self.data_to_use, coord, halo_info_list]
+                args=[self.data_to_use, coord, self.halo_info_list]
             )
             sampler.run_mcmc(pos, self.steps, progress=True, skip_initial_state_check = True)
 
@@ -1182,6 +1171,29 @@ class MultiComponentFitting(BaseFitting):
                 self.halo.file.replace(".fits", ""),
                 self.filename_append,
             )
+        self.logger.debug("Saving MCMC samples to %s" % path)
+        self.save_json(path)
+        return self
+        
+    def load(self, path:str=""):
+        if path == "":
+            path = "%s%s_mcmc_samples%s.fits" % (
+                self.halo.modelPath,
+                self.halo.file.replace(".fits", ""),
+                self.filename_append,
+            )
+        self.logger.debug("Loading MCMC samples from %s" % path)
+        self.load_json(path)
+        return self
+    
+    '''
+    def save(self, path:str = ""):
+        if path == "":
+            path = "%s%s_mcmc_samples%s.fits" % (
+                self.halo.modelPath,
+                self.halo.file.replace(".fits", ""),
+                self.filename_append,
+            )
         self.logger.debug("Saving MCMC samples to %s" % path)    
         hdu = fits.PrimaryHDU()
         hdu.data = self.sampler
@@ -1207,7 +1219,8 @@ class MultiComponentFitting(BaseFitting):
             (-1, self.dim)
         )
         return self
-        
+    '''    
+    
     def __pre_fit(self):
         popt, perr = self.pre_mcmc_fit(
             self.data, p0=np.array(self.p0), bounds=np.array(self.bounds)
@@ -1318,6 +1331,117 @@ class MultiComponentFitting(BaseFitting):
 
         self.popt = popt.reshape(self.p0.shape)
         self.mask = header["MASK"]
+        
+    def save_json(self, path:str = ""):
+        info = dict()
+        info['object'] = self.halo.name
+        info['filename'] = self.halo.path
+        info['maskPath'] = self.halo.maskPath
+        info['outputPath'] = self.halo.basedir
+        info['redshift'] = self.halo.z
+        
+        comp_dict = dict()
+        for i, halo_info in enumerate(self.halo_info_list):
+            print(halo_info["linked_loc"])
+            
+            for key, value in halo_info.items():
+                if key == "image_mask":
+                    continue
+                if key == "binned_image_mask":
+                    continue
+            
+                if isinstance(value, u.quantity.Quantity):
+                    if str(value.unit) == "":
+                        comp_dict[key] = value.value
+                    else:
+                        comp_dict[key] = {"value": value.value, "unit": str(value.unit)}
+                elif isinstance(value, np.float32):
+                    comp_dict[key] = float(value)
+                elif isinstance(value, np.ndarray):
+                    comp_dict[key] = value.tolist()
+                elif callable(value):
+                    comp_dict[key] = str(value.__name__)
+                elif isinstance(value, pd.Series):
+                    comp_dict[key] = value.to_dict()
+                elif isinstance(value, wcs.WCS):
+                    continue
+                elif key == "linked_loc":
+                    comp_dict[key] = bool(value)
+                else:
+                    comp_dict[key] = value
+                    
+            info[f"comp_{i}"] = comp_dict
+                
+        info["p0"] = np.asarray(self.p0, dtype=float).tolist()
+        info["filename_append"] = self.filename_append
+        info["walkers"] = self.walkers
+        info["steps"] = self.steps
+        info["burntime"] = self.burntime
+        #info["bounds"] = self.bounds
+        
+        best = dict()
+        #all_units = np.asarray(["JY/PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "RAD", "NONE", "NONE"])
+        param_keys = len(self.fits) * list(self.params['comp_0'].keys())
+        param_keys = np.asarray(param_keys).reshape(len(self.fits), -1)
+        for i in range(len(self.popt[self.prms])):
+            best[param_keys[self.prms][i]] = {"value": self.popt[self.prms][i]}#, "unit": all_units[self.params.values][i]}
+        
+        info["initial"] = best
+        info["data"] = self.sampler.tolist()
+        
+        with open(path.replace(".fits", ".json"), "w") as f:
+            json.dump(info, f, indent=4)
+    
+    def load_json(self, path:str = ""):
+        with open(path.replace(".fits", ".json"), "r") as f:
+            info = json.load(f)
+            
+        self.walkers = info["walkers"]
+        self.steps = info["steps"]
+        self.burntime = info["burntime"]
+        self.halo.name = info["object"]
+        self.halo.path = info["filename"]
+        self.filename_append = info["filename_append"]
+        self.p0 = np.asarray(info["p0"])
+        
+        self.sampler = np.asarray(info["data"])
+        self.samples = self.sampler[:, int(self.burntime):].reshape(
+            (-1, self.dim)
+        )
+        
+        for i, fit in enumerate(self.fits):
+            fit.params = pd.DataFrame.from_dict(
+                {"params": info[f"comp_{i}"]["params"].values()}, 
+                orient = "index", 
+                columns = info[f"comp_{i}"]["params"].keys()
+            ).loc["params"]
+            
+            fit.frozen = pd.DataFrame.from_dict(
+                {"frozen": info[f"comp_{i}"]["frozen"].values()}, 
+                orient = "index", 
+                columns = info[f"comp_{i}"]["frozen"].keys()
+            ).loc["frozen"]
+            
+            fit.dim = info[f"comp_{i}"]["dim"]
+            
+            self.mask = info[f"comp_{i}"]["mask"]
+        
+        self.params = pd.concat([fit.params for fit in self.fits], axis=1)
+        self.params.columns = [f"comp_{i}" for i in range(len(self.fits))]
+        self.prms = self.params.values.T
+        self.frozen = pd.concat([fit.frozen for fit in self.fits], axis=1)
+        self.frozen.columns = [f"comp_{i}" for i in range(len(self.fits))]
+        self.frzn = self.frozen.values.T
+        
+        
+        popt = []
+        param_keys = len(self.fits) * list(self.params['comp_0'].keys())
+        param_keys = np.asarray(param_keys).reshape(len(self.fits), -1)
+        for i in range(len(self.prms[self.prms])):
+            if self.prms[self.prms][i]:
+                popt.append(info["initial"][param_keys[self.prms][i]]["value"])
+        #self.popt = utils.add_labels(self, np.asarray(popt))
+        self.popt = np.asarray(popt)
         
     def get_samples(self) -> np.ndarray:
         return self.samples.T

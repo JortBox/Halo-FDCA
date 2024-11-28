@@ -28,9 +28,9 @@ from astropy.io import fits
 
 
 # Subfile imports
-from . import plot_fits
-from . import fdca_utils as utils
-from .halo_object import RadioHalo
+from .. import plot_fits
+from .. import fdca_utils as utils
+from ..halo_object import RadioHalo
 
 try:
     set_start_method("fork")

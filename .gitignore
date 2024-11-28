@@ -16,3 +16,5 @@ __pycache__/
 
 /Example/data_dir_test
 *.pdf
+
+*.log

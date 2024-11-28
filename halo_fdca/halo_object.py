@@ -20,7 +20,7 @@ from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
 
 from . import fdca_utils as utils
-from . import fdca_logging
+from . import fdca_logger
 
 np.seterr(divide="ignore", invalid="ignore")
 
@@ -83,8 +83,8 @@ class RadioHalo(object):
         rms: float = 0,
     ):
         if logger is None:
-            fdca_logging.Logger('fdca', path = output_path)
-            logger = fdca_logging.logger
+            fdca_logger.Logger('fdca', path = output_path)
+            logger = fdca_logger.logger
             logger.info('Starting the FDCA pipeline...\n')
             self.logger = logger
         else:

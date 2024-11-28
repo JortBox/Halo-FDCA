@@ -3,20 +3,14 @@
 
 '''
 Author: J.M. Boxelaar
-Version: 13 October 2020
+Version: November 2024
 '''
-import logging
-import logging.config
-import logging.handlers
 
 from .halo_object import RadioHalo
-#from .markov_chain_monte_carlo import *
-from .mcmc_processing import Processing
+from .processing import Processing
 from .mcmc_fitting_multicomponent import *
-from .multi_freq_fitting import MultiWavelengthFitting, MultiWavaelenghtProcessing
 from . import fdca_utils as utils
-from .fdca_logging import Logger, logger
-#from . import plotting_fits
+from .fdca_logger import Logger, logger
 
 import warnings
 warnings.filterwarnings(
@@ -24,4 +18,4 @@ warnings.filterwarnings(
     module='astropy'
 )
 
-__version__ = '1.0.0'
+__version__ = '2.0.0'

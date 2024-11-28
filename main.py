@@ -5,13 +5,15 @@ import halo_fdca as fdca
 
 def regular_run():
     Halo = fdca.RadioHalo(
-        'A2744', 
-        'Example/Data_dir/A2744_JVLA.image.fits', 
+        'A2390', 
+        'Example/data_dir_test/A2390_60asec_sub1-MFS-image.fits', 
         output_path='Example/Output_dir', 
-        z=0.306, 
-        mask_path='Example/Data_dir/A2744halo.reg',
+        z=0.2269, 
+        #mask_path='Example/Data_dir/A2744halo.reg',
         decreased_fov=True
     )
+    
+    
 
     # freeze parameters in image units
     freeze = {
@@ -19,14 +21,12 @@ def regular_run():
         "y0": 315.,
     }
 
-    fit = fdca.Fit(Halo, walkers=100, steps=1000, model='circle')#, freeze_params=freeze)
-    fit.run()
+    fit = fdca.Fit(Halo, model=['circle','rotated_ellipse'], link_loc=[True, True], profiles=["default", "gaussian"], steps=100, walkers=10)
+    #fit = fdca.Fit(Halo, walkers=100, steps=1000, model='circle')#, freeze_params=freeze)
+    #fit.run()
     #fit.save()
     fit.load()
     
-    chi2 = fit.results.get_chi2()
-    flux = fit.results.get_flux()
-    fit.results.plot()
 
 def load_from_file():
     fit = fdca.load("Example/Output_dir/A2744_JVLA.image_mcmc_samples_circle_mask.json")

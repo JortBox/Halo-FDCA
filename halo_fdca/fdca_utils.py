@@ -40,7 +40,8 @@ def set_linked_loc(obj, array, loop=True):
             if obj.link[i] and i > 0:
                 array[f'comp_{i}']['x0'] = link_x
                 array[f'comp_{i}']['y0'] = link_y
-                fit.frozen_vals = np.array([link_x, link_y])
+                fit.frozen_vals[fit.frozen[fit.frozen].index.get_loc("x0")] = link_x
+                fit.frozen_vals[fit.frozen[fit.frozen].index.get_loc("y0")] = link_y
                 
     return array
 
