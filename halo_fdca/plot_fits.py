@@ -25,10 +25,10 @@ labelsize = 13
 
 def samplerplot(obj):
     try:
-        labels = obj.labels[~obj.frzn[obj.prms]]
-    except:
         labels = obj.labels[~obj.frozen[obj.params]]
-    
+    except:
+        #labels = obj.labels[~obj.frzn[obj.prms]]
+        labels = obj.dim * ['']
     
     fig, axes = plt.subplots(ncols=1, nrows=obj.dim, sharex=True)
     axes[0].set_title("Number of walkers: " + str(obj.walkers), fontsize=25)
@@ -122,13 +122,19 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     xlabel = 'RA [Deg]'
     ylabel = 'DEC [Deg]'
     scale  = 1.
-    
+
     #if mask:
     image_mask = obj.image_mask
+    ncomp = len(model) if isinstance(model, list) else 1
 
     if regrid:
         data  = utils.regridding(obj.halo, data)
-        model = utils.regridding(obj.halo, model)
+        if ncomp > 1:
+            for i in range(ncomp):
+                model[i] = utils.regridding(obj.halo, model[i]*u.Jy)
+        else:
+            model = utils.regridding(obj.halo, model)
+            
         #if mask:
         image_mask = utils.regridding(obj.halo, obj.image_mask.astype(int)*u.Jy, mask= not obj.halo.cropped).value
         noise  = utils.findrms(data.value)*u.Jy
@@ -139,23 +145,9 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         dec    = np.arange(0,data.shape[0])#halo.dec.value
         xlabel = 'Pixels'
         ylabel = 'Pixels'
-        
-        """
-        # Unity regrid test
-        unity_map = np.ones(model.shape, dtype=np.float64)
-        unity_regrid = utils.regridding(obj.halo, unity_map * u.Jy)
-        plt.imshow(unity_regrid.value, cmap="inferno", origin="lower")
-        plt.title(f"total flux original: {np.sum(unity_map)} \n total flux regridded: {np.sum(unity_regrid)}")
-        plt.colorbar()
-        plt.savefig(halo.plotPath +halo.file.replace('.fits','')+'unity_regrid_test.pdf')
-        plt.clf()
-        """ 
 
-        #plt.imshow(image_mask)
-        #plt.show()
 
-    fig, axes = plt.subplots(ncols=3, nrows=1, sharey=True, figsize=(20, 7))
-    fig.subplots_adjust(hspace=1.3)
+    fig, axes = plt.subplots(ncols=3, nrows=1, sharey=True, figsize=(20, 7), layout='constrained')
     axes = axes.flatten()
 
     for axi in axes.flat:
@@ -163,14 +155,17 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         axi.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
         axi.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
 
-
     draw_sizebar(halo,axes[0], scale, regrid)
     draw_ellipse(halo,axes[0], bmin, bmaj, regrid)
 
     data  = (data/halo.pix_area).to(uJyarcsec2).value
     noise = (noise/halo.pix_area).to(uJyarcsec2).value
-    model = (model/halo.pix_area).to(uJyarcsec2).value
-
+    if ncomp > 1:
+        for i in range(ncomp):
+            model[i] = (model[i]/halo.pix_area).to(uJyarcsec2).value
+    else:
+        model = (model/halo.pix_area).to(uJyarcsec2).value
+        
     masked_data = np.copy(data)
     #if mask:
     if regrid:
@@ -182,66 +177,73 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
     if regrid:
         NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
     else: NORMres = mplc.Normalize(vmin=-2.*noise, vmax=1.*masked_data.max())
-
-    #Trying two different functions since names were changed in recent matplotlib 3.3 update.
-    try:
-        Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
-    except:
-        Normdiv = mplc.DivergingNorm(vcenter=0., vmin=0.8*(data-model).min(), vmax=0.8*(data-model).max())
+    LEVEL = np.array([1,2,4,8,16,32,64,128,256,512,1024,2048,4096])*noise
+    
 
     im1 = axes[0].imshow(masked_data,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
-
-    LEVEL = np.array([1,2,4,8,16,32,64,128,256,512,1024,2048,4096])*noise
-    cont1 = axes[0].contour(model,colors='white', levels=LEVEL, alpha=0.6,
-                        extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
-    cont2 = axes[0].contour(masked_data,colors='lightgreen', levels=np.array([-9999.8]),
+    if ncomp > 1:
+        for i in range(ncomp):
+            axes[0].contour(model[i],colors='white', levels=LEVEL, alpha=0.6,
+                                extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
+    else:
+        axes[0].contour(model,colors='white', levels=LEVEL, alpha=0.6,
+                                extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.)
+    axes[0].contour(masked_data,colors='lightgreen', levels=np.array([-9999.8]),
                         alpha=0.6, linestyles='-',extent=(ra.max(),ra.min(),dec.min(),dec.max()),
                         norm = NORMres,linewidths=1.5)
-
     axes[0].annotate('$V(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
                         ha='center', va='top', color='white')
-    axes[0].set_title("Radio data", fontsize=titlesize)
-    axes[0].set_xlabel(xlabel, fontsize=labelsize)
-    axes[0].set_ylabel(ylabel, fontsize=labelsize)
-    axes[0].grid(color='white', linestyle='-', alpha=0.25)
-    axes[0].set_aspect = 'equal'
-    cbar = fig.colorbar(im1,ax=axes[0], shrink=0.7)
 
-    im2 = axes[1].imshow(model,cmap='inferno', origin='lower',
+    if ncomp > 1:
+        model_sum = np.asarray(model).sum(axis=0)
+    else:
+        model_sum = model
+
+    im2 = axes[1].imshow(model_sum,cmap='inferno', origin='lower',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres)
     axes[1].annotate('$I(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
                         ha='center', va='top', color='white')
-    axes[1].set_title(obj.model_name.replace('_',' ')+" model", fontsize=titlesize)
-    axes[1].set_xlabel(xlabel, fontsize=labelsize)
-    axes[1].grid(color='white', linestyle='-', alpha=0.25)
-    cbar = fig.colorbar(im2,ax=axes[1], shrink=0.7)
-    #cbar.ax.set_ylabel('$\\mu$Jy arcsec$^{-2}$',fontsize=labelsize)
-    #axes[1].set_aspect = 'equal'
 
 
-    im3 = axes[2].imshow(data-model, cmap='PuOr_r', origin='lower',
-                        extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = Normdiv)
-    cont4 = axes[2].contour(masked_data,
+    #Trying two different functions since names were changed in recent matplotlib 3.3 update.
+    try:
+        Normdiv = mplc.TwoSlopeNorm(vcenter=0., vmin=0.8*(data-model_sum).min(), vmax=0.8*(data-model_sum).max())
+    except:
+        Normdiv = mplc.DivergingNorm(vcenter=0., vmin=0.8*(data-model_sum).min(), vmax=0.8*(data-model_sum).max())
+    im3 = axes[2].imshow(data-model_sum, cmap='PuOr_r', origin='lower',extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = Normdiv)
+    axes[2].contour(masked_data,
                         colors='red', levels=np.array([-9999.8]), alpha=0.6, linestyles='-',
                         extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm = NORMres,linewidths=1.5)
     try:
-        cont3 = axes[2].contour(model, alpha=0.7, colors='black', levels=[2*noise],
-                            extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm=NORMres)
-        axes[2].clabel(cont3, fontsize=12, inline=1, fmt='2$\\sigma_{\\mathrm{rms}}$',colors='black')
+        if ncomp > 1:
+            for i in range(ncomp):
+                cont3 = axes[2].contour(model[i], alpha=0.7, colors='black', levels=[2*noise],extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm=NORMres)
+                axes[2].clabel(cont3, fontsize=12, inline=1, fmt='2$\\sigma_{\\mathrm{rms}}$',colors='black')
+        else:
+            cont3 = axes[2].contour(model, alpha=0.7, colors='black', levels=[2*noise],extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm=NORMres)
+            axes[2].clabel(cont3, fontsize=12, inline=1, fmt='2$\\sigma_{\\mathrm{rms}}$',colors='black')
     except: pass
     axes[2].annotate('$V(x,y)-I(x,y)$',xy=(0.5, 1), xycoords='axes fraction',
                         fontsize=titlesize, xytext=(0, -9), textcoords='offset points',
                         ha='center', va='top', color='black')
+    
+    axes[0].set_title("Radio data", fontsize=titlesize)
+    axes[0].set_xlabel(xlabel, fontsize=labelsize)
+    axes[0].set_ylabel(ylabel, fontsize=labelsize)
+    axes[0].grid(color='white', linestyle='-', alpha=0.25)
+    
+    axes[1].set_title(obj.model_name.replace('_',' ')+" model", fontsize=titlesize)
+    axes[1].set_xlabel(xlabel, fontsize=labelsize)
+    axes[1].grid(color='white', linestyle='-', alpha=0.25)
+    
     axes[2].set_title("Residual image", fontsize=titlesize)
     axes[2].set_xlabel(xlabel, fontsize=labelsize)
     axes[2].grid(color='black', linestyle='-', alpha=0.25)
-    #axes[2].set_aspect = 'equal'
-    fig.tight_layout()
-
-    cbar = fig.colorbar(im3, shrink=0.7)
+    cbar = fig.colorbar(im2, ax=axes[1], shrink=0.8)
+    cbar = fig.colorbar(im3, ax=axes[2], shrink=0.8)
     cbar.ax.set_ylabel('$\\mu$Jy arcsec$^{-2}$',fontsize=labelsize)
 
     if regrid:

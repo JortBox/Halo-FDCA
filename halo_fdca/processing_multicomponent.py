@@ -27,7 +27,7 @@ from . import fdca_utils as utils
 #from .mcmc_fitting_multicomponent import SingleComponentFitting, MultiComponentFitting
 
 
-class Processing(object):
+class ProcessingMulticomponent(object):
     """
     -CLASS DESCRIPTION-
     -INPUT-
@@ -83,10 +83,10 @@ class Processing(object):
 
         self.check_settings(fit)
         self.retreive_mcmc_params(fit)
-        self.set_labels_and_units()
+        #self.set_labels_and_units()
 
         self.dof = len(self.data.value.flat) - self.dim
-        self.__repr__()
+        #self.__repr__()
         
         
     def __repr__(self) -> str:
@@ -138,7 +138,9 @@ Fit results:
         self.logger.debug(run_details)
         return run_details
 
-    def plot(self):
+    def plot(self, save=True):
+        self.save = save
+        print(self.parameters)
         plot_fits.fit_result(
             self,
             self.model,
@@ -156,7 +158,7 @@ Fit results:
             regrid=True,
         )
         plot_fits.samplerplot(self)
-        plot_fits.cornerplot(self)
+        #plot_fits.cornerplot(self)
 
     def check_settings(self, fit):
         self.model_name = fit.model_name
@@ -170,9 +172,10 @@ Fit results:
         if fit.offset:
             self.AppliedParameters[-1] = True
 
-        self.params = pd.DataFrame.from_dict(
-            {"params": self.AppliedParameters}, orient="index", columns=self.paramNames
-        ).loc["params"]
+        self.params = fit.params
+        self.frozen = fit.frozen
+        self.prms = fit.prms
+        self.frzn = fit.frzn
         #self.dim = len(self.params[self.params])
         self.image_mask = utils.masking(fit.halo)
 
@@ -195,47 +198,60 @@ Fit results:
         self.samples = fit.samples
         
         self.fit = fit
+    
         
         percentiles = self.get_percentiles(self.samples)
-        self.parameters = utils.add_labels(self.fit, percentiles[:, 1].reshape(self.dim))
+        parameters_list = list()
+        idx = 0
+        for i, basefit in enumerate(fit.fits):
+            best = percentiles[:, 1].reshape(self.dim)[idx:idx+basefit.dim]
+            parameters = utils.add_labels(basefit, best)
         
-        if "x0" in fit.frozen.keys():
-            self.parameters["x0"] -= self.halo.margin[2]
-        if "y0" in fit.frozen.keys():
-            self.parameters["y0"] -= self.halo.margin[0]
-        
-        self.centre_pix = np.array(
-            [self.parameters["x0"], self.parameters["y0"]], dtype=np.int64
-        )
+            if "x0" in basefit.frozen.keys():
+                parameters["x0"] -= self.halo.margin[2]
+            if "y0" in basefit.frozen.keys():
+                parameters["y0"] -= self.halo.margin[0]
+            
+            centre_pix = np.array(
+                [parameters["x0"], parameters["y0"]], dtype=np.int64
+            )
+            parameters_list.append(parameters)
+            idx += (i+1) * basefit.dim 
+            
+        parameters = pd.concat([params for params in parameters_list], axis=1)
+        parameters.columns = [f"comp_{i}" for i in range(len(parameters_list))]
+        self.parameters = utils.set_linked_loc(fit, parameters)
 
-        self.model = self._func_(self, self.parameters).reshape(self.x_pix.shape) * u.Jy
-
+        self.model = [basefit._func_(self, self.parameters[f"comp_{i}"]).reshape(self.x_pix.shape) * u.Jy for i, basefit in enumerate(fit.fits)] 
 
     def get_percentiles(self, samples):
         percentiles = np.ones((samples.shape[1], 3))
         for i in range(samples.shape[1]):
             percentiles[i, :] = np.percentile(samples[:, i], [16, 50, 84])
+        '''  
+        for i, basefit in enumerate(self.fit.fits):
+            fit_samples = samples[:, basefit.dim * i:basefit.dim * (i + 1)]
+            keys = basefit.params[basefit.params & ~basefit.frozen].keys()
+            if "ang" in keys:
+                cosine = np.percentile(np.cos(fit_samples[:, keys=="ang"]), [16, 50, 84])
+                sine = np.percentile(np.sin(fit_samples[:, keys=="ang"]), [16, 50, 84])
+                arccosine = np.arccos(cosine)
+                arcsine = np.arcsin(sine)
 
-        if self.model_name in ["rotated_ellipse", "skewed"] and "ang" not in self.params[self.frozen].keys():
-            cosine = np.percentile(np.cos(samples[:, self.at("ang")]), [16, 50, 84])
-            sine = np.percentile(np.sin(samples[:, self.at("ang")]), [16, 50, 84])
-            arccosine = np.arccos(cosine)
-            arcsine = np.arcsin(sine)
+                if arcsine[1] == arccosine[1]:
+                    ang = arcsine.copy()
+                elif arcsine[1] == -arccosine[1]:
+                    ang = arcsine.copy()
+                elif arcsine[1] != arccosine[1] and arcsine[1] != -arccosine[1]:
+                    if arcsine[1] < 0:
+                        ang = -arccosine.copy()
+                    elif arcsine[1] > 0:
+                        ang = arccosine.copy()
+                else:
+                    self.logger.error("Angle matching failed in processing.get_percentiles. continuing with default.")
+                    ang = np.percentile(fit_samples[:, keys=="ang"], [16, 50, 84])
 
-            if arcsine[1] == arccosine[1]:
-                ang = arcsine.copy()
-            elif arcsine[1] == -arccosine[1]:
-                ang = arcsine.copy()
-            elif arcsine[1] != arccosine[1] and arcsine[1] != -arccosine[1]:
-                if arcsine[1] < 0:
-                    ang = -arccosine.copy()
-                elif arcsine[1] > 0:
-                    ang = arccosine.copy()
-            else:
-                self.logger.error("Angle matching failed in processing.get_percentiles. continuing with default.")
-                ang = np.percentile(samples[:, self.at("ang")], [16, 50, 84])
-
-            percentiles[self.at("ang"), :] = ang
+                percentiles[self.at("ang"), :] = ang'''
         return percentiles
 
  

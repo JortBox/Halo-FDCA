@@ -509,7 +509,7 @@ class SingleComponentFitting(BaseFitting):
         best = dict()
         all_units = np.asarray(["JY/PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "PIX", "RAD", "NONE", "NONE"])
         for i in range(len(self.popt[self.params])):
-            best[self.params.keys()[i]] = {"value": self.popt[self.params][i], "unit": all_units[self.params.values][i]}
+            best[self.params.keys()[self.params][i]] = {"value": self.popt[self.params][i], "unit": all_units[self.params.values][i]}
         
         info["initial"] = best
         info["data"] = self.sampler.tolist()
@@ -1340,10 +1340,9 @@ class MultiComponentFitting(BaseFitting):
         info['outputPath'] = self.halo.basedir
         info['redshift'] = self.halo.z
         
-        comp_dict = dict()
+        
         for i, halo_info in enumerate(self.halo_info_list):
-            print(halo_info["linked_loc"])
-            
+            comp_dict = dict()
             for key, value in halo_info.items():
                 if key == "image_mask":
                     continue
@@ -1369,7 +1368,7 @@ class MultiComponentFitting(BaseFitting):
                     comp_dict[key] = bool(value)
                 else:
                     comp_dict[key] = value
-                    
+                        
             info[f"comp_{i}"] = comp_dict
                 
         info["p0"] = np.asarray(self.p0, dtype=float).tolist()
@@ -1423,7 +1422,6 @@ class MultiComponentFitting(BaseFitting):
             ).loc["frozen"]
             
             fit.dim = info[f"comp_{i}"]["dim"]
-            
             self.mask = info[f"comp_{i}"]["mask"]
         
         self.params = pd.concat([fit.params for fit in self.fits], axis=1)
@@ -1433,15 +1431,16 @@ class MultiComponentFitting(BaseFitting):
         self.frozen.columns = [f"comp_{i}" for i in range(len(self.fits))]
         self.frzn = self.frozen.values.T
         
-        
         popt = []
         param_keys = len(self.fits) * list(self.params['comp_0'].keys())
         param_keys = np.asarray(param_keys).reshape(len(self.fits), -1)
         for i in range(len(self.prms[self.prms])):
             if self.prms[self.prms][i]:
                 popt.append(info["initial"][param_keys[self.prms][i]]["value"])
-        #self.popt = utils.add_labels(self, np.asarray(popt))
+        
         self.popt = np.asarray(popt)
+        
+    
         
     def get_samples(self) -> np.ndarray:
         return self.samples.T

@@ -1,5 +1,5 @@
 import sys, os
-os.chdir(__file__.replace('develop.py', ''))
+os.chdir(__file__.replace('main.py', ''))
 
 import halo_fdca as fdca
 
@@ -21,11 +21,15 @@ def regular_run():
         "y0": 315.,
     }
 
-    fit = fdca.Fit(Halo, model=['circle','rotated_ellipse'], link_loc=[True, True], profiles=["default", "gaussian"], steps=100, walkers=10)
-    #fit = fdca.Fit(Halo, walkers=100, steps=1000, model='circle')#, freeze_params=freeze)
+    fit = fdca.Fit(Halo, model=['rotated_ellipse','rotated_ellipse'], link_loc=[True, True], profiles=["default", "gaussian"], steps=100, walkers=10)
+    #fit = fdca.Fit(Halo, walkers=10, steps=100, model='rotated_ellipse')#, freeze_params=freeze)
     #fit.run()
     #fit.save()
     fit.load()
+    
+    #results = fdca.Processing(fit)
+    results = fdca.ProcessingMulticomponent(fit)
+    results.plot()
     
 
 def load_from_file():
