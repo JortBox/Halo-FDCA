@@ -21,7 +21,7 @@ def regular_run():
         "y0": 315.,
     }
 
-    fit = fdca.Fit(Halo, model=['rotated_ellipse','rotated_ellipse'], link_loc=[True, True], profiles=["default", "gaussian"], steps=100, walkers=10)
+    fit = fdca.Fit(Halo, model=['rotated_ellipse','rotated_ellipse'], link_loc=[True, True], profiles=["default", "gaussian"], steps=500, walkers=100)
     #fit = fdca.Fit(Halo, walkers=10, steps=100, model='rotated_ellipse')#, freeze_params=freeze)
     #fit.run()
     #fit.save()

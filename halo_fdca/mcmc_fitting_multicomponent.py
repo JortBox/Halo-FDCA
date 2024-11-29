@@ -912,18 +912,27 @@ def lnprob(theta, data, coord, info):
 def lnprob_multicomponent(full_theta, data, coord, full_info):
     full_ptheta = list()
     idx = 0
+    lp = 0.0
     for i, info in enumerate(full_info):
+        
         ptheta = add_parameter_labels(info["params"], info["paramNames"])
         ptheta[info["params"] & ~info["frozen"]] = full_theta[idx:idx+info["dim"]]
         ptheta[info["frozen"]] = info["frozen_vals"]
         if info["linked_loc"] and i > 0:
             ptheta['x0'] = full_ptheta[0]['x0']
             ptheta['y0'] = full_ptheta[0]['y0']
+        if i == 0:
+            I0 = ptheta["I0"]
+        elif ptheta["I0"] > I0:
+            return -np.inf
+        else:
+            I0 = ptheta["I0"]
         
         if info["model_name"] == "skewed":
-            lp = lnprior8(ptheta, coord[0].shape, info)
+            lp += lnprior8(ptheta, coord[0].shape, info)
         else:
-            lp = lnprior(ptheta, coord[0].shape, info)
+            lp += lnprior(ptheta, coord[0].shape, info)
+
         if not np.isfinite(lp):
             return -np.inf
         
@@ -1123,18 +1132,30 @@ class MultiComponentFitting(BaseFitting):
             dictionary["linked_loc"] = self.link[i]
             self.halo_info_list.append(dictionary)
         
-        num_CPU = cpu_count()
-        self.logger.debug("number of CPU's: %d" % num_CPU)
-        self.logger.info("Starting MCMC run...")
-        with Pool(num_CPU) as pool:
+
+        num_CPU = cpu_count() if self.max_cpu == -1 else self.max_cpu
+        if self.max_cpu > cpu_count():
+            self.logger.warning(f"Number of CPU's requested ({self.max_cpu}) is higher than available ({cpu_count()})")
+            num_CPU = cpu_count()
+        self.logger.info(f"Starting MCMC run (number of CPU's: {num_CPU})...")
+        if num_CPU == 1:
             sampler = emcee.EnsembleSampler(
                 self.walkers, 
                 self.dim, 
-                lnprob_multicomponent, 
-                pool=pool, 
+                lnprob_multicomponent,
                 args=[self.data_to_use, coord, self.halo_info_list]
             )
             sampler.run_mcmc(pos, self.steps, progress=True, skip_initial_state_check = True)
+        else:
+            with Pool(num_CPU) as pool:
+                sampler = emcee.EnsembleSampler(
+                    self.walkers, 
+                    self.dim, 
+                    lnprob_multicomponent, 
+                    pool=pool, 
+                    args=[self.data_to_use, coord, self.halo_info_list]
+                )
+                sampler.run_mcmc(pos, self.steps, progress=True, skip_initial_state_check = True)
 
         self.sampler = sampler.chain
         self.samples = self.sampler[:, int(self.burntime):, :].reshape(
@@ -1186,41 +1207,6 @@ class MultiComponentFitting(BaseFitting):
         self.load_json(path)
         return self
     
-    '''
-    def save(self, path:str = ""):
-        if path == "":
-            path = "%s%s_mcmc_samples%s.fits" % (
-                self.halo.modelPath,
-                self.halo.file.replace(".fits", ""),
-                self.filename_append,
-            )
-        self.logger.debug("Saving MCMC samples to %s" % path)    
-        hdu = fits.PrimaryHDU()
-        hdu.data = self.sampler
-        hdu.header = self.set_sampler_header(hdu.header)
-        hdu.writeto(path, overwrite=True)
-        
-        self.info = hdu.header
-        return self
-    
-    def load(self, path:str=""):
-        if path == "":
-            path = "%s%s_mcmc_samples%s.fits" % (
-                self.halo.modelPath,
-                self.halo.file.replace(".fits", ""),
-                self.filename_append,
-            )
-        self.logger.debug("Loading MCMC samples from %s" % path)
-        sampler_chain = fits.open(path)
-        self.get_sampler_header(sampler_chain[0].header)
-        self.info = sampler_chain[0].header
-        self.sampler = sampler_chain[0].data
-        self.samples = self.sampler[:, int(self.burntime):].reshape(
-            (-1, self.dim)
-        )
-        return self
-    '''    
-    
     def __pre_fit(self):
         popt, perr = self.pre_mcmc_fit(
             self.data, p0=np.array(self.p0), bounds=np.array(self.bounds)
@@ -1257,6 +1243,13 @@ class MultiComponentFitting(BaseFitting):
                 popt["k_exp"] = 0.5
             if not self.offset:
                 popt["off"] = 0.0
+
+            if i == 0:
+                I0 = popt["I0"]
+            elif popt["I0"] > I0:
+                popt["I0"] = I0
+            else:
+                I0 = popt["I0"]
 
             if fit.model_name == "skewed":
                 """longest dimension of elliptical shape should always be the x-axis.

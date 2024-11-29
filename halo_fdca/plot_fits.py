@@ -221,7 +221,7 @@ def fit_result(obj, model, data, noise, mask=False, regrid=False):
         if ncomp > 1:
             for i in range(ncomp):
                 cont3 = axes[2].contour(model[i], alpha=0.7, colors='black', levels=[2*noise],extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm=NORMres)
-                axes[2].clabel(cont3, fontsize=12, inline=1, fmt='2$\\sigma_{\\mathrm{rms}}$',colors='black')
+                axes[2].clabel(cont3, fontsize=12, inline=1, fmt=f'comp {i}',colors='black')
         else:
             cont3 = axes[2].contour(model, alpha=0.7, colors='black', levels=[2*noise],extent=(ra.max(),ra.min(),dec.min(),dec.max()), norm=NORMres)
             axes[2].clabel(cont3, fontsize=12, inline=1, fmt='2$\\sigma_{\\mathrm{rms}}$',colors='black')
