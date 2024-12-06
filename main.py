@@ -12,8 +12,6 @@ def regular_run():
         mask_path='Example/Data_dir/A2744halo.reg',
         decreased_fov=True
     )
-    
-    
 
     # freeze parameters in image units
     freeze = {
