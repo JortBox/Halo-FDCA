@@ -20,3 +20,5 @@ __pycache__/
 *.log
 
 *.json
+
+*pip_project/
