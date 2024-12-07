@@ -3,6 +3,10 @@
 ## UPDATE DECEMBER 2024
 The code has been rewritten since December 6th 2024. To tidy things up, the git history of the public repository was deleted. For last version of the 'old' code, please see the Legacy release.
 
+## Instalation
+This package can be obtained using `pip`:
+`pip install halo-fdca`
+
 ## Introduction
 This software is created to automate flux density (and power) estimations of radio halos in galaxy clusters. This is done by fitting the surface brightness profile of halos to a mathematical model using Bayesian Inference. From the resulting fit, the flux density profile can be calculatied analytically. The text below provides a step-by-step example and walk trough of the algorithm as well as a summary of installation and machine requirements. A full text on the methodology can be found under 'Citation'.
 
