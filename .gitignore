@@ -20,3 +20,9 @@ __pycache__/
 *.log
 
 *.json
+
+# Ignore generated python objects
+*.pkl
+
+# Ignore generated plots
+Plots/

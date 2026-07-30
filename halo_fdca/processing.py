@@ -94,7 +94,7 @@ class Processing(object):
         uncertainties1 = self.percentiles_units[:, 1] - self.percentiles_units[:, 0]
         uncertainties2 = self.percentiles_units[:, 2] - self.percentiles_units[:, 1]
         errors = np.mean([uncertainties1, uncertainties2], axis=0)
-        flux, flux_err = self.get_flux(debug=True)
+        flux, flux_err = self.get_flux(debug=True, int_max=3)
         
         param_string = ""
         i = 0
@@ -350,6 +350,10 @@ Fit results:
         return [conf_low, conf_up]
     
     def set_data_to_use(self, data) -> np.ndarray:
+        print("\n--- DEBUG INPUT ---")
+        print("data shape:", data.shape)
+        print("image_mask shape:", self.image_mask.shape)
+        print("-------------------")
         if self.rebin:
             binned_data = utils.regridding(self.halo, data, decrease_fov=True)
                 
@@ -424,8 +428,8 @@ Fit results:
         y = np.arange(0, self.data.shape[0], 1)
         self.x_pix, self.y_pix = np.meshgrid(x, y)
         return self.chi2_red
-
-    def get_flux(self, int_max: float = np.inf, freq:float=None, alpha:float=None, debug=False) -> tuple[float, float]:
+    #in get_flux call set int_max=3
+    def get_flux(self, int_max: float = 3, freq:float=None, alpha:float=None, debug=False) -> tuple[float, float]:
         """
         Calculate flux density of the halo at a given frequency. Based on the MCMC samples.
 
@@ -499,7 +503,7 @@ Fit results:
             self.logger.debug(f"Signal to noise (I_0 / RMS): {signal_to_noise}")
         return flux_val, flux_err
 
-    def get_power(self, freq:float=None, alph:float=None) -> tuple[float, float]: 
+    def get_power(self, freq:float=None, alpha:float=None) -> tuple[float, float]: 
         """
         Calculate radio power of the halo at a given frequency. Based on the MCMC samples.
 
